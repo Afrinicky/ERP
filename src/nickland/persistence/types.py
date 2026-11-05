@@ -99,12 +99,18 @@ class Money(TypeDecorator[Decimal]):
 class Quantity(Money):
     """A quantity. Six decimal places, so fractional units of measure are exact."""
 
+    cache_ok = True
+    """Declared on the subclass: without it SQLAlchemy cannot cache a compiled
+    statement that uses this type, which costs a recompilation on every query."""
+
     def __init__(self) -> None:
         super().__init__(precision=18, scale=WORKING_PRECISION)
 
 
 class Rate(Money):
     """A rate or percentage held as a fraction. Six decimal places."""
+
+    cache_ok = True
 
     def __init__(self) -> None:
         super().__init__(precision=12, scale=WORKING_PRECISION)

@@ -24,15 +24,23 @@ CALL = re.compile(
 )
 
 
+# A download is a browser navigation rather than a fetch, so the client builds its URL
+# instead of calling it: `template: (kind) => `${BASE}/imports/template/${kind}``.
+DOWNLOAD = re.compile(r"`\$\{BASE\}(/[^`]*)`")
+
+
 def client_calls() -> set[tuple[str, str]]:
-    """Every call the interface makes, with path parameters normalised."""
+    """Every endpoint the interface addresses, with path parameters normalised."""
     if not CLIENT.exists():
         return set()
+    source = CLIENT.read_text(encoding="utf-8")
     found: set[tuple[str, str]] = set()
-    for method, _quote, path in CALL.findall(CLIENT.read_text(encoding="utf-8")):
+    for method, _quote, path in CALL.findall(source):
         # `${id}` in a template literal becomes a path parameter.
-        normalised = re.sub(r"\$\{[^}]+\}", "{}", path)
-        found.add((method, normalised))
+        found.add((method, re.sub(r"\$\{[^}]+\}", "{}", path)))
+    for path in DOWNLOAD.findall(source):
+        # A URL the interface builds for the browser to open is addressed by GET.
+        found.add(("GET", re.sub(r"\$\{[^}]+\}", "{}", path)))
     return found
 
 

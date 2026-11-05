@@ -16,12 +16,17 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
 from nickland.application.services.backup import BackupService
+from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.custom_fields import CustomFieldService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
+from nickland.application.services.importing import ImportService
 from nickland.application.services.organisation import OrganisationService
+from nickland.application.services.parties import PartyService
+from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.setup import SetupService
 from nickland.application.services.theme import ThemeService
+from nickland.application.services.units import UnitService
 from nickland.domain.errors import AuthenticationError, ConflictError
 from nickland.domain.identity import LockoutPolicy, PasswordPolicy, SessionPolicy
 from nickland.persistence.models import Business
@@ -190,3 +195,34 @@ def sole_business_id(session: Session) -> uuid.UUID:
             "enabled in this release."
         )
     return identifiers[0]
+
+
+def get_unit_service(session: SessionDependency, runtime: RuntimeDependency) -> UnitService:
+    return UnitService(session, clock=runtime.clock)
+
+
+def get_catalogue_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CatalogueService:
+    return CatalogueService(session, clock=runtime.clock)
+
+
+def get_party_service(session: SessionDependency, runtime: RuntimeDependency) -> PartyService:
+    return PartyService(session, clock=runtime.clock)
+
+
+def get_price_list_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> PriceListService:
+    return PriceListService(session, clock=runtime.clock)
+
+
+def get_import_service(session: SessionDependency, runtime: RuntimeDependency) -> ImportService:
+    return ImportService(session, clock=runtime.clock)
+
+
+UnitDependency = Annotated[UnitService, Depends(get_unit_service)]
+CatalogueDependency = Annotated[CatalogueService, Depends(get_catalogue_service)]
+PartyDependency = Annotated[PartyService, Depends(get_party_service)]
+PriceListDependency = Annotated[PriceListService, Depends(get_price_list_service)]
+ImportDependency = Annotated[ImportService, Depends(get_import_service)]

@@ -14,8 +14,11 @@ from nickland.interface.dependencies import Runtime
 from nickland.interface.errors import install_error_handlers
 from nickland.interface.routers import (
     appearance,
+    catalogue,
     custom_fields,
+    importing,
     organisation,
+    parties,
     platform,
     session,
     setup,
@@ -119,6 +122,9 @@ def create_application(
         organisation.router,
         appearance.router,
         custom_fields.router,
+        catalogue.router,
+        parties.router,
+        importing.router,
         platform.router,
     ):
         application.include_router(router, prefix=API_PREFIX)

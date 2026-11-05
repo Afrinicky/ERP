@@ -6,21 +6,36 @@
  */
 
 import type {
+  AffiliateProfile,
+  Attribute,
   Backup,
+  Barcode,
   Branch,
   Business,
+  Category,
+  Contact,
+  Credit,
   CustomField,
   Health,
+  ImportReport,
+  ImportRun,
   Page,
+  Party,
   Permission,
   Preset,
+  PriceList,
+  PriceListLine,
+  Product,
+  ResolvedPrice,
   Role,
   Sequence,
   SetupPayload,
   SetupResult,
   SetupStatus,
   SignInResult,
+  SupplierProduct,
   Theme,
+  Unit,
   ThemePreview,
   User,
   Warehouse,
@@ -271,6 +286,119 @@ export const api = {
       request<CustomField>('PATCH', `/custom-fields/${id}`, changes),
     withdraw: (id: string, reason: string) =>
       request<CustomField>('POST', `/custom-fields/${id}/withdraw`, { reason }),
+  },
+
+  catalogue: {
+    units: (includeInactive = false) =>
+      request<Unit[]>('GET', '/units', undefined, { include_inactive: includeInactive }),
+    createUnit: (payload: Record<string, unknown>) => request<Unit>('POST', '/units', payload),
+    convert: (payload: {
+      amount: string;
+      from_unit_id: string;
+      to_unit_id: string;
+      product_id?: string | null;
+    }) => request<string>('POST', '/units/convert', payload),
+
+    categories: (includeInactive = false) =>
+      request<Category[]>('GET', '/categories', undefined, {
+        include_inactive: includeInactive,
+      }),
+    createCategory: (payload: Record<string, unknown>) =>
+      request<Category>('POST', '/categories', payload),
+
+    attributes: () => request<Attribute[]>('GET', '/attributes'),
+    createAttribute: (payload: Record<string, unknown>) =>
+      request<Attribute>('POST', '/attributes', payload),
+
+    search: (params: {
+      term?: string;
+      category_id?: string;
+      item_class?: string;
+      sellable_only?: boolean;
+      include_inactive?: boolean;
+      include_variant_parents?: boolean;
+      offset?: number;
+      limit?: number;
+    }) =>
+      request<{ items: Product[]; total: number; offset: number; limit: number }>(
+        'GET',
+        '/products',
+        undefined,
+        params,
+      ),
+    create: (payload: Record<string, unknown>) => request<Product>('POST', '/products', payload),
+    read: (id: string) => request<Product>('GET', `/products/${id}`),
+    amend: (id: string, changes: Record<string, unknown>) =>
+      request<Product>('PATCH', `/products/${id}`, changes),
+    byBarcode: (value: string) =>
+      request<Product>('GET', `/products/by-barcode/${encodeURIComponent(value)}`),
+    setAttributes: (id: string, values: Record<string, string>) =>
+      request<Product>('PUT', `/products/${id}/attributes`, { values }),
+    addBarcode: (id: string, payload: Record<string, unknown>) =>
+      request<Barcode>('POST', `/products/${id}/barcodes`, payload),
+    removeBarcode: (barcodeId: string) => request<void>('DELETE', `/barcodes/${barcodeId}`),
+    generateVariants: (id: string, combinations: Record<string, string>[]) =>
+      request<Product[]>('POST', `/products/${id}/variants`, { combinations }),
+    setUnitFactor: (id: string, unit_id: string, factor: string) =>
+      request<string>('PUT', `/products/${id}/unit-factor`, { unit_id, factor }),
+    suppliersOf: (id: string) => request<SupplierProduct[]>('GET', `/products/${id}/suppliers`),
+  },
+
+  pricing: {
+    lists: (includeInactive = false) =>
+      request<PriceList[]>('GET', '/price-lists', undefined, {
+        include_inactive: includeInactive,
+      }),
+    createList: (payload: Record<string, unknown>) =>
+      request<PriceList>('POST', '/price-lists', payload),
+    lines: (id: string) => request<PriceListLine[]>('GET', `/price-lists/${id}/lines`),
+    setPrice: (id: string, payload: Record<string, unknown>) =>
+      request<PriceListLine>('PUT', `/price-lists/${id}/lines`, payload),
+    resolve: (params: { product_id: string; customer_id?: string; quantity?: string }) =>
+      request<ResolvedPrice>('GET', '/prices/resolve', undefined, params),
+  },
+
+  parties: {
+    search: (params: {
+      term?: string;
+      kind?: string;
+      include_inactive?: boolean;
+      offset?: number;
+      limit?: number;
+    }) =>
+      request<{ items: Party[]; total: number; offset: number; limit: number }>(
+        'GET',
+        '/parties',
+        undefined,
+        params,
+      ),
+    create: (payload: Record<string, unknown>) => request<Party>('POST', '/parties', payload),
+    read: (id: string) => request<Party>('GET', `/parties/${id}`),
+    amend: (id: string, changes: Record<string, unknown>) =>
+      request<Party>('PATCH', `/parties/${id}`, changes),
+    setCreditHold: (id: string, on_hold: boolean, reason: string) =>
+      request<Party>('POST', `/parties/${id}/credit-hold`, { on_hold, reason }),
+    credit: (id: string) => request<Credit>('GET', `/parties/${id}/credit`),
+    addContact: (id: string, payload: Record<string, unknown>) =>
+      request<Contact>('POST', `/parties/${id}/contacts`, payload),
+    removeContact: (contactId: string) => request<void>('DELETE', `/contacts/${contactId}`),
+    linkSupplierProduct: (payload: Record<string, unknown>) =>
+      request<SupplierProduct>('PUT', '/supplier-products', payload),
+    setCustomerPrice: (payload: Record<string, unknown>) =>
+      request<{ id: string; price: string }>('PUT', '/customer-prices', payload),
+    affiliateProfile: (id: string) =>
+      request<AffiliateProfile>('GET', `/parties/${id}/affiliate`),
+    setAffiliateProfile: (payload: Record<string, unknown>) =>
+      request<AffiliateProfile>('PUT', '/affiliate-profiles', payload),
+  },
+
+  imports: {
+    template: (kind: string) => `${BASE}/imports/template/${kind}`,
+    preview: (kind: string, filename: string, content_base64: string) =>
+      request<ImportReport>('POST', '/imports/preview', { kind, filename, content_base64 }),
+    commit: (kind: string, filename: string, content_base64: string) =>
+      request<ImportReport>('POST', '/imports/commit', { kind, filename, content_base64 }),
+    history: (limit = 30) => request<ImportRun[]>('GET', '/imports', undefined, { limit }),
   },
 
   platform: {

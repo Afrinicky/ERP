@@ -248,3 +248,247 @@ export interface Page<T> {
   offset: number;
   limit: number;
 }
+
+// --- Phase 2: catalogue, parties and import ------------------------------------------
+
+export interface Unit {
+  id: string;
+  code: string;
+  name: string;
+  plural_name: string | null;
+  kind: string;
+  base_fk: string | null;
+  factor: string;
+  decimal_places: number;
+  is_active: boolean;
+  is_system: boolean;
+}
+
+export interface Category {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  parent_fk: string | null;
+  path: string;
+  depth: number;
+  display_order: number;
+  is_active: boolean;
+  default_tax_code: string | null;
+}
+
+export interface Attribute {
+  id: string;
+  code: string;
+  name: string;
+  kind: string;
+  choices: string[] | null;
+  unit_label: string | null;
+  is_variant_defining: boolean;
+  display_order: number;
+  is_active: boolean;
+}
+
+export interface Barcode {
+  id: string;
+  value: string;
+  kind: string;
+  unit_fk: string | null;
+  is_primary: boolean;
+}
+
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  item_class: 'stocked' | 'non_stock' | 'service' | 'bundle';
+  category_fk: string | null;
+  parent_fk: string | null;
+  is_variant_parent: boolean;
+  variant_label: string | null;
+  variant_values: Record<string, string> | null;
+  stock_unit_fk: string;
+  sales_unit_fk: string | null;
+  purchase_unit_fk: string | null;
+  tracking_policy: 'none' | 'batch' | 'serial';
+  requires_expiry: boolean;
+  shelf_life_days: number | null;
+  valuation_policy: string;
+  manufacturer: string | null;
+  model_code: string | null;
+  country_of_origin: string | null;
+  list_price: string | null;
+  currency_code: string | null;
+  tax_code: string | null;
+  weight_kg: string | null;
+  volume_m3: string | null;
+  reorder_level: string | null;
+  reorder_quantity: string | null;
+  lead_time_days: number | null;
+  is_active: boolean;
+  is_sellable: boolean;
+  is_purchasable: boolean;
+  barcodes: Barcode[];
+  attribute_values: { attribute_fk: string; value: string }[];
+  holds_stock: boolean;
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  position: string | null;
+  email: string | null;
+  telephone: string | null;
+  is_primary: boolean;
+  notes: string | null;
+}
+
+export interface Party {
+  id: string;
+  code: string;
+  name: string;
+  legal_name: string | null;
+  party_type: 'organisation' | 'individual';
+  is_customer: boolean;
+  is_supplier: boolean;
+  is_affiliate: boolean;
+  email: string | null;
+  telephone: string | null;
+  website: string | null;
+  tax_identifier: string | null;
+  registration_number: string | null;
+  tax_treatment: string;
+  tax_exemption_reference: string | null;
+  tax_exemption_expires: string | null;
+  payment_term_kind: string;
+  payment_term_days: number;
+  payment_terms_label: string;
+  credit_limit: string | null;
+  credit_on_hold: boolean;
+  credit_hold_reason: string | null;
+  price_list_fk: string | null;
+  discount_percent: string | null;
+  default_lead_time_days: number | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  mobile_money_provider: string | null;
+  mobile_money_number: string | null;
+  notes: string | null;
+  is_active: boolean;
+  contacts: Contact[];
+}
+
+export interface Credit {
+  standing: string;
+  limit: string;
+  outstanding: string;
+  overdue: string;
+  available: string;
+  detail: string;
+  permits_credit_sale: boolean;
+}
+
+export interface PriceList {
+  id: string;
+  code: string;
+  name: string;
+  currency_code: string;
+  is_default: boolean;
+  is_active: boolean;
+  tax_inclusive: boolean;
+  effective_from: string | null;
+  effective_to: string | null;
+}
+
+export interface PriceListLine {
+  id: string;
+  price_list_fk: string;
+  product_fk: string;
+  unit_fk: string | null;
+  minimum_quantity: string;
+  price: string;
+}
+
+export interface ResolvedPrice {
+  price: string;
+  source: string;
+  source_label: string;
+  currency_code: string | null;
+  tax_inclusive: boolean;
+  minimum_quantity: string;
+}
+
+export interface SupplierProduct {
+  id: string;
+  supplier_fk: string;
+  product_fk: string;
+  supplier_sku: string | null;
+  supplier_name: string | null;
+  unit_fk: string | null;
+  units_per_purchase_unit: string;
+  last_price: string | null;
+  currency_code: string | null;
+  price_recorded_on: string | null;
+  lead_time_days: number | null;
+  minimum_order_quantity: string | null;
+  is_preferred: boolean;
+  is_active: boolean;
+  notes: string | null;
+}
+
+export interface AffiliateProfile {
+  id: string;
+  party_fk: string;
+  scope: string;
+  method: string;
+  rate: string;
+  fixed_amount: string | null;
+  currency_code: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  payout_trigger: string;
+  agreement_reference: string | null;
+  notes: string | null;
+  is_active: boolean;
+  eligible_product_ids: string[];
+  eligible_category_ids: string[];
+}
+
+export interface RowReport {
+  line: number;
+  outcome: 'create' | 'amend' | 'reject';
+  reference: string;
+  message: string;
+  field: string | null;
+}
+
+export interface ImportReport {
+  kind: string;
+  filename: string;
+  total: number;
+  to_create: number;
+  to_amend: number;
+  rejected: number;
+  acceptable: boolean;
+  committed: boolean;
+  summary: string;
+  run_id: string | null;
+  rows: RowReport[];
+}
+
+export interface ImportRun {
+  id: string;
+  kind: string;
+  filename: string;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  total_rows: number;
+  accepted_rows: number;
+  rejected_rows: number;
+  created_rows: number;
+  amended_rows: number;
+  failure_reason: string | null;
+}

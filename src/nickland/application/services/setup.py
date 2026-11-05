@@ -85,6 +85,7 @@ class SetupResult:
     administrator_id: uuid.UUID
     roles_created: int
     sequences_created: int
+    units_created: int
 
 
 class SetupService:
@@ -189,6 +190,7 @@ class SetupService:
 
         roles = self._seed_roles(business.id)
         sequences = self._seed_sequences(business.id)
+        units = self._seed_units(business.id)
 
         self._db.add(
             ThemeProfile(
@@ -237,6 +239,7 @@ class SetupService:
             context={
                 "roles": roles,
                 "sequences": sequences,
+                "units": units,
                 "branches": 1 + len(request.extra_branches),
             },
         )
@@ -249,6 +252,7 @@ class SetupService:
             administrator_id=administrator.id,
             roles_created=roles,
             sequences_created=sequences,
+            units_created=units,
         )
 
     def _seed_roles(self, business_id: uuid.UUID) -> int:
@@ -270,6 +274,12 @@ class SetupService:
                     RolePermission(business_id=business_id, role_fk=role.id, permission_code=code)
                 )
         return len(SEEDED_ROLES)
+
+    def _seed_units(self, business_id: uuid.UUID) -> int:
+        """Create the conventional units of measure, per PRD 6.1."""
+        from nickland.application.services.units import UnitService
+
+        return UnitService(self._db, clock=self._clock).seed(business_id)
 
     def _seed_sequences(self, business_id: uuid.UUID) -> int:
         """Create one numbering sequence per document kind, per PRD 6.7."""

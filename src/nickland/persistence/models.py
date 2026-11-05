@@ -480,3 +480,64 @@ class BackupRecord(Base, IdentifiedMixin, BusinessScopedMixin):
     schema_revision: Mapped[str | None] = mapped_column(String(32))
 
     __table_args__ = (Index("ix_backup_records_started", "business_id", "started_at"),)
+
+
+# Phase 2 catalogue and party models. Imported here so that importing this module
+# registers every mapped class with the metadata.
+from nickland.persistence.catalogue_models import (  # noqa: E402
+    AffiliateEligibility,
+    AffiliateProfile,
+    Barcode,
+    BundleComponentRow,
+    Contact,
+    CustomerPrice,
+    ImportRun,
+    Party,
+    PriceList,
+    PriceListLine,
+    Product,
+    ProductAttribute,
+    ProductAttributeValue,
+    ProductCategory,
+    SupplierProduct,
+    UnitConversionRow,
+    UnitOfMeasure,
+)
+
+__all__ = [
+    "Address",
+    "AffiliateEligibility",
+    "AffiliateProfile",
+    "Attachment",
+    "AuditEvent",
+    "BackupRecord",
+    "Barcode",
+    "Branch",
+    "BundleComponentRow",
+    "Business",
+    "Contact",
+    "CustomFieldDefinition",
+    "CustomFieldValue",
+    "CustomerPrice",
+    "ImportRun",
+    "NumberSequence",
+    "Party",
+    "PasswordHistory",
+    "PriceList",
+    "PriceListLine",
+    "Product",
+    "ProductAttribute",
+    "ProductAttributeValue",
+    "ProductCategory",
+    "Role",
+    "RolePermission",
+    "Session",
+    "Setting",
+    "SupplierProduct",
+    "ThemeProfile",
+    "UnitConversionRow",
+    "UnitOfMeasure",
+    "User",
+    "UserRole",
+    "Warehouse",
+]

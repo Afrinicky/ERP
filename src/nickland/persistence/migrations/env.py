@@ -14,6 +14,7 @@ from nickland.persistence.base import Base
 from nickland.persistence.engine import create_database_engine
 from nickland.platform.config import get_settings
 
+import nickland.persistence.catalogue_models
 import nickland.persistence.models  # noqa: F401  — registers the mapped classes
 
 config = context.config

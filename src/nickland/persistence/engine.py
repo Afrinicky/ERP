@@ -66,10 +66,19 @@ def create_database_engine(settings: Settings, *, echo: bool = False) -> Engine:
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
-    """Build the session factory. Autoflush is off so flush points are explicit."""
+    """Build the session factory.
+
+    Autoflush is on. It was briefly off, on the reasoning that explicit flush points
+    read more clearly, but that made a pending write invisible to a query issued later
+    in the same transaction, which produced a succession of defects: a password reuse
+    check that saw no history, a category path that read as empty, a search index that
+    had not reached the column being searched. Flushing before a query is what
+    SQLAlchemy does by default, and the explicitness was not worth the class of bug it
+    invited. Transaction boundaries remain explicit; only the flush is automatic.
+    """
     return sessionmaker(
         bind=engine,
-        autoflush=False,
+        autoflush=True,
         autocommit=False,
         expire_on_commit=False,
         future=True,
