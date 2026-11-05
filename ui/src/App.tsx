@@ -9,7 +9,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { Alert, Button, Card, Skeleton, ToastProvider } from '@/components/primitives';
 import { Shell } from '@/components/shell';
+import { Products } from '@/modules/catalogue/Products';
 import { Dashboard } from '@/modules/dashboard/Dashboard';
+import { Parties } from '@/modules/parties/Parties';
 import { Placeholder } from '@/modules/Placeholder';
 import { SetupWizard } from '@/modules/setup/SetupWizard';
 import { SignIn } from '@/modules/session/SignIn';
@@ -61,6 +63,8 @@ function Entry() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/settings/*" element={<Settings />} />
+        <Route path="/products/*" element={<Products />} />
+        <Route path="/parties/*" element={<Parties />} />
 
         <Route
           path="/sales/*"
@@ -92,11 +96,12 @@ function Entry() {
               purpose="A dedicated register for walk-in sales, with shifts and reconciliation."
               depends="The ledger, the tax engine and inventory, through which every sale posts."
               contents={[
-                'Scan or search products and build a persistent cart',
-                'Accept cash, Mobile Money, card, transfer, on-account and split tender',
-                'Hold electronic tender as pending until the provider confirms it',
-                'Open and close a cashier shift and reconcile the drawer',
-                'Process returns, refunds and voids under authorisation',
+                'Product search by name or barcode, listing unavailable items with the reason stated inline rather than hiding them',
+                'A line table carrying product, quantity and line total, with the running total set as the largest figure on screen',
+                'Type of sale and tender as radio choices rather than menus, so the current selection is visible without opening anything',
+                'Cash, Mobile Money, card, transfer, on-account and split tender',
+                'Electronic tender held as pending until the provider confirms it',
+                'Cashier shift, drawer reconciliation, returns, refunds and voids under authorisation',
               ]}
             />
           }
@@ -117,26 +122,6 @@ function Entry() {
                 'Match supplier invoice against purchase order and goods received note',
                 'Approve quantity and price variance',
                 'Report cost variance between quoted and actual procurement cost',
-              ]}
-            />
-          }
-        />
-
-        <Route
-          path="/products/*"
-          element={
-            <Placeholder
-              title="Products"
-              phase="Phase 2"
-              stage="Platform Foundation"
-              purpose="Catalogue, categories, attributes, units of measure, price lists and supplier links."
-              depends="The platform foundation, which is in place."
-              contents={[
-                'Products and services with variants, attributes and barcodes',
-                'Stocked, non-stock, service and bundle classifications',
-                'Batch, serial and expiry policy per product',
-                'Units of measure and their conversions',
-                'Price lists, customer pricing and supplier product links',
               ]}
             />
           }
@@ -177,26 +162,6 @@ function Entry() {
                 'Carrier, own vehicle, courier and customer collection',
                 'Signed or scanned proof of delivery, preserved unaltered',
                 'Failed, short and damaged delivery, with their consequences posted',
-              ]}
-            />
-          }
-        />
-
-        <Route
-          path="/parties/*"
-          element={
-            <Placeholder
-              title="Customers and Suppliers"
-              phase="Phase 2"
-              stage="Platform Foundation"
-              purpose="Profiles, contacts, history, statements and balances."
-              depends="The platform foundation, which is in place."
-              contents={[
-                'Customers with payment terms, credit limits and tax treatment',
-                'Suppliers with terms, lead times and withholding applicability',
-                'Contacts and addresses',
-                'Transaction history and statements',
-                'Outstanding balances and ageing',
               ]}
             />
           }

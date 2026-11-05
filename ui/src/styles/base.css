@@ -80,13 +80,40 @@ h4 {
   line-height: var(--leading-md);
 }
 
+/* A link is body text, so it carries its own token measured at 4.5:1 rather than
+   borrowing the accent, which need only reach 3:1. It is underlined, because colour
+   alone must never carry meaning.
+
+   An anchor that is navigation or a button is not a link in prose: its purpose is
+   clear from its position and shape, so it opts out through its own class. */
 a {
-  color: var(--colour-accent-primary-active);
-  text-decoration: none;
+  color: var(--colour-text-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--colour-text-link-hover);
+  text-decoration-thickness: 2px;
+}
+
+a.button,
+a.rail__item,
+a.settings__item,
+a.picker__option,
+a.tab {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.button:hover,
+a.rail__item:hover,
+a.settings__item:hover,
+a.picker__option:hover,
+a.tab:hover {
+  color: inherit;
+  text-decoration: none;
 }
 
 button,

@@ -11,16 +11,20 @@ from tests.e2e.conftest import API, SETUP_PAYLOAD
 def test_a_fresh_installation_reports_that_setup_is_required(client: TestClient) -> None:
     body = client.get(f"{API}/setup").json()
     assert body["setup_required"] is True
-    assert {item["code"] for item in body["presets"]} == {"charcoal", "navy"}
+    assert {item["code"] for item in body["presets"]} == {"charcoal", "harbour", "navy"}
     assert body["password_requirements"]
 
 
-def test_both_presets_are_offered_as_equals(client: TestClient) -> None:
+def test_every_preset_is_offered_as_an_equal(client: TestClient) -> None:
     """ADR-0002: the administrator chooses; the product imposes no default."""
     presets = client.get(f"{API}/setup").json()["presets"]
     assert all("is_default" not in item for item in presets)
     sources = {item["code"]: item["source"] for item in presets}
-    assert sources == {"charcoal": "PRD 28.1", "navy": "PRD 7.1"}
+    assert sources == {
+        "charcoal": "PRD 28.1",
+        "navy": "PRD 7.1",
+        "harbour": "the pharmacy terminal reference",
+    }
 
 
 def test_provisioning_creates_the_business(client: TestClient) -> None:

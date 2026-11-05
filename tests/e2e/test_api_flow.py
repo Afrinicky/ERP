@@ -135,7 +135,7 @@ class TestAppearance:
 
     def test_lists_both_presets(self, admin_client: TestClient) -> None:
         presets = admin_client.get(f"{API}/appearance/presets").json()
-        assert {item["code"] for item in presets} == {"charcoal", "navy"}
+        assert {item["code"] for item in presets} == {"charcoal", "harbour", "navy"}
 
     def test_preview_measures_every_pairing(self, admin_client: TestClient) -> None:
         response = admin_client.post(
@@ -144,7 +144,7 @@ class TestAppearance:
         )
         body = response.json()
         assert body["passes"] is True
-        assert len(body["audit"]) == 26
+        assert len(body["audit"]) == 28
         assert all(line["ratio"] >= 1.0 for line in body["audit"])
 
     def test_preview_reports_a_failing_combination_without_refusing(

@@ -15,6 +15,7 @@ from typing import Any
 
 from nickland.domain.colour import (
     AA_NON_TEXT,
+    AA_NORMAL_TEXT,
     ContrastResult,
     best_text_ratio,
     check_pairing,
@@ -149,6 +150,8 @@ DERIVATIONS: dict[str, tuple[str, ...]] = {
         "text-on-accent",
         "focus-ring",
         "chart-1",
+        "text-link",
+        "text-link-hover",
     ),
     "accent-secondary": (
         "accent-secondary-hover",
@@ -165,16 +168,35 @@ coherent, and is what makes a custom accent acceptable to the audit at all.
 """
 
 
-def derive(token: str, value: str) -> dict[str, str]:
-    """Compute the tokens that follow from one override."""
+def derive(token: str, value: str, surfaces: dict[str, str] | None = None) -> dict[str, str]:
+    """Compute the tokens that follow from one override.
+
+    ``surfaces`` carries the palette the override lands in, so a derived colour is
+    measured against the surfaces it will actually sit on. Measuring against plain
+    white is not enough: a canvas is usually a shade off white, and that shade is the
+    harder of the two to read against.
+    """
+    palette = surfaces or {}
+    card = palette.get("surface-raised", "#FFFFFF")
+    canvas = palette.get("surface-canvas", "#FFFFFF")
+
+    def legible_on_both(candidate: str, required: float) -> str:
+        """Darken until the colour meets the requirement against card and canvas."""
+        result = ensure_contrast(candidate, card, required)
+        return ensure_contrast(result, canvas, required)
+
     if token == "accent-primary":
+        link = legible_on_both(value, AA_NORMAL_TEXT)
         return {
             "accent-primary-hover": darken(value, 0.10),
             "accent-primary-active": darken(value, 0.20),
             "accent-primary-surface": tint(value, 0.90),
             "text-on-accent": readable_text_on(value),
             "focus-ring": darken(value, 0.20),
-            "chart-1": ensure_contrast(value, "#FFFFFF", AA_NON_TEXT),
+            "chart-1": legible_on_both(value, AA_NON_TEXT),
+            # A link is body text, so it needs the full 4.5:1 rather than 3:1.
+            "text-link": link,
+            "text-link-hover": darken(link, 0.16),
         }
     if token == "accent-secondary":
         return {
@@ -191,11 +213,12 @@ def derive(token: str, value: str) -> dict[str, str]:
     return {}
 
 
-def expand(overrides: dict[str, str]) -> dict[str, str]:
+def expand(overrides: dict[str, str], surfaces: dict[str, str] | None = None) -> dict[str, str]:
     """Apply every derivation, without overwriting an explicit choice."""
+    palette = {**(surfaces or {}), **overrides}
     expanded: dict[str, str] = {}
     for token, value in overrides.items():
-        for derived_token, derived_value in derive(token, value).items():
+        for derived_token, derived_value in derive(token, value, palette).items():
             expanded.setdefault(derived_token, derived_value)
     expanded.update(overrides)
     return expanded
@@ -226,8 +249,10 @@ def validate_overrides(preset_code: str, overrides: dict[str, str]) -> ThemeDefi
         except ValueError as error:
             raise ValidationError(str(error), field=token) from error
 
-    # An accent is chosen; the shades and the text that sit on it are derived.
-    theme = ThemeDefinition(preset=get_preset(preset_code), overrides=expand(normalised))
+    # An accent is chosen; the shades and the text that sit on it are derived, and
+    # measured against this preset's own surfaces.
+    preset = get_preset(preset_code)
+    theme = ThemeDefinition(preset=preset, overrides=expand(normalised, preset.colour))
     failed = failures(theme)
     if not failed:
         return theme

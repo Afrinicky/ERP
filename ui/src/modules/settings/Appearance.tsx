@@ -15,17 +15,24 @@ import {
   Button,
   Card,
   EmptyState,
+  FormRow,
+  PickerList,
+  PickerOption,
+  RadioGroup,
+  SearchField,
   SectionHeader,
   Skeleton,
   StatusChip,
   TextInput,
+  TotalDisplay,
   useToast,
 } from '@/components/primitives';
 import { describe } from '@/lib/errors';
 import { humanise, ratio } from '@/lib/format';
-import { installTheme, useSession } from '@/lib/session';
+import { installTheme, useCurrency, useSession } from '@/lib/session';
 export function Appearance() {
   const { theme, applyTheme, can } = useSession();
+  const currencySymbol = useCurrency().symbol;
   const client = useQueryClient();
   const toast = useToast();
   const presets = useQuery({ queryKey: ['presets'], queryFn: api.appearance.presets });
@@ -250,7 +257,10 @@ export function Appearance() {
           <EmptyState title="Select a palette to measure it" />
         )}
       </Card>
-      <Card title="Specimen" subtitle="How the palette reads in the interface.">
+      <Card
+        title="Specimen"
+        subtitle="How the palette reads across the interface and at the till."
+      >
         <div className="stack gap-5">
           <div className="row gap-3 row--wrap">
             <Button tone="primary">Issue quotation</Button>
@@ -297,6 +307,74 @@ export function Appearance() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          <div className="stack gap-4">
+            <p className="label">At the till</p>
+            <div
+              className="stack gap-4"
+              style={{
+                padding: 'var(--space-5)',
+                background: 'var(--colour-surface-canvas)',
+                border: '1px solid var(--colour-border-default)',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
+              <div className="row row--between gap-6 row--wrap" style={{ alignItems: 'flex-start' }}>
+                <div className="grow" style={{ minWidth: 420, maxWidth: 620 }}>
+                  <FormRow label="Product" required>
+                    {() => (
+                      <>
+                        <SearchField
+                          label="Specimen product search"
+                          value=""
+                          placeholder="Enter name or barcode of product"
+                          onChange={() => undefined}
+                        />
+                        <PickerList>
+                          <PickerOption
+                            label="Nitrile examination glove, medium"
+                            secondary="GLV-NITRILE-M"
+                            onSelect={() => undefined}
+                          />
+                          <PickerOption
+                            label="Disposable syringe, 10 ml"
+                            unavailable="Out of stock"
+                            secondary="SYR-10ML"
+                            onSelect={() => undefined}
+                          />
+                          <PickerOption
+                            label="Analyser calibration"
+                            unavailable="Service — not stocked"
+                            secondary="SRV-CALIB"
+                            onSelect={() => undefined}
+                          />
+                        </PickerList>
+                      </>
+                    )}
+                  </FormRow>
+                </div>
+
+                <div className="stack gap-4" style={{ flex: '0 0 auto', minWidth: 240 }}>
+                  <TotalDisplay value={`${currencySymbol} 1 360.00`} caption="3 lines" />
+                  <RadioGroup
+                    legend="Tender"
+                    value="cash"
+                    onChange={() => undefined}
+                    options={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'account', label: 'On account' },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              <p className="caption">
+                An unavailable item is listed with the reason stated inline, rather than
+                hidden: an operator would otherwise search for something that is in fact
+                there.
+              </p>
+            </div>
           </div>
         </div>
       </Card>

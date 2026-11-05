@@ -1,4 +1,4 @@
-# ADR-0002 — Token-driven theming with two shipped presets and no imposed default
+# ADR-0002 — Token-driven theming with shipped presets and no imposed default
 
 Status: accepted · Date: 5 November 2026
 
@@ -22,6 +22,11 @@ imposed. The administrator selects a preset during first-run setup.
 | --- | --- | --- | --- | --- |
 | Charcoal | §28.1 | `#252525` | `#F7931E` | `#C9A078` |
 | Navy | §7.1 | `#1B2A41` | `#2F6FED` | `#7D8FA8` |
+| Harbour | The pilot's own terminal | `#14276B` | `#F5B921` | `#1A5FBF` |
+
+Harbour was added after the pilot supplied photographs of the retail terminal its staff
+use daily. The token layer made it one file and no component change, which is the
+argument for the token layer made concrete.
 
 Status colours are identical across both presets and are never replaced by a brand colour,
 per §28.1.
@@ -54,8 +59,9 @@ business it is.
 
 ## Consequences
 
-Visual regression tests run against both presets, roughly doubling that suite. Both presets
-are maintained, so a new component must be checked in both. A third preset costs one file.
+Visual regression runs against every preset, so the suite grows with each. Every preset is
+maintained, so a new component must be checked in all of them. A further preset costs one
+file, which is how Harbour was added.
 
 The §31 acceptance criterion is satisfied whenever the Charcoal preset is active, and is
 restated to say so.

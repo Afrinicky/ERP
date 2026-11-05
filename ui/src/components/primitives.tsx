@@ -703,3 +703,233 @@ export function SectionHeader({
     </div>
   );
 }
+
+/* ------------------------------------------------------------ Transactional patterns */
+
+/**
+ * The following are drawn from a working pharmacy terminal the business already uses.
+ * They are the patterns a till operator reads without being taught, so they are
+ * implemented here once rather than reinvented per screen.
+ */
+
+/**
+ * A row in a product or party picker.
+ *
+ * An unavailable item is listed rather than hidden, with the reason set inline in red
+ * italics after the name. Hiding it would leave the operator searching for something
+ * that is there; stating why is faster than their discovering it at the till.
+ */
+export function PickerOption({
+  label,
+  unavailable,
+  secondary,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  unavailable?: string | null;
+  secondary?: string;
+  selected?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      aria-disabled={Boolean(unavailable)}
+      className="picker__option"
+      onClick={onSelect}
+    >
+      <span className="picker__label">
+        {label}
+        {unavailable ? <em className="picker__unavailable"> ({unavailable})</em> : null}
+      </span>
+      {secondary ? <span className="picker__secondary">{secondary}</span> : null}
+    </button>
+  );
+}
+
+export function PickerList({
+  children,
+  empty,
+}: {
+  children: ReactNode;
+  empty?: string;
+}) {
+  return (
+    <div className="picker" role="listbox" tabIndex={-1}>
+      {children}
+      {empty ? <p className="picker__empty">{empty}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The running total of a transaction.
+ *
+ * Set at the largest size on the screen, because at a till it is the one figure read
+ * from a distance and the one the customer is told.
+ */
+export function TotalDisplay({
+  label = 'Total',
+  value,
+  caption,
+  tone,
+}: {
+  label?: string;
+  value: string;
+  caption?: string;
+  tone?: 'default' | 'due' | 'settled';
+}) {
+  return (
+    <div className={`total total--${tone ?? 'default'}`}>
+      <span className="total__label">{label}</span>
+      <span className="total__value">{value}</span>
+      {caption ? <span className="total__caption">{caption}</span> : null}
+    </div>
+  );
+}
+
+/** A mutually exclusive choice, presented as radios rather than a select. */
+export function RadioGroup<T extends string>({
+  legend,
+  options,
+  value,
+  onChange,
+  inline,
+  disabled,
+}: {
+  legend: string;
+  options: { value: T; label: string; hint?: string; disabled?: boolean }[];
+  value: T;
+  onChange: (value: T) => void;
+  inline?: boolean;
+  disabled?: boolean;
+}) {
+  const name = useId();
+  return (
+    <fieldset className="radio-group" disabled={disabled}>
+      <legend className="radio-group__legend">{legend}</legend>
+      <div className={`radio-group__options${inline ? ' radio-group__options--inline' : ''}`}>
+        {options.map((option) => (
+          <label className="choice" key={option.value}>
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={option.value === value}
+              disabled={option.disabled}
+              onChange={() => onChange(option.value)}
+            />
+            <span className="choice__body">
+              <span className="choice__label">{option.label}</span>
+              {option.hint ? <span className="choice__hint">{option.hint}</span> : null}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * A label-left form row.
+ *
+ * Used on dense transactional screens, where the eye runs down a column of labels and
+ * the controls align to a second column. The stacked Field is used elsewhere.
+ */
+export function FormRow({
+  label,
+  required,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  error?: string | null;
+  children: (id: string, describedBy: string | undefined) => ReactNode;
+}) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  const describedBy = [hint ? hintId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div className="form-row">
+      <label className="form-row__label" htmlFor={id}>
+        {label}
+        {required ? (
+          <span className="form-row__required" aria-hidden="true">
+            *
+          </span>
+        ) : null}
+      </label>
+      <div className="form-row__control">
+        {children(id, describedBy || undefined)}
+        {hint && !error ? (
+          <span className="field__hint" id={hintId}>
+            {hint}
+          </span>
+        ) : null}
+        {error ? (
+          <span className="field__error" id={errorId} role="alert">
+            {error}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** A search field carrying its magnifier, as a scanner-driven picker does. */
+export function SearchField({
+  value,
+  onChange,
+  placeholder,
+  label,
+  autoFocus,
+  onKeyDown,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+  autoFocus?: boolean;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="search-field">
+      <svg
+        className="search-field__glyph"
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.5 4.5" />
+      </svg>
+      <input
+        type="search"
+        className="search-field__input"
+        value={value}
+        placeholder={placeholder}
+        aria-label={label}
+        autoFocus={autoFocus}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={onKeyDown}
+      />
+    </div>
+  );
+}

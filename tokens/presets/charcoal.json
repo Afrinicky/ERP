@@ -19,6 +19,8 @@
     "text-inverse-secondary": "#BDB8B2",
     "text-on-accent": "#252525",
     "text-on-accent-secondary": "#252525",
+    "text-link": "#A95C05",
+    "text-link-hover": "#8E4D04",
     "border-subtle": "#EDEAE7",
     "border-default": "#E8E6E4",
     "border-strong": "#6E6963",

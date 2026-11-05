@@ -69,7 +69,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell" data-rail={collapsed ? 'collapsed' : 'expanded'}>
-      <nav className="rail" aria-label="Main navigation">
+      <nav className="rail" id="main-navigation" aria-label="Main navigation">
         <div className="rail__brand">
           <span className="rail__mark" aria-hidden="true">
             N
@@ -105,20 +105,21 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </div>
 
-        <div className="rail__footer">
-          <button
-            type="button"
-            className="rail__item"
-            onClick={() => setCollapsed((current) => !current)}
-            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          >
-            <span className="rail__icon">{collapsed ? <Icons.expand /> : <Icons.collapse />}</span>
-            <span className="rail__label">Collapse</span>
-          </button>
-        </div>
       </nav>
 
       <header className="header">
+        <button
+          type="button"
+          className="header__toggle"
+          onClick={() => setCollapsed((current) => !current)}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-expanded={!collapsed}
+          aria-controls="main-navigation"
+          title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+        >
+          <Icons.menu />
+        </button>
+
         <div className="header__business">
           <span className="header__name">{business?.name ?? 'Nickland ERP'}</span>
           <span className="header__context">

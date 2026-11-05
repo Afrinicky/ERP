@@ -120,8 +120,9 @@ class ThemeService:
         actor.require("theme.manage")
         # Derive the dependent tokens exactly as saving would, or the preview would
         # measure a theme the system would never store.
+        preset = get_preset(preset_code)
         definition = ThemeDefinition(
-            preset=get_preset(preset_code), overrides=expand(_normalise(overrides))
+            preset=preset, overrides=expand(_normalise(overrides), preset.colour)
         )
         lines = [
             AuditLine(

@@ -18,9 +18,9 @@ from nickland.domain.theme import (
 )
 
 
-def test_both_presets_ship() -> None:
+def test_the_shipped_presets() -> None:
     presets = load_presets()
-    assert set(presets) == {"charcoal", "navy"}
+    assert set(presets) == {"charcoal", "harbour", "navy"}
 
 
 def test_no_preset_is_marked_default() -> None:
@@ -29,12 +29,12 @@ def test_no_preset_is_marked_default() -> None:
         assert not hasattr(preset, "is_default")
 
 
-@pytest.mark.parametrize("code", ["charcoal", "navy"])
+@pytest.mark.parametrize("code", ["charcoal", "harbour", "navy"])
 def test_shipped_presets_pass_the_contrast_audit(code: str) -> None:
     assert failures(ThemeDefinition(preset=get_preset(code))) == []
 
 
-@pytest.mark.parametrize("code", ["charcoal", "navy"])
+@pytest.mark.parametrize("code", ["charcoal", "harbour", "navy"])
 def test_every_pairing_is_measured(code: str) -> None:
     results = audit(ThemeDefinition(preset=get_preset(code)))
     assert len(results) == len(pairings())
@@ -42,8 +42,10 @@ def test_every_pairing_is_measured(code: str) -> None:
 
 
 def test_presets_define_the_same_token_set() -> None:
-    charcoal, navy = get_preset("charcoal"), get_preset("navy")
-    assert set(charcoal.colour) == set(navy.colour)
+    """A component references the semantic layer, so every preset must supply it all."""
+    expected = set(get_preset("charcoal").colour)
+    for code in ("navy", "harbour"):
+        assert set(get_preset(code).colour) == expected, code
 
 
 def test_charcoal_uses_charcoal_text_on_the_orange_accent() -> None:
@@ -92,6 +94,16 @@ class TestOverrides:
         assert theme.colour["chart-1"] != "#F7931E"
         assert check_pairing(theme.colour["chart-1"], "#FFFFFF", required=3.0).passes
 
+    def test_derives_a_link_that_reads_against_the_canvas_not_merely_white(self) -> None:
+        """A canvas is a shade off white, and that shade is the harder of the two."""
+        for code in ("charcoal", "harbour", "navy"):
+            theme = validate_overrides(code, {"accent-primary": "#F7931E"})
+            canvas = theme.colour["surface-canvas"]
+            assert check_pairing(theme.colour["text-link"], canvas, required=4.5).passes, code
+            assert check_pairing(
+                theme.colour["text-link"], theme.colour["surface-raised"], required=4.5
+            ).passes, code
+
     def test_derives_navigation_text_from_a_custom_navigation_surface(self) -> None:
         theme = validate_overrides("navy", {"surface-navigation": "#0F2436"})
         assert theme.colour["text-inverse"] == "#FFFFFF"
@@ -130,6 +142,6 @@ class TestOverrides:
         theme = validate_overrides("navy", {})
         assert theme.colour == get_preset("navy").colour
 
-    def test_every_customisable_token_exists_in_both_presets(self) -> None:
-        for code in ("charcoal", "navy"):
+    def test_every_customisable_token_exists_in_every_preset(self) -> None:
+        for code in ("charcoal", "navy", "harbour"):
             assert customisable_tokens() <= set(get_preset(code).colour)

@@ -74,6 +74,18 @@
       "required": 4.5
     },
     {
+      "label": "Link on card",
+      "foreground": "text-link",
+      "background": "surface-raised",
+      "required": 4.5
+    },
+    {
+      "label": "Link on canvas",
+      "foreground": "text-link",
+      "background": "surface-canvas",
+      "required": 4.5
+    },
+    {
       "label": "Accent surface text",
       "foreground": "text-primary",
       "background": "accent-primary-surface",

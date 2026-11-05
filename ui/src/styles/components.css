@@ -919,3 +919,266 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ------------------------------------------------- Transactional patterns */
+
+/* Drawn from the working terminal the business already uses. */
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  background: var(--colour-surface-raised);
+  border: var(--border-hairline) solid var(--colour-border-input);
+  border-radius: var(--radius-md);
+}
+
+.search-field:focus-within {
+  border-color: var(--colour-border-strong);
+}
+
+.search-field__glyph {
+  flex: 0 0 auto;
+  color: var(--colour-text-tertiary);
+}
+
+.search-field__input {
+  width: 100%;
+  min-width: 0;
+  font-size: var(--size-md);
+  color: var(--colour-text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.search-field__input::placeholder {
+  color: var(--colour-text-tertiary);
+}
+
+.search-field__input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.picker {
+  min-width: 420px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--colour-surface-overlay);
+  border: var(--border-hairline) solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-overlay);
+}
+
+/* One option, one line. A wrapped name costs a scan of the list, and the operator
+   is reading it against a queue. */
+.picker__option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: var(--control-row-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--size-md);
+  line-height: var(--leading-md);
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--border-hairline) solid var(--colour-border-subtle);
+  cursor: pointer;
+}
+
+.picker__option:last-child {
+  border-bottom: 0;
+}
+
+.picker__option:hover,
+.picker__option[aria-selected='true'] {
+  background: var(--colour-accent-primary-surface);
+}
+
+.picker__option[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+.picker__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* An unavailable item is listed with the reason inline, rather than hidden: the
+   operator would otherwise search for something that is in fact there. */
+.picker__unavailable {
+  color: var(--status-error);
+  font-style: italic;
+}
+
+.picker__secondary {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+  color: var(--colour-text-secondary);
+}
+
+.picker__empty {
+  padding: var(--space-4);
+  font-size: var(--size-sm);
+  color: var(--colour-text-tertiary);
+  text-align: center;
+}
+
+/* The one figure read from a distance, and the one the customer is told. */
+.total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.total__label {
+  font-size: var(--size-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--colour-text-secondary);
+}
+
+.total__value {
+  font-family: var(--font-mono);
+  font-size: 38px;
+  font-weight: var(--weight-semibold);
+  line-height: 44px;
+  letter-spacing: var(--tracking-tight);
+  color: var(--colour-text-primary);
+  white-space: nowrap;
+}
+
+.total--due .total__value {
+  color: var(--status-warning);
+}
+
+.total--settled .total__value {
+  color: var(--status-success);
+}
+
+.total__caption {
+  font-size: var(--size-xs);
+  color: var(--colour-text-tertiary);
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 0;
+}
+
+.radio-group__legend {
+  padding: 0;
+  font-size: var(--size-xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-xs);
+  color: var(--colour-text-secondary);
+}
+
+.radio-group__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.radio-group__options--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.choice input[type='radio'] {
+  accent-color: var(--colour-accent-primary);
+}
+
+/* Label left, control right: the eye runs down one column on a dense screen. */
+.form-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-2) 0;
+}
+
+.form-row__label {
+  padding-top: 9px;
+  font-size: var(--size-md);
+  color: var(--colour-text-secondary);
+}
+
+.form-row__required {
+  color: var(--status-error);
+  padding-left: 2px;
+}
+
+.form-row__control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .form-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .form-row__label {
+    padding-top: 0;
+  }
+
+  .total__value {
+    font-size: 30px;
+    line-height: 36px;
+  }
+}
+
+/* A file input, styled so it belongs to the rest of the interface. The browser's own
+   button varies by platform and ignores the design system entirely. */
+.file-input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--control-height-md);
+  padding: 0;
+  font-size: var(--size-md);
+  color: var(--colour-text-secondary);
+  background: var(--colour-surface-raised);
+  border: var(--border-hairline) solid var(--colour-border-input);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.file-input:hover {
+  border-color: var(--colour-border-strong);
+}
+
+.file-input::file-selector-button {
+  height: 100%;
+  margin-right: var(--space-3);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--colour-text-primary);
+  background: var(--colour-surface-sunken);
+  border: 0;
+  border-right: var(--border-hairline) solid var(--colour-border-default);
+  cursor: pointer;
+}
+
+.file-input::file-selector-button:hover {
+  background: var(--colour-border-subtle);
+}

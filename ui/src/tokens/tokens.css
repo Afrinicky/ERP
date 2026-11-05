@@ -102,6 +102,8 @@
   --colour-text-inverse-secondary: #BDB8B2;
   --colour-text-on-accent: #252525;
   --colour-text-on-accent-secondary: #252525;
+  --colour-text-link: #A95C05;
+  --colour-text-link-hover: #8E4D04;
   --colour-border-subtle: #EDEAE7;
   --colour-border-default: #E8E6E4;
   --colour-border-strong: #6E6963;
@@ -126,6 +128,49 @@
   --colour-border-input: #8F8A84;
 }
 
+/* Harbour — the pharmacy terminal reference */
+[data-theme="harbour"] {
+  --colour-surface-canvas: #F4F7FC;
+  --colour-surface-raised: #FFFFFF;
+  --colour-surface-sunken: #EDF2FA;
+  --colour-surface-navigation: #14276B;
+  --colour-surface-navigation-hover: #1E3585;
+  --colour-surface-navigation-active: #1B2F78;
+  --colour-surface-overlay: #FFFFFF;
+  --colour-surface-inverse: #14276B;
+  --colour-text-primary: #17202E;
+  --colour-text-secondary: #4A5468;
+  --colour-text-tertiary: #79839A;
+  --colour-text-inverse: #FFFFFF;
+  --colour-text-inverse-secondary: #B9C3DE;
+  --colour-text-on-accent: #252525;
+  --colour-text-on-accent-secondary: #FFFFFF;
+  --colour-text-link: #8C6A13;
+  --colour-text-link-hover: #765910;
+  --colour-border-subtle: #E9EEF6;
+  --colour-border-default: #DFE6F1;
+  --colour-border-input: #7E89A0;
+  --colour-border-strong: #5C667C;
+  --colour-border-inverse: #2A3C85;
+  --colour-accent-primary: #F5B921;
+  --colour-accent-primary-hover: #DCA61E;
+  --colour-accent-primary-active: #C3931A;
+  --colour-accent-primary-surface: #FEF6E3;
+  --colour-accent-primary-border: #F6DFA6;
+  --colour-accent-secondary: #1A5FBF;
+  --colour-accent-secondary-hover: #17539F;
+  --colour-accent-secondary-surface: #E7F0FC;
+  --colour-focus-ring: #1A5FBF;
+  --colour-chart-1: #B88A14;
+  --colour-chart-2: #1A5FBF;
+  --colour-chart-3: #14276B;
+  --colour-chart-4: #5C667C;
+  --colour-chart-5: #157F6B;
+  --colour-chart-6: #7D5BA6;
+  --colour-chart-grid: #DFE6F1;
+  --colour-chart-axis: #5C667C;
+}
+
 /* Navy — PRD 7.1 */
 [data-theme="navy"] {
   --colour-surface-canvas: #F6F8FA;
@@ -143,6 +188,8 @@
   --colour-text-inverse-secondary: #AEBDCD;
   --colour-text-on-accent: #FFFFFF;
   --colour-text-on-accent-secondary: #FFFFFF;
+  --colour-text-link: #1C4FB8;
+  --colour-text-link-hover: #18429B;
   --colour-border-subtle: #EAEEF3;
   --colour-border-default: #E3E8EF;
   --colour-border-strong: #5E6A7A;

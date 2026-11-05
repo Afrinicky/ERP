@@ -54,6 +54,7 @@ Components reference semantic tokens only. A theme change therefore alters no co
 | `text.secondary` | Labels, captions, column headers |
 | `text.tertiary` | Hints, disabled text, metadata |
 | `text.inverse` | Text on dark and accent surfaces |
+| `text.link` | A link. Body text, so measured at 4.5:1, not the accent's 3:1 |
 | `border.subtle` | Table rules, dividers |
 | `border.default` | Input and card borders |
 | `border.strong` | Focused and selected borders |
@@ -63,9 +64,32 @@ Components reference semantic tokens only. A theme change therefore alters no co
 | `status.success`, `status.warning`, `status.error`, `status.info` | Semantic status, independent of brand |
 | `focus.ring` | Keyboard focus indicator |
 
+## The terminal reference
+
+The pilot supplied photographs of the retail terminal its staff use daily. It is the
+interface they already read without being taught, so the patterns below are adopted
+rather than reinvented. They are not copied: no branding, wording or layout of that
+product is reproduced.
+
+| Observed | Adopted | Why |
+| --- | --- | --- |
+| Deep navy chrome, amber action colour, pale blue work surface | The **Harbour** preset | Familiar at a glance to staff moving between the two |
+| Navigation toggle immediately beside the wordmark | The header hamburger | A control at the foot of the rail is not findable |
+| Unavailable items listed with *(Out of stock)* inline in red italics | `PickerOption` | Hiding an item leaves the operator hunting for something that is in fact there; stating why is faster than their discovering it at the till |
+| `TOTAL` caption over a very large figure | `TotalDisplay` | The one figure read from a distance, and the one the customer is told |
+| Radios for type of sale and tender | `RadioGroup` | The current selection is visible without opening anything |
+| Label left, control right | `FormRow` | On a dense screen the eye runs down one column of labels |
+| Magnifier inside the search field, placeholder naming name *or* barcode | `SearchField` | The same field serves typing and scanning |
+| Required fields marked with a red asterisk | `FormRow` required | Conventional, and read at a glance |
+| Line table header on a tinted strip | Table header styling | Separates the header from the lines without a rule |
+
+What was **not** adopted: the reference leaves considerable empty space, states no reason
+for a disabled control, and places commit actions where a mis-click reaches them. The
+standards below govern those.
+
 ## Shipped themes
 
-Both presets ship as equal first-class options. No default is imposed; the administrator
+Three presets ship as equal first-class options. No default is imposed; the administrator
 selects one during first-run setup. See [ADR-0002](decisions/adr-0002-dual-theme-token-engine.md).
 
 ### Charcoal — PRD §28
@@ -89,6 +113,19 @@ selects one during first-run setup. See [ADR-0002](decisions/adr-0002-dual-theme
 | White | `#FFFFFF` | Cards, tables, content surfaces |
 | Off-white | `#F6F8FA` | Application canvas |
 | Light grey | `#E3E8EF` | Dividers, borders, disabled surfaces |
+
+### Harbour — the terminal reference
+
+| Role | Value | Application |
+| --- | --- | --- |
+| Primary navy | `#14276B` | Navigation, application header |
+| Amber accent | `#F5B921` | Primary actions, active navigation, key chart emphasis |
+| Blue secondary | `#1A5FBF` | Secondary emphasis, focus ring, supporting chart series |
+| White | `#FFFFFF` | Cards, tables, content surfaces |
+| Pale blue | `#F4F7FC` | Application canvas |
+
+Amber carries charcoal text, for the same reason the Charcoal preset does: white on
+amber reaches 2.42:1 and fails.
 
 ### Status palette
 
@@ -253,6 +290,11 @@ banner, toast.
 | Attachment list | Preview, download, content hash, upload actor and timestamp |
 | Register tile | POS product card — image, name, SKU, price, availability |
 | Tender panel | Method, amount, cash received, change due, confirmation state |
+| Search field | Magnifier, one field for typing and for scanner input |
+| Picker option | One line per option; an unavailable item states its reason inline in red italics rather than being hidden |
+| Total display | The transaction total, set at the largest size on the screen |
+| Radio group | A mutually exclusive choice, visible without opening a menu |
+| Form row | Label left, control right, for dense transactional screens |
 | Chart frame | Title, period, currency, unit, legend, export, table alternative, empty and loading states |
 
 ### Component standards

@@ -120,6 +120,11 @@ export const Icons = {
       <path d="M12 2.5v3M12 18.5v3M4.2 7.3l2.6 1.5M17.2 15.2l2.6 1.5M4.2 16.7l2.6-1.5M17.2 8.8l2.6-1.5" />
     </Glyph>
   ),
+  menu: () => (
+    <Glyph width="20" height="20">
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </Glyph>
+  ),
   collapse: () => (
     <Glyph>
       <path d="M15 6l-6 6 6 6" />
