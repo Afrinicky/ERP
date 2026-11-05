@@ -239,10 +239,25 @@ class BackupService:
         logger.warning("Restore staged from %s; applied at next start", archive.name)
         return staging
 
+    def _database_path(self) -> Path:
+        """The SQLite file this engine actually uses.
+
+        Read from the engine rather than from the configured default, so a deployment
+        pointed at another path is backed up correctly.
+        """
+        database = self._engine.url.database
+        if not database:
+            raise ConflictError("The database path could not be determined.")
+        return Path(database)
+
     def _copy_database(self, destination: Path) -> None:
         """Copy the database consistently."""
         if self._engine.dialect.name == "sqlite":
-            source_path = self._settings.database_file
+            source_path = self._database_path()
+            if not source_path.exists():
+                raise ConflictError(
+                    f"The database file is not present at {source_path}."
+                )
             source = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
             try:
                 target = sqlite3.connect(destination)
@@ -290,6 +305,8 @@ class BackupService:
         keep = self._settings.backup_retain_count
         if keep <= 0:
             return
+        # Autoflush is off, so the run just completed must be flushed to be counted.
+        self._db.flush()
         records = self._db.scalars(
             select(BackupRecord)
             .where(

@@ -21,9 +21,9 @@ from nickland.domain.errors import (
     ValidationError,
 )
 from nickland.domain.identity import LockoutPolicy
-from nickland.persistence.models import AuditEvent, Session as SessionRecord, User
+from nickland.persistence.models import AuditEvent, User
+from nickland.persistence.models import Session as SessionRecord
 from nickland.platform.clock import FixedClock
-
 from tests.conftest import ADMIN_PASSWORD, make_actor
 
 STAFF_PASSWORD = "Tamale4Harbour"

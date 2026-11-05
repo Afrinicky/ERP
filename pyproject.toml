@@ -71,7 +71,12 @@ markers = [
     "postgres: requires a PostgreSQL database",
     "slow: long-running",
 ]
-filterwarnings = ["error::DeprecationWarning"]
+filterwarnings = [
+    # Our own deprecations are errors; a dependency's internal ones are not ours to fix.
+    "error::DeprecationWarning",
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+    "ignore:Please use `import python_multipart` instead:PendingDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src/nickland"]

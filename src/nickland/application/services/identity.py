@@ -104,6 +104,7 @@ class IdentityService:
             # Hash anyway, so the response time does not reveal that the user is absent.
             verify_password(password, _DUMMY_HASH)
             self._record_failure(business_id, candidate, device, "unknown username")
+            self._persist_failure()
             raise AuthenticationError(_GENERIC_FAILURE)
 
         if self.lockout_policy.is_locked(user.locked_until, now):
@@ -129,6 +130,7 @@ class IdentityService:
                     context={"locked_until": locked_until, "device": device},
                 )
             self._record_failure(business_id, candidate, device, "incorrect password")
+            self._persist_failure()
             raise AuthenticationError(_GENERIC_FAILURE)
 
         user.failed_attempts = 0
@@ -624,6 +626,16 @@ class IdentityService:
             .limit(1)
         )
         return other is None
+
+    def _persist_failure(self) -> None:
+        """Commit the record of a failed attempt before refusing the request.
+
+        A failed sign-in raises, and the request's transaction is then rolled back. The
+        attempt counter and its audit entry must nevertheless survive, or lockout would
+        never accumulate and PRD 10's requirement to audit failed sign-ins would not be
+        met. This is the one place a service commits on a failing path.
+        """
+        self._db.commit()
 
     def _record_failure(
         self, business_id: uuid.UUID, username: str, device: str | None, detail: str

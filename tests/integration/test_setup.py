@@ -21,7 +21,6 @@ from nickland.persistence.models import (
     Warehouse,
 )
 from nickland.platform.clock import FixedClock
-
 from tests.conftest import ADMIN_PASSWORD
 
 

@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
@@ -34,29 +34,92 @@ def clock() -> FixedClock:
     return FixedClock(datetime(2026, 11, 5, 9, 30, tzinfo=UTC))
 
 
+def postgres_url() -> str | None:
+    """The PostgreSQL URL to test against, if one is configured.
+
+    PRD 9.8 makes PostgreSQL tests mandatory before the LAN release, and requires the
+    suite to run against both engines so behavioural differences surface.
+    """
+    return os.environ.get("NICKLAND_TEST_POSTGRES_URL")
+
+
+def _engine_parameters() -> list[str]:
+    engines = ["sqlite"]
+    if postgres_url():
+        engines.append("postgresql")
+    return engines
+
+
+@pytest.fixture(params=_engine_parameters())
+def engine_name(request: pytest.FixtureRequest) -> str:
+    """Which engine this test runs against."""
+    return str(request.param)
+
+
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
+def sqlite_only(engine_name: str) -> None:
+    """Skip a test that exercises a SQLite-specific mechanism.
+
+    The standalone backup uses SQLite's online backup API. A PostgreSQL deployment is
+    backed up by the host service's scheduled dump, which Phase 15 delivers.
+    """
+    if engine_name != "sqlite":
+        pytest.skip("standalone SQLite mechanism; PostgreSQL backup arrives in Phase 15")
+
+
+@pytest.fixture
+def pg_schema() -> str:
+    """A private schema name, so PostgreSQL tests are isolated from one another."""
+    return f"t{uuid.uuid4().hex[:16]}"
+
+
+@pytest.fixture
+def settings(tmp_path: Path, engine_name: str, pg_schema: str) -> Settings:
+    if engine_name == "postgresql":
+        base = postgres_url()
+        assert base is not None
+        # The search path is set through the connection URL rather than a connect
+        # event, so the connection is never left mid-transaction.
+        separator = "&" if "?" in base else "?"
+        url = f"{base}{separator}options=-csearch_path%3D{pg_schema}"
+    else:
+        url = f"sqlite+pysqlite:///{tmp_path / 'test.db'}"
     return Settings(
         environment=Environment.TEST,
         data_directory=tmp_path / "data",
-        database_url=f"sqlite+pysqlite:///{tmp_path / 'test.db'}",
+        database_url=url,
         backup_retain_count=3,
     )
 
 
 @pytest.fixture
-def engine(settings: Settings) -> Iterator[Engine]:
+def engine(settings: Settings, engine_name: str, pg_schema: str) -> Iterator[Engine]:
     settings.ensure_directories()
     created = create_database_engine(settings)
+
+    if engine_name == "postgresql":
+        # Postgres permits a search path naming a schema that does not yet exist,
+        # so the same engine can create it.
+        with created.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{pg_schema}"'))
+
     Base.metadata.create_all(created)
     # Health and backup read the schema revision, so record one.
-    from sqlalchemy import text
-
     with created.begin() as connection:
-        connection.execute(text("CREATE TABLE IF NOT EXISTS alembic_version (version_num varchar(32) NOT NULL)"))
+        connection.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS alembic_version "
+                "(version_num varchar(32) NOT NULL)"
+            )
+        )
         connection.execute(text("DELETE FROM alembic_version"))
         connection.execute(text("INSERT INTO alembic_version VALUES ('test')"))
+
     yield created
+
+    if engine_name == "postgresql":
+        with created.begin() as connection:
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{pg_schema}" CASCADE'))
     created.dispose()
 
 
@@ -125,7 +188,3 @@ def make_actor(
         branch_id=branch_id,
         permissions=frozenset(permissions if permissions is not None else ALL_CODES),
     )
-
-
-def postgres_url() -> str | None:
-    return os.environ.get("NICKLAND_TEST_POSTGRES_URL")
