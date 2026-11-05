@@ -51,9 +51,7 @@ def _payload(error: DomainError) -> dict[str, Any]:
     if isinstance(error, ValidationError) and error.field:
         body["field"] = error.field
     context = {
-        key: value
-        for key, value in error.context.items()
-        if key != "field" and value is not None
+        key: value for key, value in error.context.items() if key != "field" and value is not None
     }
     if context:
         body["detail"] = {key: str(value) for key, value in context.items()}
@@ -71,9 +69,7 @@ def install_error_handlers(application: FastAPI) -> None:
         return JSONResponse(status_code=code, content={"error": _payload(error)})
 
     @application.exception_handler(RequestValidationError)
-    async def _request_validation(
-        _request: Request, error: RequestValidationError
-    ) -> JSONResponse:
+    async def _request_validation(_request: Request, error: RequestValidationError) -> JSONResponse:
         first = error.errors()[0] if error.errors() else {}
         location = [str(part) for part in first.get("loc", []) if part not in ("body", "query")]
         return JSONResponse(
@@ -99,8 +95,7 @@ def install_error_handlers(application: FastAPI) -> None:
                     "message": (
                         str(error)
                         if development
-                        else "The operation could not be completed. "
-                        "The event has been recorded."
+                        else "The operation could not be completed. The event has been recorded."
                     ),
                 }
             },

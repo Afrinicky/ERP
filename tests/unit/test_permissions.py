@@ -28,8 +28,14 @@ def test_every_code_is_verb_against_resource() -> None:
 def test_eight_roles_are_seeded_per_prd_3() -> None:
     assert len(SEEDED_ROLES) == 8
     assert set(ROLES_BY_CODE) == {
-        "owner_administrator", "sales_officer", "purchasing_officer", "store_officer",
-        "dispatch_officer", "cashier", "accountant", "auditor",
+        "owner_administrator",
+        "sales_officer",
+        "purchasing_officer",
+        "store_officer",
+        "dispatch_officer",
+        "cashier",
+        "accountant",
+        "auditor",
     }
 
 
@@ -47,9 +53,18 @@ def test_auditor_is_read_only() -> None:
 
 @pytest.mark.parametrize(
     "code",
-    ["journal.post", "period.close", "debt.write_off", "loan.restructure",
-     "tax_rule.override", "pos.refund", "stock.adjust", "costing.view",
-     "report.export_sensitive", "template.publish"],
+    [
+        "journal.post",
+        "period.close",
+        "debt.write_off",
+        "loan.restructure",
+        "tax_rule.override",
+        "pos.refund",
+        "stock.adjust",
+        "costing.view",
+        "report.export_sensitive",
+        "template.publish",
+    ],
 )
 def test_sensitive_permissions_are_marked(code: str) -> None:
     """PRD 29.9 requires separate control of capabilities that disclose or bypass."""

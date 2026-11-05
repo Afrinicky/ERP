@@ -14,9 +14,7 @@ from nickland.platform.config import Settings
 from tests.conftest import make_actor
 
 
-def _service(
-    db: Session, engine: Engine, settings: Settings, clock: FixedClock
-) -> BackupService:
+def _service(db: Session, engine: Engine, settings: Settings, clock: FixedClock) -> BackupService:
     return BackupService(db, engine, settings, clock=clock)
 
 

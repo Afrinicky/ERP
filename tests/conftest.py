@@ -107,10 +107,7 @@ def engine(settings: Settings, engine_name: str, pg_schema: str) -> Iterator[Eng
     # Health and backup read the schema revision, so record one.
     with created.begin() as connection:
         connection.execute(
-            text(
-                "CREATE TABLE IF NOT EXISTS alembic_version "
-                "(version_num varchar(32) NOT NULL)"
-            )
+            text("CREATE TABLE IF NOT EXISTS alembic_version (version_num varchar(32) NOT NULL)")
         )
         connection.execute(text("DELETE FROM alembic_version"))
         connection.execute(text("INSERT INTO alembic_version VALUES ('test')"))

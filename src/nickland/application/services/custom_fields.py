@@ -42,9 +42,7 @@ class CustomFieldService:
             statement = statement.where(CustomFieldDefinition.is_active.is_(True))
         return list(
             self._db.scalars(
-                statement.order_by(
-                    CustomFieldDefinition.display_order, CustomFieldDefinition.label
-                )
+                statement.order_by(CustomFieldDefinition.display_order, CustomFieldDefinition.label)
             )
         )
 
@@ -83,9 +81,7 @@ class CustomFieldService:
                 raise ValidationError("Choice options must be distinct.", field="choices")
             choices = cleaned
         elif choices:
-            raise ValidationError(
-                f"A {kind.value} field does not take choices.", field="choices"
-            )
+            raise ValidationError(f"A {kind.value} field does not take choices.", field="choices")
 
         existing = self._db.scalar(
             select(CustomFieldDefinition).where(
@@ -135,8 +131,14 @@ class CustomFieldService:
         before = as_dict(definition)
 
         permitted = {
-            "label", "help_text", "is_required", "display_order", "choices",
-            "default_value", "show_on_documents", "validation",
+            "label",
+            "help_text",
+            "is_required",
+            "display_order",
+            "choices",
+            "default_value",
+            "show_on_documents",
+            "validation",
         }
         unknown = set(changes) - permitted
         if unknown:
@@ -209,8 +211,7 @@ class CustomFieldService:
         """
         target_value = CustomFieldTarget(str(target))
         definitions = {
-            definition.code: definition
-            for definition in self.definitions(actor, target_value)
+            definition.code: definition for definition in self.definitions(actor, target_value)
         }
 
         unknown = set(values) - set(definitions)
@@ -245,7 +246,11 @@ class CustomFieldService:
                 )
                 self._db.add(record)
             for attribute in (
-                "value_text", "value_number", "value_date", "value_boolean", "value_json"
+                "value_text",
+                "value_number",
+                "value_date",
+                "value_boolean",
+                "value_json",
             ):
                 setattr(record, attribute, None)
             setattr(record, _column_for(definition), coerced)
@@ -269,8 +274,7 @@ class CustomFieldService:
             )
         ).all()
         return {
-            definition.code: getattr(value, _column_for(definition))
-            for definition, value in rows
+            definition.code: getattr(value, _column_for(definition)) for definition, value in rows
         }
 
     def _require_definition(

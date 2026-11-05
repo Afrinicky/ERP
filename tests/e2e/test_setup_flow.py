@@ -71,7 +71,11 @@ def test_health_is_available_before_sign_in(client: TestClient) -> None:
     body = client.get(f"{API}/health").json()
     assert body["state"] in ("ok", "degraded", "unavailable")
     assert {check["name"] for check in body["checks"]} >= {
-        "Application service", "Database", "Schema", "Storage", "Network"
+        "Application service",
+        "Database",
+        "Schema",
+        "Storage",
+        "Network",
     }
 
 

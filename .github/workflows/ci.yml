@@ -1,0 +1,125 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '22'
+
+jobs:
+  service:
+    name: Service — lint, types and tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nickland_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev,postgres]'
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Format
+        run: ruff format --check src tests
+
+      - name: Types
+        run: mypy
+
+      - name: Design tokens are current
+        run: python tools/generate_tokens.py --check
+
+      - name: Migrations apply and reverse — SQLite
+        env:
+          NICKLAND_DATA_DIRECTORY: ${{ runner.temp }}/nickland
+        run: |
+          mkdir -p "$NICKLAND_DATA_DIRECTORY"
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Migrations apply and reverse — PostgreSQL
+        env:
+          NICKLAND_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/nickland_test
+          NICKLAND_DATA_DIRECTORY: ${{ runner.temp }}/nickland
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Tests — both engines
+        env:
+          NICKLAND_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/nickland_test
+        run: pytest --cov --cov-report=term-missing
+
+  interface:
+    name: Interface — types and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: interface
+          path: ui/dist
+          retention-days: 7
+
+  security:
+    name: Dependency and secret review
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Audit Python dependencies
+        run: |
+          pip install pip-audit
+          pip-audit --strict --desc || echo '::warning::Review the advisories above.'
+
+      - name: Scan for committed credentials
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

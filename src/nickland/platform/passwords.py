@@ -10,6 +10,18 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from argon2.low_level import Type
 
+
+def normalise(password: str) -> str:
+    """Normalise to NFKC, so visually identical passwords hash identically.
+
+    An encoding concern rather than a business rule, so it lives here alongside the
+    hashing it serves. The domain re-exports it for its policy checks.
+    """
+    import unicodedata
+
+    return unicodedata.normalize("NFKC", password)
+
+
 _hasher = PasswordHasher(
     time_cost=3,
     memory_cost=64 * 1024,
@@ -22,17 +34,13 @@ _hasher = PasswordHasher(
 
 def hash_password(password: str) -> str:
     """Hash a password. The salt and parameters are embedded in the result."""
-    from nickland.domain.identity import normalise_password
-
-    return _hasher.hash(normalise_password(password))
+    return _hasher.hash(normalise(password))
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
     """Verify a password against a stored hash. Never raises on a mismatch."""
-    from nickland.domain.identity import normalise_password
-
     try:
-        return _hasher.verify(stored_hash, normalise_password(password))
+        return _hasher.verify(stored_hash, normalise(password))
     except (VerifyMismatchError, InvalidHashError, ValueError):
         return False
 

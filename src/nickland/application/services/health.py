@@ -207,8 +207,7 @@ class HealthService:
                 detail=(
                     "Connected. Online features are available."
                     if reachable
-                    else "Offline. Core workflows are unaffected; "
-                    "online features are unavailable."
+                    else "Offline. Core workflows are unaffected; online features are unavailable."
                 ),
             )
         reachable = _can_resolve()
@@ -216,9 +215,7 @@ class HealthService:
             name="Network",
             state=HealthState.OK if reachable else HealthState.FAILED,
             detail=(
-                "Connected."
-                if reachable
-                else "Not reachable. LAN clients cannot contact the host."
+                "Connected." if reachable else "Not reachable. LAN clients cannot contact the host."
             ),
         )
 

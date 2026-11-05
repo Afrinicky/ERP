@@ -150,10 +150,12 @@ DERIVATIONS: dict[str, tuple[str, ...]] = {
         "focus-ring",
         "chart-1",
     ),
-    "accent-secondary": ("accent-secondary-hover", "accent-secondary-surface",
-                         "text-on-accent-secondary"),
-    "surface-navigation": ("surface-navigation-hover", "surface-navigation-active",
-                           "text-inverse"),
+    "accent-secondary": (
+        "accent-secondary-hover",
+        "accent-secondary-surface",
+        "text-on-accent-secondary",
+    ),
+    "surface-navigation": ("surface-navigation-hover", "surface-navigation-active", "text-inverse"),
 }
 """Tokens derived from a customisable one.
 

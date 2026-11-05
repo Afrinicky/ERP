@@ -67,9 +67,20 @@ class OrganisationService:
             raise NotFoundError("Business not found.")
 
         permitted = {
-            "name", "legal_name", "trading_name", "tax_identifier", "registration_number",
-            "email", "telephone", "website", "base_currency", "currency_symbol",
-            "currency_precision", "timezone", "locale", "financial_year_start_month",
+            "name",
+            "legal_name",
+            "trading_name",
+            "tax_identifier",
+            "registration_number",
+            "email",
+            "telephone",
+            "website",
+            "base_currency",
+            "currency_symbol",
+            "currency_precision",
+            "timezone",
+            "locale",
+            "financial_year_start_month",
             "logo_attachment_id",
         }
         unknown = set(changes) - permitted
@@ -188,9 +199,7 @@ class OrganisationService:
             raise ValidationError("Warehouse name is required.", field="name")
 
         branch = self._db.scalar(
-            select(Branch).where(
-                Branch.business_id == actor.business_id, Branch.id == branch_id
-            )
+            select(Branch).where(Branch.business_id == actor.business_id, Branch.id == branch_id)
         )
         if branch is None:
             raise NotFoundError("Branch not found.")
@@ -259,7 +268,12 @@ class OrganisationService:
         """Create or replace an address on an owning record."""
         actor.require("business.manage")
         permitted = {
-            "line_one", "line_two", "city", "region", "postal_code", "country",
+            "line_one",
+            "line_two",
+            "city",
+            "region",
+            "postal_code",
+            "country",
             "digital_address",
         }
         unknown = set(values) - permitted
@@ -415,9 +429,7 @@ class OrganisationService:
             raise NotFoundError("Business not found.")
 
         issue_date = on or business_date(self._clock.now(), business.timezone)
-        sequence = self._require_sequence(
-            actor, str(document_kind), branch_id, for_update=True
-        )
+        sequence = self._require_sequence(actor, str(document_kind), branch_id, for_update=True)
 
         bucket = period_key(ResetCadence(sequence.reset_cadence), issue_date)
         if bucket != sequence.period_key:

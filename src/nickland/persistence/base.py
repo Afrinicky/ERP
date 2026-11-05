@@ -63,9 +63,7 @@ class BusinessScopedMixin:
     from the actor's scoping context and apply it to every query.
     """
 
-    business_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, nullable=False, index=True
-    )
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
 
 
 class BranchScopedMixin:

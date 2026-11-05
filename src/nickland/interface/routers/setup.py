@@ -32,9 +32,7 @@ def status(setup: SetupDependency, _local: LocalGuard) -> SetupStatusReply:
 
 
 @router.post("", response_model=SetupReply, status_code=201, summary="Provision the business")
-def provision(
-    contract: SetupContract, setup: SetupDependency, _local: LocalGuard
-) -> SetupReply:
+def provision(contract: SetupContract, setup: SetupDependency, _local: LocalGuard) -> SetupReply:
     """Create the business, its administrator and the seeded configuration.
 
     Runs once. A second attempt is refused.
@@ -47,5 +45,3 @@ def provision(
         roles_created=result.roles_created,
         sequences_created=result.sequences_created,
     )
-
-

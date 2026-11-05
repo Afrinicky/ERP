@@ -111,9 +111,7 @@ def verify_local_token(
 LocalGuard = Annotated[None, Depends(verify_local_token)]
 
 
-def get_identity_service(
-    session: SessionDependency, runtime: RuntimeDependency
-) -> IdentityService:
+def get_identity_service(session: SessionDependency, runtime: RuntimeDependency) -> IdentityService:
     return IdentityService(
         session,
         clock=runtime.clock,

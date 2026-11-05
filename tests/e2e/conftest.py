@@ -73,10 +73,6 @@ def admin_client(provisioned_client: TestClient) -> TestClient:
 
 
 def sign_in(client: TestClient, username: str, password: str) -> str:
-    response = client.post(
-        f"{API}/session", json={"username": username, "password": password}
-    )
+    response = client.post(f"{API}/session", json={"username": username, "password": password})
     assert response.status_code == 200, response.text
     return str(response.json()["token"])
-
-

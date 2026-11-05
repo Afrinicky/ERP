@@ -267,9 +267,7 @@ class SetupService:
             self._db.flush()
             for code in sorted(definition.permissions):
                 self._db.add(
-                    RolePermission(
-                        business_id=business_id, role_fk=role.id, permission_code=code
-                    )
+                    RolePermission(business_id=business_id, role_fk=role.id, permission_code=code)
                 )
         return len(SEEDED_ROLES)
 

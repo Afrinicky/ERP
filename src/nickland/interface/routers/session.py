@@ -78,9 +78,7 @@ def sign_out(actor: ActorDependency, identity: IdentityDependency) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post(
-    "/password", status_code=status.HTTP_204_NO_CONTENT, summary="Change own password"
-)
+@router.post("/password", status_code=status.HTTP_204_NO_CONTENT, summary="Change own password")
 def change_password(
     contract: ChangePasswordContract,
     actor: ActorDependency,

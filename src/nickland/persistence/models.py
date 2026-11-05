@@ -144,9 +144,7 @@ class Address(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
 
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    __table_args__ = (
-        Index("ix_addresses_owner", "business_id", "owner_type", "owner_id"),
-    )
+    __table_args__ = (Index("ix_addresses_owner", "business_id", "owner_type", "owner_id"),)
 
 
 class NumberSequence(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
@@ -170,9 +168,7 @@ class NumberSequence(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixi
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
-        UniqueConstraint(
-            "business_id", "branch_fk", "document_kind", "period_key", name=None
-        ),
+        UniqueConstraint("business_id", "branch_fk", "document_kind", "period_key", name=None),
         CheckConstraint("next_value >= 1", name="next_value_positive"),
     )
 

@@ -56,9 +56,7 @@ class Colour:
             return float(((proportion + 0.055) / 1.055) ** 2.4)
 
         luminance: float = (
-            0.2126 * channel(self.red)
-            + 0.7152 * channel(self.green)
-            + 0.0722 * channel(self.blue)
+            0.2126 * channel(self.red) + 0.7152 * channel(self.green) + 0.0722 * channel(self.blue)
         )
         return luminance
 

@@ -218,9 +218,7 @@ class IdentityService:
 
     # -- password ---------------------------------------------------------------------
 
-    def change_password(
-        self, actor: Actor, *, current_password: str, new_password: str
-    ) -> None:
+    def change_password(self, actor: Actor, *, current_password: str, new_password: str) -> None:
         """Change the acting user's own password."""
         user = self._require_user(actor.business_id, actor.user_id)
         if not verify_password(current_password, user.password_hash):
@@ -314,9 +312,7 @@ class IdentityService:
             raise ValidationError("At least one role is required.", field="role_codes")
 
         existing = self._db.scalar(
-            select(User).where(
-                User.business_id == actor.business_id, User.username == candidate
-            )
+            select(User).where(User.business_id == actor.business_id, User.username == candidate)
         )
         if existing is not None:
             raise ConflictError(f"Username {candidate!r} is already in use.")
@@ -392,9 +388,7 @@ class IdentityService:
         )
         return user
 
-    def set_active(
-        self, actor: AnyActor, user_id: uuid.UUID, *, active: bool, reason: str
-    ) -> User:
+    def set_active(self, actor: AnyActor, user_id: uuid.UUID, *, active: bool, reason: str) -> User:
         """Deactivate or reactivate a user. Deactivation revokes live sessions."""
         actor.require("user.manage")
         if not reason.strip():
@@ -528,9 +522,7 @@ class IdentityService:
                 self._db.delete(item)
         for code in permission_codes - before:
             self._db.add(
-                RolePermission(
-                    business_id=actor.business_id, role_fk=role.id, permission_code=code
-                )
+                RolePermission(business_id=actor.business_id, role_fk=role.id, permission_code=code)
             )
 
         self._audit.record(

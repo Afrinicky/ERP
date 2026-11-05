@@ -158,6 +158,4 @@ def _apply_staged_restore(settings: Settings) -> None:
         shutil.move(str(restored_attachments), str(target))
 
     shutil.rmtree(staging, ignore_errors=True)
-    logger.warning(
-        "Restore applied. The superseded database is retained at %s", superseded.name
-    )
+    logger.warning("Restore applied. The superseded database is retained at %s", superseded.name)

@@ -180,9 +180,7 @@ class TestAppearance:
         assert response.status_code == 422
         assert "not legible enough" in response.json()["error"]["message"]
 
-    def test_a_mid_tone_accent_is_refused_with_a_suggestion(
-        self, admin_client: TestClient
-    ) -> None:
+    def test_a_mid_tone_accent_is_refused_with_a_suggestion(self, admin_client: TestClient) -> None:
         response = admin_client.put(
             f"{API}/appearance",
             json={"preset_code": "charcoal", "overrides": {"accent-primary": "#B8640A"}},
@@ -313,9 +311,7 @@ class TestUsersAndPermissions:
                 "role_codes": ["cashier"],
             },
         )
-        admin_client.headers[SESSION_HEADER] = sign_in(
-            admin_client, "cashier1", STAFF_PASSWORD
-        )
+        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "cashier1", STAFF_PASSWORD)
         assert admin_client.get(f"{API}/audit").status_code == 403
 
     def test_a_cashier_cannot_amend_the_theme(self, admin_client: TestClient) -> None:
@@ -328,9 +324,7 @@ class TestUsersAndPermissions:
                 "role_codes": ["cashier"],
             },
         )
-        admin_client.headers[SESSION_HEADER] = sign_in(
-            admin_client, "cashier1", STAFF_PASSWORD
-        )
+        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "cashier1", STAFF_PASSWORD)
         response = admin_client.put(
             f"{API}/appearance", json={"preset_code": "navy", "overrides": {}}
         )
@@ -364,9 +358,7 @@ class TestUsersAndPermissions:
         )
         assert refused.status_code == 422
 
-    def test_the_last_administrator_cannot_lose_the_role(
-        self, admin_client: TestClient
-    ) -> None:
+    def test_the_last_administrator_cannot_lose_the_role(self, admin_client: TestClient) -> None:
         current = admin_client.get(f"{API}/session/current").json()
         response = admin_client.delete(
             f"{API}/users/{current['user_id']}/roles/owner_administrator"
@@ -383,9 +375,7 @@ class TestAudit:
 
     def test_records_the_fields_that_changed(self, admin_client: TestClient) -> None:
         admin_client.patch(f"{API}/business", json={"trading_name": "Nickland Meditech"})
-        body = admin_client.get(
-            f"{API}/audit", params={"action": "business_amended"}
-        ).json()
+        body = admin_client.get(f"{API}/audit", params={"action": "business_amended"}).json()
         assert body["total"] == 1
         entry = body["items"][0]
         assert entry["after_values"]["trading_name"] == "Nickland Meditech"
@@ -405,9 +395,7 @@ class TestAudit:
             f"{API}/custom-fields/{created['id']}/withdraw",
             json={"reason": "Superseded by the catalogue attribute"},
         )
-        body = admin_client.get(
-            f"{API}/audit", params={"action": "custom_field_withdrawn"}
-        ).json()
+        body = admin_client.get(f"{API}/audit", params={"action": "custom_field_withdrawn"}).json()
         assert body["items"][0]["reason"] == "Superseded by the catalogue attribute"
 
     def test_a_failed_sign_in_is_recorded_without_the_password(
@@ -419,9 +407,7 @@ class TestAudit:
         provisioned_client.headers[SESSION_HEADER] = sign_in(
             provisioned_client, "proprietor", "Provision9Admin"
         )
-        body = provisioned_client.get(
-            f"{API}/audit", params={"action": "sign_in_failed"}
-        ).json()
+        body = provisioned_client.get(f"{API}/audit", params={"action": "sign_in_failed"}).json()
         assert body["total"] == 1
         assert "Wrong9Password" not in str(body["items"][0])
 
@@ -473,9 +459,7 @@ class TestBackupAndHealth:
         assert response.status_code == 200
         assert response.json()["status"] == "staged"
 
-    def test_restoring_an_unknown_archive_is_not_found(
-        self, admin_client: TestClient
-    ) -> None:
+    def test_restoring_an_unknown_archive_is_not_found(self, admin_client: TestClient) -> None:
         response = admin_client.post(
             f"{API}/backups/restore",
             json={"archive_name": "nothing.zip", "reason": "Drill", "confirm": True},
@@ -495,9 +479,7 @@ class TestBackupAndHealth:
         backup_check = next(item for item in after["checks"] if item["name"] == "Backup")
         assert backup_check["state"] == "ok"
 
-    def test_offline_is_reported_as_unavailable_not_failed(
-        self, admin_client: TestClient
-    ) -> None:
+    def test_offline_is_reported_as_unavailable_not_failed(self, admin_client: TestClient) -> None:
         """PRD 9.4: absence of a network is the expected standalone condition."""
         body = admin_client.get(f"{API}/health/detail").json()
         network = next(item for item in body["checks"] if item["name"] == "Network")

@@ -130,9 +130,7 @@ class TestProvisioning:
         result = SetupService(db, clock=clock).provision(
             _request(extra_branches=[("tamale", "Tamale depot"), ("takoradi", "Takoradi depot")])
         )
-        branches = db.scalars(
-            select(Branch).where(Branch.business_id == result.business_id)
-        ).all()
+        branches = db.scalars(select(Branch).where(Branch.business_id == result.business_id)).all()
         assert len(branches) == 3
         assert sum(1 for branch in branches if branch.is_primary) == 1
 
@@ -165,9 +163,7 @@ class TestValidation:
         with pytest.raises(ValidationError, match=message):
             SetupService(db, clock=clock).provision(_request(**overrides))
 
-    def test_a_rejected_setup_leaves_nothing_behind(
-        self, db: Session, clock: FixedClock
-    ) -> None:
+    def test_a_rejected_setup_leaves_nothing_behind(self, db: Session, clock: FixedClock) -> None:
         """A failed provisioning must not leave a half-built business."""
         with pytest.raises(ValidationError):
             SetupService(db, clock=clock).provision(_request(administrator_password="short"))

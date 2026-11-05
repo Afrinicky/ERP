@@ -77,9 +77,7 @@ class TestSignIn:
     ) -> None:
         """The response must not disclose whether a username exists."""
         with pytest.raises(AuthenticationError) as caught:
-            _service(db, clock).sign_in(
-                username, password, business_id=provisioned["business_id"]
-            )
+            _service(db, clock).sign_in(username, password, business_id=provisioned["business_id"])
         assert str(caught.value) == "Username or password is incorrect."
 
     def test_a_failed_attempt_is_audited(
@@ -101,13 +99,13 @@ class TestSignIn:
         self, db: Session, clock: FixedClock, provisioned: dict[str, uuid.UUID]
     ) -> None:
         _service(db, clock).sign_in(
-            "proprietor", ADMIN_PASSWORD, business_id=provisioned["business_id"],
+            "proprietor",
+            ADMIN_PASSWORD,
+            business_id=provisioned["business_id"],
             device="till-1",
         )
         db.flush()
-        event = db.scalar(
-            select(AuditEvent).where(AuditEvent.action == AuditAction.SIGN_IN.value)
-        )
+        event = db.scalar(select(AuditEvent).where(AuditEvent.action == AuditAction.SIGN_IN.value))
         assert event is not None
         assert event.device == "till-1"
 
@@ -123,9 +121,7 @@ class TestLockout:
                     "proprietor", "WrongPassword9", business_id=provisioned["business_id"]
                 )
         with pytest.raises(AccountLockedError) as caught:
-            service.sign_in(
-                "proprietor", ADMIN_PASSWORD, business_id=provisioned["business_id"]
-            )
+            service.sign_in("proprietor", ADMIN_PASSWORD, business_id=provisioned["business_id"])
         assert caught.value.minutes_remaining == 15
 
     def test_the_lock_expires(
@@ -148,9 +144,7 @@ class TestLockout:
     ) -> None:
         service = _service(db, clock, lockout_policy=LockoutPolicy(threshold=3))
         with pytest.raises(AuthenticationError):
-            service.sign_in(
-                "proprietor", "WrongPassword9", business_id=provisioned["business_id"]
-            )
+            service.sign_in("proprietor", "WrongPassword9", business_id=provisioned["business_id"])
         service.sign_in("proprietor", ADMIN_PASSWORD, business_id=provisioned["business_id"])
         user = db.scalar(select(User).where(User.username == "proprietor"))
         assert user is not None
@@ -166,9 +160,12 @@ class TestLockout:
                     "proprietor", "WrongPassword9", business_id=provisioned["business_id"]
                 )
         db.flush()
-        assert db.scalar(
-            select(AuditEvent).where(AuditEvent.action == AuditAction.ACCOUNT_LOCKED.value)
-        ) is not None
+        assert (
+            db.scalar(
+                select(AuditEvent).where(AuditEvent.action == AuditAction.ACCOUNT_LOCKED.value)
+            )
+            is not None
+        )
 
 
 class TestSessions:
@@ -314,9 +311,7 @@ class TestUserAdministration:
             password=STAFF_PASSWORD,
             role_codes=["cashier"],
         )
-        result = service.sign_in(
-            "cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"]
-        )
+        result = service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         assert result.must_change_password
         assert result.actor.has("pos.operate")
         assert not result.actor.has("pos.refund")
@@ -348,9 +343,7 @@ class TestUserAdministration:
                 role_codes=["cashier"],
             )
 
-    def test_requires_at_least_one_role(
-        self, db: Session, clock: FixedClock, admin: Actor
-    ) -> None:
+    def test_requires_at_least_one_role(self, db: Session, clock: FixedClock, admin: Actor) -> None:
         with pytest.raises(ValidationError, match="At least one role"):
             _service(db, clock).create_user(
                 admin,
@@ -405,17 +398,13 @@ class TestUserAdministration:
         )
         service.set_active(admin, staff.id, active=False, reason="Left employment")
         with pytest.raises(AuthenticationError):
-            service.sign_in(
-                "cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"]
-            )
+            service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
 
     def test_cannot_deactivate_own_account(
         self, db: Session, clock: FixedClock, admin: Actor
     ) -> None:
         with pytest.raises(ConflictError, match="your own account"):
-            _service(db, clock).set_active(
-                admin, admin.user_id, active=False, reason="Mistake"
-            )
+            _service(db, clock).set_active(admin, admin.user_id, active=False, reason="Mistake")
 
     def test_cannot_withdraw_the_last_administrator_role(
         self, db: Session, clock: FixedClock, admin: Actor
@@ -450,9 +439,7 @@ class TestUserAdministration:
             role_codes=["cashier"],
         )
         service.assign_role(admin, staff.id, "sales_officer")
-        result = service.sign_in(
-            "cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"]
-        )
+        result = service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         assert result.actor.has("pos.operate")
         assert result.actor.has("quotation.issue")
 
@@ -472,9 +459,7 @@ class TestUserAdministration:
         with pytest.raises(AccountLockedError):
             service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         service.unlock(admin, staff.id)
-        assert service.sign_in(
-            "cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"]
-        )
+        assert service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
 
     def test_an_unknown_user_is_not_found(
         self, db: Session, clock: FixedClock, admin: Actor
@@ -488,9 +473,7 @@ class TestRolePermissions:
         self, db: Session, clock: FixedClock, admin: Actor
     ) -> None:
         with pytest.raises(ValidationError, match="reason is required"):
-            _service(db, clock).set_role_permissions(
-                admin, "cashier", {"pos.operate"}, reason=""
-            )
+            _service(db, clock).set_role_permissions(admin, "cashier", {"pos.operate"}, reason="")
 
     def test_an_unregistered_permission_is_refused(
         self, db: Session, clock: FixedClock, admin: Actor
@@ -517,9 +500,7 @@ class TestRolePermissions:
             password=STAFF_PASSWORD,
             role_codes=["cashier"],
         )
-        result = service.sign_in(
-            "cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"]
-        )
+        result = service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         assert result.actor.has("pos.refund")
         assert staff.id
 

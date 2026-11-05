@@ -86,9 +86,7 @@ def run_backup(
     db: SessionDependency,
 ) -> BackupReply:
     """Take and verify a backup of the database and attachment store."""
-    outcome = backup.run(
-        actor, trigger="manual", include_attachments=contract.include_attachments
-    )
+    outcome = backup.run(actor, trigger="manual", include_attachments=contract.include_attachments)
     db.flush()
     from nickland.persistence.models import BackupRecord
 

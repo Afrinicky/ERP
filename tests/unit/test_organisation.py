@@ -34,9 +34,10 @@ def test_default_pattern() -> None:
     ],
 )
 def test_placeholders(template: str, expected: str) -> None:
-    assert NumberPattern(template).render(
-        counter=7, prefix="INV", branch_code="ACC", on=ON
-    ) == expected
+    assert (
+        NumberPattern(template).render(counter=7, prefix="INV", branch_code="ACC", on=ON)
+        == expected
+    )
 
 
 def test_pattern_requires_a_counter() -> None:
@@ -51,8 +52,11 @@ def test_unknown_placeholder_is_rejected() -> None:
 
 @pytest.mark.parametrize(
     ("cadence", "expected"),
-    [(ResetCadence.NEVER, "all"), (ResetCadence.ANNUALLY, "2026"),
-     (ResetCadence.MONTHLY, "2026-11")],
+    [
+        (ResetCadence.NEVER, "all"),
+        (ResetCadence.ANNUALLY, "2026"),
+        (ResetCadence.MONTHLY, "2026-11"),
+    ],
 )
 def test_period_buckets(cadence: ResetCadence, expected: str) -> None:
     assert period_key(cadence, ON) == expected

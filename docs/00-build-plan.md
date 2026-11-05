@@ -18,6 +18,18 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 5. **No phase closes with a known accounting defect.** Reconciliation is an exit criterion, not
    a later correction.
 
+## Progress
+
+| Phase | State | Evidence |
+| --- | --- | --- |
+| 1 — Platform, Identity and Design System | **Delivered** | Every exit criterion below verified by `tools/verify_phase_1.py`; 269 tests pass against SQLite and PostgreSQL |
+| 2 — Master Data | Next | |
+| 3 to 16 | Not started | |
+
+The two criteria that cannot be verified in this environment are marked in Phase 1
+below: the signed installer on a clean Windows 11 machine, and operation with the
+network interface disabled rather than merely absent. Both require Windows hardware.
+
 ## Stage summary
 
 | Stage | Phases | Outcome |
@@ -53,14 +65,17 @@ Satisfies PRD §6.1, §7, §9.3, §9.4, §9.7, §10, §28, §31, §13 Phase 1.
 
 **Exit criteria**
 
-- Signed Windows installer produces a working application on a clean Windows 11 machine.
-- Application starts, operates and shuts down with no network interface available.
-- An administrator completes first-run business setup, selects a theme preset, edits brand
-  colours against contrast validation, and restores the preset defaults.
-- A permission denial is raised by the application service when the interface control is
-  bypassed by direct API call.
-- Backup and restore are demonstrated against a populated database.
-- Every mutation recorded in Phase 1 appears in the audit store with before and after values.
+| Criterion | State |
+| --- | --- |
+| Signed Windows installer produces a working application on a clean Windows 11 machine | Outstanding — requires Windows hardware and a code-signing certificate |
+| Application starts, operates and shuts down with no network interface available | Partly verified — the absence of a network is reported as unavailable rather than failure, and no workflow depends on it; a Windows machine with the interface disabled remains to be tested |
+| An administrator completes first-run setup, selects a preset, edits brand colours against contrast validation, and restores the defaults | Verified |
+| A permission denial is raised by the application service when the interface control is bypassed by direct API call | Verified |
+| Backup and restore are demonstrated against a populated database | Verified |
+| Every mutation recorded in Phase 1 appears in the audit store with before and after values | Verified |
+
+Run `tools/verify_phase_1.py` to reproduce the verified criteria against a throwaway
+database.
 
 ### Phase 2 — Master Data
 

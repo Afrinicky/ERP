@@ -94,8 +94,11 @@ class TestSessionPolicy:
 class TestUsername:
     @pytest.mark.parametrize(
         ("raw", "expected"),
-        [("  Proprietor ", "proprietor"), ("Store.Officer-1", "store.officer-1"),
-         ("a_b_c", "a_b_c")],
+        [
+            ("  Proprietor ", "proprietor"),
+            ("Store.Officer-1", "store.officer-1"),
+            ("a_b_c", "a_b_c"),
+        ],
     )
     def test_normalisation(self, raw: str, expected: str) -> None:
         assert validate_username(raw) == expected

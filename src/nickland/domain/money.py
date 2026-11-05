@@ -102,8 +102,7 @@ def allocate(total: Decimal, weights: list[Decimal], precision: int) -> list[Dec
         parts = [share] * len(weights)
     else:
         parts = [
-            present(multiply(total, divide(weight, weight_total)), precision)
-            for weight in weights
+            present(multiply(total, divide(weight, weight_total)), precision) for weight in weights
         ]
 
     residue = present(total, precision) - sum(parts, ZERO)

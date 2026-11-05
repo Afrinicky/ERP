@@ -255,9 +255,7 @@ class BackupService:
         if self._engine.dialect.name == "sqlite":
             source_path = self._database_path()
             if not source_path.exists():
-                raise ConflictError(
-                    f"The database file is not present at {source_path}."
-                )
+                raise ConflictError(f"The database file is not present at {source_path}.")
             source = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
             try:
                 target = sqlite3.connect(destination)
@@ -324,9 +322,7 @@ class BackupService:
     def _schema_revision(self) -> str | None:
         try:
             with self._engine.connect() as connection:
-                return connection.execute(
-                    text("SELECT version_num FROM alembic_version")
-                ).scalar()
+                return connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
         except Exception:
             return None
 

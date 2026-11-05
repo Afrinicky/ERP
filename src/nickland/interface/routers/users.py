@@ -31,9 +31,9 @@ router = APIRouter(tags=["users"])
 
 def _user_reply(db: SessionDependency, user: User) -> UserReply:
     codes = db.scalars(
-        select(Role.code).join(UserRole, UserRole.role_fk == Role.id).where(
-            UserRole.user_fk == user.id
-        )
+        select(Role.code)
+        .join(UserRole, UserRole.role_fk == Role.id)
+        .where(UserRole.user_fk == user.id)
     ).all()
     return UserReply(
         id=user.id,
@@ -81,15 +81,11 @@ def amend_user(
     identity: IdentityDependency,
     db: SessionDependency,
 ) -> UserReply:
-    user = identity.amend_user(
-        actor, user_id, **contract.model_dump(exclude_unset=True)
-    )
+    user = identity.amend_user(actor, user_id, **contract.model_dump(exclude_unset=True))
     return _user_reply(db, user)
 
 
-@router.post(
-    "/users/{user_id}/active", response_model=UserReply, summary="Activate or deactivate"
-)
+@router.post("/users/{user_id}/active", response_model=UserReply, summary="Activate or deactivate")
 def set_active(
     user_id: uuid.UUID,
     contract: SetActiveContract,
@@ -98,9 +94,7 @@ def set_active(
     db: SessionDependency,
 ) -> UserReply:
     """Deactivation revokes every live session of that user."""
-    user = identity.set_active(
-        actor, user_id, active=contract.active, reason=contract.reason
-    )
+    user = identity.set_active(actor, user_id, active=contract.active, reason=contract.reason)
     return _user_reply(db, user)
 
 
@@ -126,9 +120,7 @@ def reset_password(
     identity: IdentityDependency,
 ) -> Response:
     """Reset a password. A reason is mandatory and is recorded in the audit trail."""
-    identity.reset_password(
-        actor, user_id, contract.new_password, reason=contract.reason
-    )
+    identity.reset_password(actor, user_id, contract.new_password, reason=contract.reason)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -209,9 +201,7 @@ def set_role_permissions(
     )
 
 
-@router.get(
-    "/permissions", response_model=list[PermissionReply], summary="List every permission"
-)
+@router.get("/permissions", response_model=list[PermissionReply], summary="List every permission")
 def list_permissions(actor: ActorDependency) -> list[PermissionReply]:
     """The permission registry, for the role administration screen."""
     actor.require("user.view")

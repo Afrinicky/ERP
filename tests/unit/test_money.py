@@ -24,8 +24,13 @@ def test_float_is_rejected() -> None:
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [("0", "0.000000"), ("1200", "1200.000000"), ("-45.5", "-45.500000"),
-     ("0.0000005", "0.000001"), ("0.0000004", "0.000000")],
+    [
+        ("0", "0.000000"),
+        ("1200", "1200.000000"),
+        ("-45.5", "-45.500000"),
+        ("0.0000005", "0.000001"),
+        ("0.0000004", "0.000000"),
+    ],
 )
 def test_working_precision(value: str, expected: str) -> None:
     assert money(value) == Decimal(expected)

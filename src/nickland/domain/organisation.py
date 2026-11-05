@@ -95,9 +95,7 @@ class NumberPattern:
                 f"Unknown placeholder(s) in pattern: {sorted(unknown)}", field="pattern"
             )
         if "counter" not in found:
-            raise ValidationError(
-                "A numbering pattern must include {counter}.", field="pattern"
-            )
+            raise ValidationError("A numbering pattern must include {counter}.", field="pattern")
 
     def render(
         self,

@@ -6,11 +6,20 @@ Hashing itself is an integration concern; this module decides policy.
 from __future__ import annotations
 
 import re
-import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from nickland.domain.errors import ValidationError
+from nickland.platform.passwords import normalise as normalise_password
+
+__all__ = [
+    "LockoutPolicy",
+    "PasswordPolicy",
+    "SessionPolicy",
+    "normalise_password",
+    "validate_password",
+    "validate_username",
+]
 
 _COMMON_PASSWORDS = frozenset(
     {
@@ -40,8 +49,15 @@ _COMMON_PASSWORDS = frozenset(
 
 _LEET = str.maketrans(
     {
-        "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t",
-        "@": "a", "$": "s", "!": "i",
+        "0": "o",
+        "1": "i",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "7": "t",
+        "@": "a",
+        "$": "s",
+        "!": "i",
     }
 )
 _DECORATION = "0123456789!@#$%^&*()_+-=.,?"
@@ -98,11 +114,6 @@ class PasswordPolicy:
         if self.require_symbol:
             requirements.append("One symbol")
         return requirements
-
-
-def normalise_password(password: str) -> str:
-    """Normalise to NFKC so visually identical passwords hash identically."""
-    return unicodedata.normalize("NFKC", password)
 
 
 def validate_password(

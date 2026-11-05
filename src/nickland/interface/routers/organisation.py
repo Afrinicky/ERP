@@ -23,9 +23,7 @@ router = APIRouter(tags=["organisation"])
 
 
 @router.get("/business", response_model=BusinessReply, summary="Describe the business")
-def get_business(
-    actor: ActorDependency, organisation: OrganisationDependency
-) -> BusinessReply:
+def get_business(actor: ActorDependency, organisation: OrganisationDependency) -> BusinessReply:
     return BusinessReply.model_validate(organisation.get_business(actor))
 
 
@@ -57,9 +55,7 @@ def create_branch(
     actor: ActorDependency,
     organisation: OrganisationDependency,
 ) -> BranchReply:
-    return BranchReply.model_validate(
-        organisation.create_branch(actor, **contract.model_dump())
-    )
+    return BranchReply.model_validate(organisation.create_branch(actor, **contract.model_dump()))
 
 
 @router.get("/warehouses", response_model=list[WarehouseReply], summary="List warehouses")
@@ -96,9 +92,7 @@ def _sequence_reply(
     return reply
 
 
-@router.get(
-    "/numbering", response_model=list[SequenceReply], summary="List numbering sequences"
-)
+@router.get("/numbering", response_model=list[SequenceReply], summary="List numbering sequences")
 def list_sequences(
     actor: ActorDependency, organisation: OrganisationDependency
 ) -> list[SequenceReply]:
