@@ -44,7 +44,8 @@ export const COLOUR_TOKENS = [
 ] as const;
 export type ColourToken = (typeof COLOUR_TOKENS)[number];
 
-export const CUSTOMISABLE_TOKENS = [
+export const CUSTOMISABLE_TOKENS =
+  [
   "accent-primary",
   "accent-secondary",
   "surface-canvas",

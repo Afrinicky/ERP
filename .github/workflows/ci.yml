@@ -41,10 +41,10 @@ jobs:
           pip install -e '.[dev,postgres]'
 
       - name: Lint
-        run: ruff check src tests
+        run: ruff check src tests tools
 
       - name: Format
-        run: ruff format --check src tests
+        run: ruff format --check src tests tools
 
       - name: Types
         run: mypy
@@ -69,6 +69,11 @@ jobs:
           alembic upgrade head
           alembic downgrade base
           alembic upgrade head
+
+      - name: Phase exit criteria
+        env:
+          NICKLAND_DATA_DIRECTORY: ${{ runner.temp }}/nickland-verify
+        run: python tools/verify_phase_1.py
 
       - name: Tests — both engines
         env:
