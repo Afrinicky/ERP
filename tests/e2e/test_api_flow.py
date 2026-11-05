@@ -144,7 +144,7 @@ class TestAppearance:
         )
         body = response.json()
         assert body["passes"] is True
-        assert len(body["audit"]) == 28
+        assert len(body["audit"]) == 32
         assert all(line["ratio"] >= 1.0 for line in body["audit"])
 
     def test_preview_reports_a_failing_combination_without_refusing(

@@ -167,11 +167,15 @@
 
 /* ---------------------------------------------------------------- Rail */
 
+/* The rail is a dark panel in its own right, set deeper than the header so the two
+   read as separate surfaces rather than one slab. A near-black header leaves little
+   room for a luminance step, so a border carries the remainder of the separation. */
 .rail {
   grid-area: rail;
   display: flex;
   flex-direction: column;
-  background: var(--colour-surface-navigation);
+  background: var(--colour-surface-rail);
+  border-right: var(--border-hairline) solid var(--colour-border-rail);
   overflow: hidden;
 }
 
@@ -181,7 +185,7 @@
   gap: var(--space-3);
   height: var(--layout-header);
   padding: 0 var(--space-4);
-  border-bottom: var(--border-hairline) solid var(--colour-border-inverse);
+  border-bottom: var(--border-hairline) solid var(--colour-border-rail);
 }
 
 .rail__mark {
@@ -263,13 +267,13 @@
 
 .rail__item:hover {
   color: var(--colour-text-inverse);
-  background: var(--colour-surface-navigation-hover);
+  background: var(--colour-surface-rail-hover);
   text-decoration: none;
 }
 
 .rail__item[aria-current='page'] {
   color: var(--colour-text-inverse);
-  background: var(--colour-surface-navigation-active);
+  background: var(--colour-surface-rail-active);
   font-weight: var(--weight-medium);
   position: relative;
 }

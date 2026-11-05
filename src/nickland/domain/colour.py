@@ -169,6 +169,23 @@ def ensure_contrast(value: str, background: str, required: float) -> str:
     return "#252525"
 
 
+def deepen_for_separation(value: str, *, target: float = 1.2, limit: int = 60) -> str:
+    """Darken a colour until it separates visibly from the one given.
+
+    Used to set the navigation rail beneath the header. A fixed percentage will not do:
+    the darker the header, the less a percentage achieves, and on a near-black header
+    no amount of darkening separates the two. Where the target cannot be reached the
+    deepest shade is returned and the border carries the separation.
+    """
+    best = value
+    for step in range(1, limit + 1):
+        candidate = darken(value, step * 0.02)
+        best = candidate
+        if round(contrast_ratio(Colour.parse(candidate), Colour.parse(value)), 3) >= target:
+            return candidate
+    return best
+
+
 def nearest_legible_shade(value: str, *, required: float = AA_NORMAL_TEXT) -> str | None:
     """Find the nearest shade of a colour that can carry legible text.
 

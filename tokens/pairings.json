@@ -1,5 +1,5 @@
 {
-  "$comment": "Every pairing the contrast audit must verify, for both presets and for any saved custom theme. Thresholds are WCAG 2.1 AA: 4.5:1 for body text, 3:1 for large text, and 3:1 under 1.4.11 for anything that identifies a component boundary or state. Purely decorative dividers between surfaces carry no WCAG requirement and are not audited; anything that communicates a boundary or a state uses border-input or border-strong, which are.",
+  "$comment": "Every pairing the contrast audit must verify, for both presets and for any saved custom theme. Thresholds are WCAG 2.1 AA: 4.5:1 for body text, 3:1 for large text, and 3:1 under 1.4.11 for anything that identifies a component boundary or state. Purely decorative dividers between surfaces carry no WCAG requirement and are not audited; anything that communicates a boundary or a state uses border-input or border-strong, which are. The rail's separation from the header is a design-quality concern rather than an accessibility one, and border-rail guarantees it, so it is not audited here.",
   "pairings": [
     {
       "label": "Body text on canvas",
@@ -53,6 +53,30 @@
       "label": "Navigation text when hovered",
       "foreground": "text-inverse",
       "background": "surface-navigation-hover",
+      "required": 4.5
+    },
+    {
+      "label": "Rail text",
+      "foreground": "text-inverse",
+      "background": "surface-rail",
+      "required": 4.5
+    },
+    {
+      "label": "Rail secondary text",
+      "foreground": "text-inverse-secondary",
+      "background": "surface-rail",
+      "required": 4.5
+    },
+    {
+      "label": "Rail text when hovered",
+      "foreground": "text-inverse",
+      "background": "surface-rail-hover",
+      "required": 4.5
+    },
+    {
+      "label": "Rail text when current",
+      "foreground": "text-inverse",
+      "background": "surface-rail-active",
       "required": 4.5
     },
     {

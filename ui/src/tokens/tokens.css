@@ -93,6 +93,10 @@
   --colour-surface-navigation: #252525;
   --colour-surface-navigation-hover: #333333;
   --colour-surface-navigation-active: #2E2A24;
+  --colour-surface-rail: #141414;
+  --colour-surface-rail-hover: #282828;
+  --colour-surface-rail-active: #2E2920;
+  --colour-border-rail: #2E2E2E;
   --colour-surface-overlay: #FFFFFF;
   --colour-surface-inverse: #252525;
   --colour-text-primary: #252525;
@@ -136,6 +140,10 @@
   --colour-surface-navigation: #14276B;
   --colour-surface-navigation-hover: #1E3585;
   --colour-surface-navigation-active: #1B2F78;
+  --colour-surface-rail: #0E1B4B;
+  --colour-surface-rail-hover: #1C2C66;
+  --colour-surface-rail-active: #17265C;
+  --colour-border-rail: #24346E;
   --colour-surface-overlay: #FFFFFF;
   --colour-surface-inverse: #14276B;
   --colour-text-primary: #17202E;
@@ -179,6 +187,10 @@
   --colour-surface-navigation: #1B2A41;
   --colour-surface-navigation-hover: #263750;
   --colour-surface-navigation-active: #1E3356;
+  --colour-surface-rail: #131D2E;
+  --colour-surface-rail-hover: #243040;
+  --colour-surface-rail-active: #1C2A42;
+  --colour-border-rail: #2A3545;
   --colour-surface-overlay: #FFFFFF;
   --colour-surface-inverse: #1B2A41;
   --colour-text-primary: #13202F;

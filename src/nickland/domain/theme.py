@@ -20,6 +20,7 @@ from nickland.domain.colour import (
     best_text_ratio,
     check_pairing,
     darken,
+    deepen_for_separation,
     ensure_contrast,
     nearest_legible_shade,
     readable_text_on,
@@ -205,10 +206,18 @@ def derive(token: str, value: str, surfaces: dict[str, str] | None = None) -> di
             "text-on-accent-secondary": readable_text_on(value),
         }
     if token == "surface-navigation":
+        # The rail is a deeper surface than the header, so the two read as separate
+        # panels rather than one slab. Where the header is already near-black the
+        # separation cannot be had by luminance, and border-rail carries it instead.
+        rail = deepen_for_separation(value)
         return {
             "surface-navigation-hover": darken(value, -0.14),
             "surface-navigation-active": darken(value, -0.08),
             "text-inverse": readable_text_on(value),
+            "surface-rail": rail,
+            "surface-rail-hover": darken(rail, -0.16),
+            "surface-rail-active": darken(rail, -0.08),
+            "border-rail": darken(rail, -0.26),
         }
     return {}
 

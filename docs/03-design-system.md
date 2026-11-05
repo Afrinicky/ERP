@@ -48,7 +48,10 @@ Components reference semantic tokens only. A theme change therefore alters no co
 | `surface.canvas` | Application background |
 | `surface.raised` | Cards, panels, table containers |
 | `surface.sunken` | Input wells, inset regions |
-| `surface.navigation` | Primary navigation and application header |
+| `surface.navigation` | The application header |
+| `surface.rail` | The navigation rail: a dark panel, set deeper than the header |
+| `surface.rail.hover`, `surface.rail.active` | Rail interaction and current-page states |
+| `border.rail` | The rail's edge against the work surface |
 | `surface.overlay` | Dialogs, popovers, menus |
 | `text.primary` | Body and table content |
 | `text.secondary` | Labels, captions, column headers |
@@ -179,7 +182,7 @@ A 4px base unit. Permitted steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 
 | Region | Specification |
 | --- | --- |
-| Navigation rail | 240px expanded, 64px collapsed, persistent |
+| Navigation rail | 240px expanded, 64px collapsed, toggled from the header |
 | Application header | 56px, fixed |
 | Content gutter | 24px, reducing to 16px below 1280px |
 | Card padding | 20px |
@@ -231,7 +234,20 @@ on the right. The primary action is the single filled accent button; everything 
 outlined or plain. The status strip reports deployment mode, service health, backup position
 and accounting period state, per PRD §9.4.
 
-### Navigation
+### The navigation rail
+
+The rail is a dark interface in every preset, and a deeper surface than the header, so
+the two read as separate panels rather than one slab. Where a header is already
+near-black the luminance step available is small, and `border-rail` carries the
+remainder of the separation; the derivation seeks the separation rather than applying a
+fixed step, because the darker the header the less a fixed step achieves.
+
+Separation between the rail and the header is a design-quality matter, not an
+accessibility one, so it is not a blocking check. The text on the rail is: rail text,
+rail secondary text, and the hovered and current states are all audited at 4.5:1.
+
+It collapses to 64px from the hamburger beside the wordmark, and the choice is
+remembered per browser.
 
 Fourteen top-level destinations, per PRD §7.3 and §23. Every item is icon-led with a
 permanent text label, per PRD §28.2.
