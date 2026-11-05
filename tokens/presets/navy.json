@@ -1,7 +1,7 @@
 {
   "code": "navy",
   "name": "Navy",
-  "description": "Bluish-black navy with a blue accent. Specified in PRD 7.1.",
+  "description": "Bluish-black navigation with a blue accent and a cool slate support tone.",
   "source": "PRD 7.1",
   "colour": {
     "surface-canvas": "#F6F8FA",

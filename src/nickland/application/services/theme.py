@@ -18,6 +18,7 @@ from nickland.domain.errors import NotFoundError
 from nickland.domain.theme import (
     ThemeDefinition,
     customisable_tokens,
+    expand,
     get_preset,
     load_presets,
     validate_overrides,
@@ -52,6 +53,23 @@ class AuditLine:
     ratio: float
     required: float
     passes: bool
+
+
+def _normalise(overrides: dict[str, str]) -> dict[str, str]:
+    """Normalise colour values, ignoring any that are not yet a valid colour.
+
+    The editor previews as the administrator types, so a half-entered value must not
+    abort the measurement.
+    """
+    from nickland.domain.colour import Colour
+
+    result: dict[str, str] = {}
+    for token, value in overrides.items():
+        try:
+            result[token] = Colour.parse(value).to_hex()
+        except ValueError:
+            continue
+    return result
 
 
 class ThemeService:
@@ -100,7 +118,11 @@ class ThemeService:
         visible before it is submitted, per PRD 28.2.
         """
         actor.require("theme.manage")
-        definition = ThemeDefinition(preset=get_preset(preset_code), overrides=dict(overrides))
+        # Derive the dependent tokens exactly as saving would, or the preview would
+        # measure a theme the system would never store.
+        definition = ThemeDefinition(
+            preset=get_preset(preset_code), overrides=expand(_normalise(overrides))
+        )
         lines = [
             AuditLine(
                 label=result.label,

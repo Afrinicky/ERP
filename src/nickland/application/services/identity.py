@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
@@ -54,7 +55,7 @@ class SignInResult:
 
     token: str
     actor: Actor
-    expires_at: object
+    expires_at: datetime
     must_change_password: bool
 
 

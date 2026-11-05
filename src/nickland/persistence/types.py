@@ -138,6 +138,8 @@ class UtcDateTime(TypeDecorator[datetime]):
     def process_result_value(self, value: Any, dialect: Dialect) -> datetime | None:
         if value is None:
             return None
+        if not isinstance(value, datetime):
+            raise TypeError(f"Expected a datetime from the driver, received {type(value)!r}")
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)

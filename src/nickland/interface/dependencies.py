@@ -5,6 +5,7 @@ Authentication happens here. Authorisation happens in the application layer.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated
@@ -175,14 +176,14 @@ BackupDependency = Annotated[BackupService, Depends(get_backup_service)]
 HealthDependency = Annotated[HealthService, Depends(get_health_service)]
 
 
-def sole_business_id(session: Session) -> object:
+def sole_business_id(session: Session) -> uuid.UUID:
     """The identifier of the single configured business.
 
     The interface exposes one business, per ADR-0003. Sign-in therefore need not ask
     which business is meant. When multi-business operation is activated in Phase 16,
     sign-in takes the business explicitly and this helper is withdrawn.
     """
-    identifiers = session.scalars(select(Business.id).limit(2)).all()
+    identifiers = list(session.scalars(select(Business.id).limit(2)))
     if not identifiers:
         raise ConflictError("This installation has not been set up.")
     if len(identifiers) > 1:

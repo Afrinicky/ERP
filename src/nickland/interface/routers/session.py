@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response, status
 
+from nickland.application.context import Actor
 from nickland.interface.dependencies import (
     ActorDependency,
     IdentityDependency,
@@ -21,16 +22,17 @@ from nickland.interface.schemas import (
 router = APIRouter(prefix="/session", tags=["session"])
 
 
-def _actor_reply(actor: object) -> ActorReply:
+def _actor_reply(actor: Actor) -> ActorReply:
+    """Describe the actor, including the permissions in force."""
     return ActorReply(
-        user_id=actor.user_id,  # type: ignore[attr-defined]
-        username=actor.username,  # type: ignore[attr-defined]
-        full_name=actor.full_name,  # type: ignore[attr-defined]
-        business_id=actor.business_id,  # type: ignore[attr-defined]
-        branch_id=actor.branch_id,  # type: ignore[attr-defined]
-        role_codes=sorted(actor.role_codes),  # type: ignore[attr-defined]
-        permissions=sorted(actor.permissions),  # type: ignore[attr-defined]
-        is_administrator=actor.is_administrator,  # type: ignore[attr-defined]
+        user_id=actor.user_id,
+        username=actor.username,
+        full_name=actor.full_name,
+        business_id=actor.business_id,
+        branch_id=actor.branch_id,
+        role_codes=sorted(actor.role_codes),
+        permissions=sorted(actor.permissions),
+        is_administrator=actor.is_administrator,
     )
 
 
@@ -49,12 +51,12 @@ def sign_in(
     result = identity.sign_in(
         contract.username,
         contract.password,
-        business_id=sole_business_id(db),  # type: ignore[arg-type]
+        business_id=sole_business_id(db),
         device=contract.device,
     )
     return SignInReply(
         token=result.token,
-        expires_at=result.expires_at,  # type: ignore[arg-type]
+        expires_at=result.expires_at,
         must_change_password=result.must_change_password,
         actor=_actor_reply(result.actor),
     )

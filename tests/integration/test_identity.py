@@ -327,7 +327,7 @@ class TestUserAdministration:
     ) -> None:
         """PRD 10: permissions are enforced in the service, not by hiding controls."""
         weak = make_actor(provisioned["business_id"], permissions={"user.view"})
-        with pytest.raises(PermissionDeniedError, match="user.manage"):
+        with pytest.raises(PermissionDeniedError, match=r"user\.manage"):
             _service(db, clock).create_user(
                 weak,
                 username="intruder",

@@ -70,7 +70,7 @@ class RedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.msg = redact(record.msg)
         if record.args:
-            record.args = redact(record.args)  # type: ignore[assignment]
+            record.args = redact(record.args)
         return True
 
 

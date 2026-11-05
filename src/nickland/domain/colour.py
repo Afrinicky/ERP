@@ -52,13 +52,15 @@ class Colour:
             proportion = component / 255.0
             if proportion <= 0.03928:
                 return proportion / 12.92
-            return ((proportion + 0.055) / 1.055) ** 2.4
+            # float ** float is untyped, so the result is narrowed explicitly.
+            return float(((proportion + 0.055) / 1.055) ** 2.4)
 
-        return (
+        luminance: float = (
             0.2126 * channel(self.red)
             + 0.7152 * channel(self.green)
             + 0.0722 * channel(self.blue)
         )
+        return luminance
 
 
 def contrast_ratio(first: Colour, second: Colour) -> float:

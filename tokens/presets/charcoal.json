@@ -1,7 +1,7 @@
 {
   "code": "charcoal",
   "name": "Charcoal",
-  "description": "Charcoal, orange and beige. Specified in PRD 28.1.",
+  "description": "Charcoal navigation with an orange accent and a warm beige support tone.",
   "source": "PRD 28.1",
   "colour": {
     "surface-canvas": "#F7F5F3",

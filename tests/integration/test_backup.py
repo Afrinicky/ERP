@@ -44,7 +44,7 @@ def test_backup_requires_the_permission(
     db: Session, engine: Engine, settings: Settings, clock: FixedClock, admin: Actor
 ) -> None:
     weak = make_actor(admin.business_id, permissions={"health.view"})
-    with pytest.raises(PermissionDeniedError, match="backup.manage"):
+    with pytest.raises(PermissionDeniedError, match=r"backup\.manage"):
         _service(db, engine, settings, clock).run(weak)
 
 

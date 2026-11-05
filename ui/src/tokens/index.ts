@@ -66,7 +66,7 @@ export const PRESETS: Record<PresetCode, ThemePreset> =
   "charcoal": {
     "code": "charcoal",
     "name": "Charcoal",
-    "description": "Charcoal, orange and beige. Specified in PRD 28.1.",
+    "description": "Charcoal navigation with an orange accent and a warm beige support tone.",
     "source": "PRD 28.1",
     "colour": {
       "surface-canvas": "#F7F5F3",
@@ -111,7 +111,7 @@ export const PRESETS: Record<PresetCode, ThemePreset> =
   "navy": {
     "code": "navy",
     "name": "Navy",
-    "description": "Bluish-black navy with a blue accent. Specified in PRD 7.1.",
+    "description": "Bluish-black navigation with a blue accent and a cool slate support tone.",
     "source": "PRD 7.1",
     "colour": {
       "surface-canvas": "#F6F8FA",

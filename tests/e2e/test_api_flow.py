@@ -503,3 +503,51 @@ class TestBackupAndHealth:
         network = next(item for item in body["checks"] if item["name"] == "Network")
         assert network["state"] in ("ok", "unavailable")
         assert body["state"] != "failed"
+
+
+class TestThemePreviewMatchesSave:
+    """The preview must measure the same theme that saving would store.
+
+    Dependent tokens are derived on save; a preview that skipped the derivation would
+    report failures that saving does not produce, and would show the administrator a
+    palette they will never get.
+    """
+
+    def test_preview_derives_the_same_tokens_as_saving(self, admin_client: TestClient) -> None:
+        overrides = {"accent-primary": "#A85C00"}
+        preview = admin_client.post(
+            f"{API}/appearance/preview",
+            json={"preset_code": "charcoal", "overrides": overrides},
+        ).json()
+        saved = admin_client.put(
+            f"{API}/appearance", json={"preset_code": "charcoal", "overrides": overrides}
+        )
+        assert saved.status_code == 200, saved.text
+        assert preview["passes"] is True
+        assert preview["theme"]["colour"] == saved.json()["colour"]
+
+    def test_a_preview_that_passes_can_always_be_saved(self, admin_client: TestClient) -> None:
+        for accent in ("#A85C00", "#1C4FB8", "#7D5BA6", "#F7931E"):
+            overrides = {"accent-primary": accent}
+            preview = admin_client.post(
+                f"{API}/appearance/preview",
+                json={"preset_code": "charcoal", "overrides": overrides},
+            ).json()
+            saved = admin_client.put(
+                f"{API}/appearance",
+                json={"preset_code": "charcoal", "overrides": overrides},
+            )
+            assert preview["passes"] == (saved.status_code == 200), (
+                f"{accent}: preview said passes={preview['passes']} "
+                f"but saving returned {saved.status_code}"
+            )
+
+    def test_a_partially_typed_colour_does_not_abort_the_preview(
+        self, admin_client: TestClient
+    ) -> None:
+        response = admin_client.post(
+            f"{API}/appearance/preview",
+            json={"preset_code": "charcoal", "overrides": {"accent-primary": "#A8"}},
+        )
+        assert response.status_code == 200
+        assert response.json()["passes"] is True
