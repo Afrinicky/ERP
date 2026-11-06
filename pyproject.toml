@@ -19,6 +19,7 @@ dependencies = [
     "argon2-cffi>=23.1,<26.0",
     "python-multipart>=0.0.12,<0.1",
     "platformdirs>=4.3,<5.0",
+    "weasyprint>=63,<67",
 ]
 
 [project.optional-dependencies]

@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from nickland.application.context import Actor
@@ -28,6 +28,7 @@ from nickland.domain.ledger import (
     Side,
     SubledgerKind,
 )
+from nickland.persistence.engine import create_session_factory
 from nickland.persistence.ledger_models import JournalEntry
 from nickland.persistence.models import AuditEvent
 from nickland.platform.clock import FixedClock
@@ -300,6 +301,30 @@ class TestImmutability:
         with pytest.raises(ConflictError, match="cannot be deleted"):
             db.flush()
         db.rollback()
+
+    def test_the_guard_holds_for_a_session_from_a_second_factory(
+        self, engine: Engine, journals: JournalService, db: Session, admin: Actor
+    ) -> None:
+        """The guard must not depend on which factory made the session.
+
+        It was once attached per factory, and the second factory in a process
+        silently attached nothing, so its sessions flushed unguarded. Nothing failed
+        loudly; a posted entry simply became editable. This builds a factory of its
+        own and checks the rule still holds.
+        """
+        entry = capital(journals, admin)
+        db.commit()
+
+        other = create_session_factory(engine)()
+        try:
+            carried = other.get(JournalEntry, entry.id)
+            assert carried is not None
+            carried.narration = "Tampered with, through another session"
+            with pytest.raises(ConflictError, match="cannot be amended"):
+                other.flush()
+        finally:
+            other.rollback()
+            other.close()
 
     def test_an_audit_entry_cannot_be_altered(self, db: Session, admin: Actor) -> None:
         event = db.scalars(select(AuditEvent).limit(1)).all()[0]

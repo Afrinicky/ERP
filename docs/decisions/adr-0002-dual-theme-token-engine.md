@@ -1,4 +1,4 @@
-# ADR-0002 — Token-driven theming with shipped presets and no imposed default
+# ADR-0002 — Token-driven theming with shipped presets and one recommendation
 
 Status: accepted · Date: 5 November 2026
 
@@ -15,11 +15,13 @@ accessible colour combinations, a preview before applying, and a reset to defaul
 
 ## Decision
 
-Both palettes ship as complete, equal presets over a single token layer. No default is
-imposed. The administrator selects a preset during first-run setup.
+Every palette ships as a complete preset over a single token layer. The administrator
+selects one during first-run setup. One preset is marked as recommended and is offered
+first and preselected; the rest are equally available and nothing is withheld.
 
 | Preset | Source | Primary | Accent | Secondary |
 | --- | --- | --- | --- | --- |
+| **Nickland** (recommended) | The brand mark | `#042249` | `#119598` | `#0D3A72` |
 | Charcoal | §28.1 | `#252525` | `#F7931E` | `#C9A078` |
 | Navy | §7.1 | `#1B2A41` | `#2F6FED` | `#7D8FA8` |
 | Harbour | The pilot's own terminal | `#14276B` | `#F5B921` | `#1A5FBF` |
@@ -27,6 +29,18 @@ imposed. The administrator selects a preset during first-run setup.
 Harbour was added after the pilot supplied photographs of the retail terminal its staff
 use daily. The token layer made it one file and no component change, which is the
 argument for the token layer made concrete.
+
+Nickland was added when the business supplied its logo, and is the reason the original
+"no default" position was revised. The earlier decision refused to choose between two
+palettes the requirements disagreed about, which was right while the disagreement was a
+documentation artefact with no external answer. A brand mark is an external answer. An
+installation whose chrome does not match the logo on its own invoices looks unfinished,
+and leaving that to a setup choice makes the wrong outcome as likely as the right one.
+The recommendation changes which palette is offered first, not which are available.
+
+Its accent ramp brightens on hover rather than darkening. The logo's teal is a mid tone,
+so the label on it is dark ink rather than white; darkening the button would move the two
+together and the label would fail WCAG AA at the moment the pointer is on it.
 
 Status colours are identical across both presets and are never replaced by a brand colour,
 per §28.1.

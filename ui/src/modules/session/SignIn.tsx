@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { api, ServiceError } from '@/api/client';
+import { Mark } from '@/components/brand';
 import { Alert, Button, Card, Field, TextInput } from '@/components/primitives';
 import { describe } from '@/lib/errors';
 import { useSession } from '@/lib/session';
@@ -50,8 +51,8 @@ export function SignIn() {
     <div className="centred">
       <div className="centred__panel">
         <div className="brand-lockup">
-          <span className="brand-lockup__mark" aria-hidden="true">
-            N
+          <span className="brand-lockup__mark">
+            <Mark size={40} title="Nickland" />
           </span>
           <span className="brand-lockup__text">
             <span className="brand-lockup__product">Nickland ERP</span>

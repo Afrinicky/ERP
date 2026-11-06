@@ -198,18 +198,16 @@
   transform: rotate(180deg);
 }
 
+/* The mark is artwork, not a letter, so it needs no tile behind it. The brand
+   variables let one drawing serve a light panel and the dark rail. */
 .rail__mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   flex: 0 0 auto;
-  font-size: var(--size-sm);
-  font-weight: var(--weight-semibold);
-  color: var(--colour-text-on-accent);
-  background: var(--colour-accent-primary);
-  border-radius: var(--radius-md);
+  --brand-teal: var(--colour-accent-primary);
+  --brand-navy: var(--colour-surface-rail);
+  --brand-on-dark: var(--colour-text-inverse);
 }
 
 .rail__wordmark {
@@ -541,13 +539,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  font-size: var(--size-lg);
-  font-weight: var(--weight-semibold);
-  color: var(--colour-text-on-accent);
-  background: var(--colour-accent-primary);
-  border-radius: var(--radius-lg);
+  flex: 0 0 auto;
+  --brand-teal: var(--colour-accent-primary);
+  --brand-navy: var(--colour-surface-navigation);
+  --brand-on-dark: var(--colour-text-inverse);
 }
 
 .brand-lockup__text {
@@ -673,8 +668,22 @@
 }
 
 .preset-card__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--size-md);
   font-weight: var(--weight-semibold);
+}
+
+.preset-card__badge {
+  padding: 1px var(--space-2);
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--colour-text-link);
+  background: var(--colour-accent-primary-surface);
+  border-radius: var(--radius-sm);
 }
 
 .preset-card__detail {

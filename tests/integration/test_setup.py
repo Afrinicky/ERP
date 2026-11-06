@@ -40,11 +40,12 @@ def test_setup_is_required_on_a_fresh_installation(db: Session, clock: FixedCloc
     assert SetupService(db, clock=clock).is_required()
 
 
-def test_every_preset_is_offered_with_no_default(db: Session, clock: FixedClock) -> None:
-    """ADR-0002: the administrator chooses; the product does not impose one."""
+def test_every_preset_is_offered_with_one_recommended(db: Session, clock: FixedClock) -> None:
+    """ADR-0002: the house palette leads, and the others remain choosable."""
     presets = SetupService(db, clock=clock).available_presets()
-    assert {item["code"] for item in presets} == {"charcoal", "harbour", "navy"}
-    assert all("is_default" not in item for item in presets)
+    assert {item["code"] for item in presets} == {"nickland", "charcoal", "harbour", "navy"}
+    assert presets[0]["code"] == "nickland"
+    assert [item["code"] for item in presets if item["recommended"]] == ["nickland"]
 
 
 class TestProvisioning:

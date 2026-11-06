@@ -2,15 +2,16 @@
  * First-run provisioning.
  *
  * Administrator provisioning is completed before any business data may be entered, per
- * PRD 9.6. Both theme presets are offered as equals; no default is imposed, per
+ * PRD 9.6. The house palette is offered first and chosen unless another is picked, per
  * ADR-0002.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
 import type { Preset, SetupPayload } from '@/api/types';
+import { Mark } from '@/components/brand';
 import {
   Alert,
   Button,
@@ -86,6 +87,16 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  // The recommended preset is chosen as soon as the list arrives, and previewed, so
+  // the appearance step opens on the house palette rather than on nothing. Choosing
+  // another replaces it; the choice is never made on the administrator's behalf
+  // without being shown.
+  const recommended = (status.data?.presets ?? []).find((preset) => preset.recommended);
+  useEffect(() => {
+    if (recommended && form.theme_preset === '') choosePreset(recommended);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recommended?.code]);
+
   function choosePreset(preset: Preset) {
     set('theme_preset', preset.code);
     // Preview the choice immediately, so the decision is made on what it looks like.
@@ -139,8 +150,8 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     <div className="centred">
       <div className="centred__panel centred__panel--wide">
         <div className="brand-lockup">
-          <span className="brand-lockup__mark" aria-hidden="true">
-            N
+          <span className="brand-lockup__mark">
+            <Mark size={40} title="Nickland" />
           </span>
           <span className="brand-lockup__text">
             <span className="brand-lockup__product">Nickland ERP</span>
@@ -308,7 +319,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         {step === 'appearance' ? (
           <Card
             title="Appearance"
-            subtitle="Two palettes are supplied. Either may be amended afterwards under Settings."
+            subtitle="The house palette is chosen. Any may be amended afterwards under Settings."
             footer={
               <>
                 <Button tone="plain" onClick={() => setStep('business')}>
@@ -356,9 +367,14 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
                           style={{ background: definition?.colour['surface-canvas'] }}
                         />
                       </span>
-                      <span className="preset-card__name">{preset.name}</span>
+                      <span className="preset-card__name">
+                        {preset.name}
+                        {preset.recommended ? (
+                          <span className="preset-card__badge">Recommended</span>
+                        ) : null}
+                      </span>
                       <span className="preset-card__detail">{preset.description}</span>
-                      <span className="preset-card__source">Specified in {preset.source}</span>
+                      <span className="preset-card__source">{preset.source}</span>
                     </button>
                   );
                 })}

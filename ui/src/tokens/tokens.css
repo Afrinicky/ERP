@@ -85,6 +85,53 @@
   --status-info-border: #BBD6E8;
 }
 
+/* Nickland — Brand mark */
+[data-theme="nickland"] {
+  --colour-surface-canvas: #F4F7F8;
+  --colour-surface-raised: #FFFFFF;
+  --colour-surface-sunken: #EDF2F3;
+  --colour-surface-navigation: #042249;
+  --colour-surface-navigation-hover: #0A3062;
+  --colour-surface-navigation-active: #0D3A72;
+  --colour-surface-rail: #021730;
+  --colour-surface-rail-hover: #0A2A52;
+  --colour-surface-rail-active: #0E3765;
+  --colour-border-rail: #143455;
+  --colour-surface-overlay: #FFFFFF;
+  --colour-surface-inverse: #042249;
+  --colour-text-primary: #0C1F31;
+  --colour-text-secondary: #4A5C6B;
+  --colour-text-tertiary: #788894;
+  --colour-text-inverse: #FFFFFF;
+  --colour-text-inverse-secondary: #A8BBD1;
+  --colour-text-on-accent: #021730;
+  --colour-text-on-accent-secondary: #FFFFFF;
+  --colour-text-link: #0A6B6D;
+  --colour-text-link-hover: #07585A;
+  --colour-border-subtle: #E6ECEE;
+  --colour-border-default: #DFE6E9;
+  --colour-border-strong: #64757F;
+  --colour-border-inverse: #17365A;
+  --colour-accent-primary: #119598;
+  --colour-accent-primary-hover: #15A1A4;
+  --colour-accent-primary-active: #1AACAF;
+  --colour-accent-primary-surface: #E4F3F3;
+  --colour-accent-primary-border: #9DD2D3;
+  --colour-accent-secondary: #0D3A72;
+  --colour-accent-secondary-hover: #0A3062;
+  --colour-accent-secondary-surface: #E7EEF7;
+  --colour-focus-ring: #0B7476;
+  --colour-chart-1: #0B7476;
+  --colour-chart-2: #0D3A72;
+  --colour-chart-3: #8A5A18;
+  --colour-chart-4: #3F5560;
+  --colour-chart-5: #7D4A94;
+  --colour-chart-6: #9A3A3A;
+  --colour-chart-grid: #DFE6E9;
+  --colour-chart-axis: #5E6F7A;
+  --colour-border-input: #7C8C97;
+}
+
 /* Charcoal — PRD 28.1 */
 [data-theme="charcoal"] {
   --colour-surface-canvas: #F7F5F3;

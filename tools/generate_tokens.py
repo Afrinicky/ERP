@@ -69,6 +69,7 @@ def build_typescript(primitives: dict[str, str], presets: dict) -> str:
             "name": preset.name,
             "description": preset.description,
             "source": preset.source,
+            "recommended": preset.recommended,
             "colour": preset.colour,
         }
         for code, preset in presets.items()

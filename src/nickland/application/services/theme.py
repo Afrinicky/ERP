@@ -1,6 +1,6 @@
 """Theme selection and customisation.
 
-Two presets ship as equals and no default is imposed, per ADR-0002. An override is
+Four presets ship, the house palette recommended, per ADR-0002. An override is
 validated against WCAG AA before it is accepted; a failing combination is refused
 rather than warned about, per PRD 28.2.
 """
@@ -80,14 +80,15 @@ class ThemeService:
         self._clock = clock or SystemClock()
         self._audit = AuditRecorder(session, self._clock)
 
-    def presets(self) -> list[dict[str, str]]:
-        """The shipped presets. Neither is marked as a default."""
+    def presets(self) -> list[dict[str, object]]:
+        """The shipped presets, the recommended one first."""
         return [
             {
                 "code": preset.code,
                 "name": preset.name,
                 "description": preset.description,
                 "source": preset.source,
+                "recommended": preset.recommended,
             }
             for preset in load_presets().values()
         ]

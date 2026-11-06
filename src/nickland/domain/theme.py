@@ -50,6 +50,13 @@ class Preset:
     description: str
     source: str
     colour: dict[str, str]
+    recommended: bool = False
+    """Offered first at setup, and selected unless the administrator chooses another.
+
+    One preset carries the business's own brand mark, so it is the one a new
+    installation should start from. The others remain equally available; the
+    recommendation is a starting point, not a restriction.
+    """
 
 
 @dataclass(slots=True)
@@ -97,21 +104,33 @@ def customisable_tokens() -> frozenset[str]:
 
 @lru_cache(maxsize=1)
 def load_presets() -> dict[str, Preset]:
-    """Load the shipped presets. Neither is marked as a default, per ADR-0002."""
-    result: dict[str, Preset] = {}
+    """Load the shipped presets, the recommended one first, per ADR-0002.
+
+    Order is meaningful: the setup wizard offers them in this order and selects the
+    first. The rest follow by name, so adding a preset does not reshuffle the others.
+    """
+    loaded: list[Preset] = []
     for path in sorted((TOKENS_ROOT / "presets").glob("*.json")):
         data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-        preset = Preset(
-            code=data["code"],
-            name=data["name"],
-            description=data["description"],
-            source=data["source"],
-            colour={str(key): str(value) for key, value in data["colour"].items()},
+        loaded.append(
+            Preset(
+                code=data["code"],
+                name=data["name"],
+                description=data["description"],
+                source=data["source"],
+                colour={str(key): str(value) for key, value in data["colour"].items()},
+                recommended=bool(data.get("recommended", False)),
+            )
         )
-        result[preset.code] = preset
-    if not result:
+    if not loaded:
         raise RuntimeError(f"No theme presets found in {TOKENS_ROOT / 'presets'}")
-    return result
+    loaded.sort(key=lambda preset: (not preset.recommended, preset.name))
+    return {preset.code: preset for preset in loaded}
+
+
+def recommended_preset() -> Preset:
+    """The preset a new installation starts from."""
+    return next(iter(load_presets().values()))
 
 
 def get_preset(code: str) -> Preset:

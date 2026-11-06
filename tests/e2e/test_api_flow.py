@@ -133,9 +133,14 @@ class TestAppearance:
         assert body["colour"]["accent-primary"] == "#F7931E"
         assert body["colour"]["text-on-accent"] == "#252525"
 
-    def test_lists_both_presets(self, admin_client: TestClient) -> None:
+    def test_lists_every_preset(self, admin_client: TestClient) -> None:
         presets = admin_client.get(f"{API}/appearance/presets").json()
-        assert {item["code"] for item in presets} == {"charcoal", "harbour", "navy"}
+        assert {item["code"] for item in presets} == {
+            "nickland",
+            "charcoal",
+            "harbour",
+            "navy",
+        }
 
     def test_preview_measures_every_pairing(self, admin_client: TestClient) -> None:
         response = admin_client.post(

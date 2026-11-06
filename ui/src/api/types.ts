@@ -18,6 +18,7 @@ export interface Preset {
   name: string;
   description: string;
   source: string;
+  recommended: boolean;
 }
 
 export interface SetupStatus {

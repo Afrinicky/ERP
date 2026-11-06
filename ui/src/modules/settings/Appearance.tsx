@@ -147,7 +147,7 @@ export function Appearance() {
       ) : null}
       <Card
         title="Palette"
-        subtitle="Two palettes are supplied. Neither is imposed as a default."
+        subtitle="Four palettes are supplied. Any may be amended, and reset afterwards."
       >
         {presets.isLoading ? (
           <Skeleton rows={2} height={120} />

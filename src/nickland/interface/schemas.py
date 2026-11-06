@@ -33,6 +33,7 @@ class PresetReply(Reply):
     name: str
     description: str
     source: str
+    recommended: bool = False
 
 
 class SetupStatusReply(Reply):

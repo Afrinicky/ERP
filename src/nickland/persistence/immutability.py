@@ -134,7 +134,26 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
             )
 
 
-def register_append_only_guards(factory: sessionmaker[Session]) -> None:
-    """Attach the guard to every session the factory makes."""
-    if not event.contains(factory, "before_flush", _guard):
-        event.listen(factory, "before_flush", _guard)
+def register_append_only_guards(factory: sessionmaker[Session] | None = None) -> None:
+    """Attach the guard to every session in the process.
+
+    The guard is registered on ``Session`` itself rather than on a session factory.
+    Registering per factory looked tidier, and was wrong: ``event.contains`` on a
+    factory consults the shared ``Session`` registry, so the second factory in a
+    process saw the first factory's listener, concluded one was already present and
+    attached nothing — and its sessions then flushed unguarded. The failure was
+    silent, and it only appeared once a third test in a row built its own factory,
+    which is exactly the kind of hole an append-only rule cannot afford.
+
+    One registration on the class covers every session, whoever creates it. The
+    ``factory`` argument is accepted so existing call sites read unchanged.
+    """
+    del factory
+    global _REGISTERED
+    if _REGISTERED:
+        return
+    event.listen(Session, "before_flush", _guard)
+    _REGISTERED = True
+
+
+_REGISTERED = False

@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
 import type { HealthState } from '@/api/types';
+import { Mark as BrandMark } from '@/components/brand';
 import { Icons, type IconName } from '@/components/icons';
 import { Button } from '@/components/primitives';
 import { initials, relative } from '@/lib/format';
@@ -71,8 +72,8 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="shell" data-rail={collapsed ? 'collapsed' : 'expanded'}>
       <nav className="rail" id="main-navigation" aria-label="Main navigation">
         <div className="rail__brand">
-          <span className="rail__mark" aria-hidden="true">
-            N
+          <span className="rail__mark">
+            <BrandMark size={26} onDark title="Nickland" />
           </span>
           <span className="rail__wordmark">
             <span className="rail__product">Nickland</span>

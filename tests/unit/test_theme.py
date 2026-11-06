@@ -14,27 +14,41 @@ from nickland.domain.theme import (
     get_preset,
     load_presets,
     pairings,
+    recommended_preset,
     validate_overrides,
 )
 
 
 def test_the_shipped_presets() -> None:
     presets = load_presets()
-    assert set(presets) == {"charcoal", "harbour", "navy"}
+    assert set(presets) == {"nickland", "charcoal", "harbour", "navy"}
 
 
-def test_no_preset_is_marked_default() -> None:
-    """ADR-0002: the administrator chooses at first run."""
-    for preset in load_presets().values():
-        assert not hasattr(preset, "is_default")
+def test_exactly_one_preset_is_recommended() -> None:
+    """ADR-0002: one starting point, and the rest equally available."""
+    recommended = [preset.code for preset in load_presets().values() if preset.recommended]
+    assert recommended == ["nickland"]
 
 
-@pytest.mark.parametrize("code", ["charcoal", "harbour", "navy"])
+def test_the_recommended_preset_is_offered_first() -> None:
+    """The setup wizard offers them in load order and selects the first."""
+    assert next(iter(load_presets())) == "nickland"
+    assert recommended_preset().code == "nickland"
+
+
+def test_the_remaining_presets_are_still_selectable() -> None:
+    """A recommendation is a starting point, not a restriction."""
+    for code in ("charcoal", "harbour", "navy"):
+        assert get_preset(code).code == code
+        assert not get_preset(code).recommended
+
+
+@pytest.mark.parametrize("code", ["nickland", "charcoal", "harbour", "navy"])
 def test_shipped_presets_pass_the_contrast_audit(code: str) -> None:
     assert failures(ThemeDefinition(preset=get_preset(code))) == []
 
 
-@pytest.mark.parametrize("code", ["charcoal", "harbour", "navy"])
+@pytest.mark.parametrize("code", ["nickland", "charcoal", "harbour", "navy"])
 def test_every_pairing_is_measured(code: str) -> None:
     results = audit(ThemeDefinition(preset=get_preset(code)))
     assert len(results) == len(pairings())

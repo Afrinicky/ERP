@@ -104,14 +104,15 @@ class SetupService:
         """Whether provisioning has yet to run."""
         return self._db.scalar(select(func.count()).select_from(Business)) == 0
 
-    def available_presets(self) -> list[dict[str, str]]:
-        """The shipped theme presets. Neither is marked as a default, per ADR-0002."""
+    def available_presets(self) -> list[dict[str, object]]:
+        """The shipped theme presets, the recommended one first, per ADR-0002."""
         return [
             {
                 "code": preset.code,
                 "name": preset.name,
                 "description": preset.description,
                 "source": preset.source,
+                "recommended": preset.recommended,
             }
             for preset in load_presets().values()
         ]
