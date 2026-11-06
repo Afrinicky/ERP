@@ -1249,3 +1249,14 @@
   border: var(--border-hairline) solid var(--colour-border-default);
   border-radius: var(--radius-md);
 }
+
+/* A second line under a table cell: the reason behind the figure beside it. The
+   document stylesheet has its own version of this; a PDF and a screen do not share
+   a sheet, so neither borrows the other's class. */
+.cell-note {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--size-xs);
+  line-height: var(--leading-xs);
+  color: var(--colour-text-tertiary);
+}

@@ -22,9 +22,16 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| 1 — Platform, Identity and Design System | **Delivered** | Every exit criterion below verified by `tools/verify_phase_1.py`; 269 tests pass against SQLite and PostgreSQL |
-| 2 — Master Data | Next | |
-| 3 to 16 | Not started | |
+| 1 — Platform, Identity and Design System | **Delivered** | `tools/verify_phase_1.py` |
+| 2 — Master Data | **Delivered** | `tools/verify_phase_2.py` |
+| 3 — Accounting Core and General Ledger | **Delivered** | `tools/verify_phase_3.py` |
+| 3.5 — Brand Identity and Document Rendering | **Delivered** | `tools/verify_phase_3_5.py` |
+| 4 — Tax and Statutory Engine | **Delivered** | `tools/verify_phase_4.py` |
+| 5 — Quotation, Costing and Pricing | Next | |
+| 6 to 16 | Not started | |
+
+758 tests pass against both SQLite and PostgreSQL. Each verifier exercises its phase's
+exit criteria against a live database rather than asserting that the code was written.
 
 The two criteria that cannot be verified in this environment are marked in Phase 1
 below: the signed installer on a clean Windows 11 machine, and operation with the

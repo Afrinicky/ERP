@@ -20,8 +20,8 @@ Phases are defined in the [build plan](00-build-plan.md).
 | §6.3 | Costing and pricing engine | 5 |
 | §6.4 | Affiliate commission | 5 |
 | §6.5 | Outright and instalment plans | 5 |
-| §6.6 | Document designer | 6 |
-| §6.7 | Document generation and acknowledgement | 6, 9 |
+| §6.6 | Document designer | 3.5, 6 |
+| §6.7 | Document generation and acknowledgement | 3.5, 9 |
 | §6.8 | Procurement, receiving and assembly | 7, 8 |
 | §6.9 | Dispatch and delivery | 9 |
 | §6.10 | Point of sale | 10 |

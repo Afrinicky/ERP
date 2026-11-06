@@ -30,6 +30,7 @@ from nickland.application.services.parties import PartyService
 from nickland.application.services.periods import PeriodService
 from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.setup import SetupService
+from nickland.application.services.taxation import TaxService
 from nickland.application.services.theme import ThemeService
 from nickland.application.services.units import UnitService
 from nickland.documents.service import DocumentRenderService
@@ -272,3 +273,10 @@ def get_document_service(
 
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
 DocumentDependency = Annotated[DocumentRenderService, Depends(get_document_service)]
+
+
+def get_tax_service(session: SessionDependency, runtime: RuntimeDependency) -> TaxService:
+    return TaxService(session, clock=runtime.clock)
+
+
+TaxDependency = Annotated[TaxService, Depends(get_tax_service)]

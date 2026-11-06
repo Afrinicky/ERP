@@ -91,6 +91,7 @@ class SetupResult:
     accounts_created: int
     periods_created: int
     document_types_created: int
+    tax_rules_created: int
 
 
 class SetupService:
@@ -199,6 +200,7 @@ class SetupService:
         units = self._seed_units(business.id)
         groups, accounts, periods = self._seed_ledger(business, now.date())
         document_types = self._seed_documents(business.id)
+        _, tax_rules = self._seed_taxation(business.id)
 
         self._db.add(
             ThemeProfile(
@@ -252,6 +254,7 @@ class SetupService:
                 "accounts": accounts,
                 "periods": periods,
                 "document_types": document_types,
+                "tax_rules": tax_rules,
                 "branches": 1 + len(request.extra_branches),
             },
         )
@@ -269,6 +272,7 @@ class SetupService:
             accounts_created=accounts,
             periods_created=periods,
             document_types_created=document_types,
+            tax_rules_created=tax_rules,
         )
 
     def _seed_ledger(self, business: Business, on: date) -> tuple[int, int, int]:
@@ -296,6 +300,18 @@ class SetupService:
         from nickland.application.services.documents import DocumentRecordService
 
         return DocumentRecordService(self._db, clock=self._clock).seed(business_id)
+
+    def _seed_taxation(self, business_id: uuid.UUID) -> tuple[int, int]:
+        """Create the revenue authority and Ghana's standard indirect taxes.
+
+        Seeded as ordinary configured rules, per PRD 19.1: an administrator amends
+        a rate, adds a condition or withdraws any of them without a code change.
+        They are here so a new installation can raise a correct invoice on its first
+        day rather than on the day someone remembers to configure VAT.
+        """
+        from nickland.application.services.taxation import TaxService
+
+        return TaxService(self._db, clock=self._clock).seed(business_id)
 
     def _seed_roles(self, business_id: uuid.UUID) -> int:
         """Create the shipped roles. Each is editable, and further roles may be added.

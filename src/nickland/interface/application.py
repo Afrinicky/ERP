@@ -26,6 +26,7 @@ from nickland.interface.routers import (
     platform,
     session,
     setup,
+    taxation,
     users,
 )
 from nickland.persistence.engine import create_database_engine, create_session_factory
@@ -133,6 +134,7 @@ def create_application(
         ledger.router,
         journals.router,
         ledger_reports.router,
+        taxation.router,
         platform.router,
     ):
         application.include_router(router, prefix=API_PREFIX)

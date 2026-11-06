@@ -516,6 +516,18 @@ from nickland.persistence.ledger_models import (  # noqa: E402
     PeriodCloseCheck,
     SubledgerBalance,
 )
+from nickland.persistence.tax_models import (  # noqa: E402
+    TaxAssessment,
+    TaxAuthority,
+    TaxFiling,
+    TaxObligation,
+    TaxOverride,
+    TaxPayment,
+    TaxPaymentAllocation,
+    TaxRule,
+    TaxRuleCondition,
+    TaxRuleVersion,
+)
 
 __all__ = [
     "Address",
@@ -556,6 +568,16 @@ __all__ = [
     "Setting",
     "SubledgerBalance",
     "SupplierProduct",
+    "TaxAssessment",
+    "TaxAuthority",
+    "TaxFiling",
+    "TaxObligation",
+    "TaxOverride",
+    "TaxPayment",
+    "TaxPaymentAllocation",
+    "TaxRule",
+    "TaxRuleCondition",
+    "TaxRuleVersion",
     "ThemeProfile",
     "UnitConversionRow",
     "UnitOfMeasure",

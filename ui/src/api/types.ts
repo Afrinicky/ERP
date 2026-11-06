@@ -852,3 +852,194 @@ export interface ThermalPreview {
   width: number;
   text: string;
 }
+
+// -- taxation --------------------------------------------------------------------------
+
+export type TaxOutcome =
+  | 'applied'
+  | 'not_applicable'
+  | 'exempt'
+  | 'needs_review'
+  | 'overridden';
+
+export interface TaxAuthority {
+  id: string;
+  code: string;
+  name: string;
+  jurisdiction: string | null;
+  registration_identifier: string | null;
+  is_active: boolean;
+  display_order: number;
+}
+
+export interface TaxRuleVersion {
+  id: string;
+  effective_from: string;
+  effective_to: string | null;
+  method: string;
+  rate: string;
+  fixed_amount: string;
+  threshold: string;
+  threshold_applies_to_excess: boolean;
+  bands: Record<string, unknown>[] | null;
+  note: string | null;
+}
+
+export interface TaxCondition {
+  field: string;
+  operator: string;
+  value: string | null;
+  values: string[] | null;
+}
+
+export interface TaxRule {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  category: string;
+  treatment: string;
+  authority_fk: string | null;
+  jurisdiction: string | null;
+  is_mandatory: boolean;
+  applies_to_sales: boolean;
+  applies_to_purchases: boolean;
+  cascade_order: number;
+  compounds_on_preceding: boolean;
+  liability_account_code: string | null;
+  recoverable_account_code: string | null;
+  expense_account_code: string | null;
+  filing_frequency: string;
+  due_date_rule: string;
+  due_days: number;
+  due_day_of_month: number;
+  is_active: boolean;
+  is_system: boolean;
+  withdrawal_reason: string | null;
+  versions: TaxRuleVersion[];
+  conditions: TaxCondition[];
+  current_rate: string | null;
+}
+
+export interface TaxAssessmentResult {
+  rule_code: string;
+  rule_name: string;
+  category: string;
+  outcome: TaxOutcome;
+  treatment: string;
+  method: string;
+  base: string;
+  rate: string;
+  amount: string;
+  detail: string;
+  version_effective_from: string | null;
+}
+
+export interface TaxLineResult {
+  line_reference: string;
+  net: string;
+  charged: string;
+  withheld: string;
+  assessments: TaxAssessmentResult[];
+}
+
+export interface TaxEvaluation {
+  lines: TaxLineResult[];
+  charged: string;
+  withheld: string;
+  needs_review: number;
+  by_rule: Record<string, string>;
+}
+
+export interface RecordedAssessment {
+  id: string;
+  rule_code: string;
+  rule_name: string;
+  category: string;
+  outcome: TaxOutcome;
+  treatment: string;
+  source_type: string;
+  source_id: string;
+  source_line_reference: string;
+  assessed_on: string;
+  base: string;
+  rate: string;
+  amount: string;
+  currency_code: string;
+  is_recoverable: boolean;
+  is_withheld: boolean;
+  detail: string;
+}
+
+export interface TaxObligation {
+  id: string;
+  rule_fk: string;
+  authority_fk: string | null;
+  period_starts_on: string;
+  period_ends_on: string;
+  due_on: string;
+  label: string;
+  assessed: string;
+  recoverable: string;
+  withheld: string;
+  adjustments: string;
+  paid: string;
+  carried_forward: string;
+  state: 'outstanding' | 'part_paid' | 'paid' | 'written_off';
+  currency_code: string;
+  net_payable: string;
+}
+
+export interface TaxPaymentAllocation {
+  obligation_fk: string;
+  amount: string;
+  allocated_at: string;
+}
+
+export interface TaxPayment {
+  id: string;
+  reference: string;
+  paid_on: string;
+  amount: string;
+  allocated: string;
+  authority_fk: string | null;
+  method: string | null;
+  bank_reference: string | null;
+  evidence_reference: string | null;
+  currency_code: string;
+  allocations: TaxPaymentAllocation[];
+}
+
+export interface TaxFiling {
+  id: string;
+  obligation_fk: string;
+  authority_fk: string | null;
+  reference: string | null;
+  state: 'due' | 'prepared' | 'submitted' | 'accepted' | 'rejected';
+  due_on: string;
+  submitted_at: string | null;
+  acknowledgement_reference: string | null;
+  declared_amount: string;
+}
+
+export interface TaxSummary {
+  as_at: string;
+  outstanding: string;
+  overdue: string;
+  recoverable: string;
+  withheld: string;
+  paid_this_year: string;
+  obligations_outstanding: number;
+  obligations_overdue: number;
+  filings_due: number;
+  rules_active: number;
+}
+
+export interface TaxableLineInput {
+  reference: string;
+  net: string;
+  quantity?: string;
+  product_tax_code?: string | null;
+  product_category?: string | null;
+  item_class?: string | null;
+}

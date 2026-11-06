@@ -12,6 +12,7 @@ import { Shell } from '@/components/shell';
 import { Products } from '@/modules/catalogue/Products';
 import { Documents } from '@/modules/documents/Documents';
 import { Finance } from '@/modules/finance/Finance';
+import { Taxation } from '@/modules/taxation/Taxation';
 import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Parties } from '@/modules/parties/Parties';
 import { Placeholder } from '@/modules/Placeholder';
@@ -189,25 +190,7 @@ function Entry() {
           }
         />
 
-        <Route
-          path="/taxation/*"
-          element={
-            <Placeholder
-              title="Taxation"
-              phase="Phase 4"
-              stage="Fiscal Core"
-              purpose="Tax rules, obligations, registers, filings and reconciliation."
-              depends="The accounting ledger, to which every tax amount posts."
-              contents={[
-                'Configurable rules with effective dates and applicability conditions',
-                'Applied, Not applicable, Exempt, Needs review and Overridden results',
-                'Outstanding, paid, withheld and recoverable registers',
-                'Import duty, port and clearing charges in landed cost',
-                'Returns, filings and reconciliation of assessed against paid',
-              ]}
-            />
-          }
-        />
+        <Route path="/taxation/*" element={<Taxation />} />
 
         <Route path="/finance/*" element={<Finance />} />
 

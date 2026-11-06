@@ -55,7 +55,17 @@ import type {
   SetupStatus,
   SignInResult,
   SubledgerVariance,
+  RecordedAssessment,
   SupplierProduct,
+  TaxAuthority,
+  TaxCondition,
+  TaxEvaluation,
+  TaxFiling,
+  TaxObligation,
+  TaxPayment,
+  TaxRule,
+  TaxSummary,
+  TaxableLineInput,
   TemplateDefinition,
   ThermalPreview,
   Theme,
@@ -561,6 +571,72 @@ export const api = {
     issued: (kind?: string, limit = 50) =>
       request<IssuedDocument[]>('GET', '/documents/issued', undefined, { kind, limit }),
     fileUrl: (documentId: string) => `${BASE}/documents/issued/${documentId}/file`,
+  },
+
+  taxation: {
+    summary: (as_at?: string) =>
+      request<TaxSummary>('GET', '/taxation/summary', undefined, { as_at }),
+    authorities: () => request<TaxAuthority[]>('GET', '/taxation/authorities'),
+    rules: (includeWithdrawn = false) =>
+      request<TaxRule[]>('GET', '/taxation/rules', undefined, {
+        include_withdrawn: includeWithdrawn,
+      }),
+    rule: (ruleId: string) => request<TaxRule>('GET', `/taxation/rules/${ruleId}`),
+    createRule: (payload: Record<string, unknown>) =>
+      request<TaxRule>('POST', '/taxation/rules', payload),
+    setRate: (
+      ruleId: string,
+      payload: { rate: string; effective_from: string; note?: string | null },
+    ) => request<TaxRule>('POST', `/taxation/rules/${ruleId}/rate`, payload),
+    setConditions: (ruleId: string, conditions: TaxCondition[]) =>
+      request<TaxRule>('PUT', `/taxation/rules/${ruleId}/conditions`, { conditions }),
+    withdrawRule: (ruleId: string, reason: string) =>
+      request<TaxRule>('POST', `/taxation/rules/${ruleId}/withdraw`, { reason }),
+    deleteRule: (ruleId: string) => request<void>('DELETE', `/taxation/rules/${ruleId}`),
+
+    evaluate: (payload: {
+      transaction_kind: string;
+      on: string;
+      direction?: 'sales' | 'purchases';
+      lines: TaxableLineInput[];
+      party_tax_treatment?: string | null;
+      party_is_withholding_agent?: boolean;
+      exemption_evidence?: string | null;
+      is_import?: boolean;
+    }) => request<TaxEvaluation>('POST', '/taxation/evaluate', payload),
+
+    assessments: (params: {
+      rule_id?: string;
+      source_type?: string;
+      source_id?: string;
+      start?: string;
+      end?: string;
+      limit?: number;
+    } = {}) => request<RecordedAssessment[]>('GET', '/taxation/assessments', undefined, params),
+    override: (
+      assessmentId: string,
+      payload: { amount: string; reason: string; evidence_reference?: string | null },
+    ) =>
+      request<RecordedAssessment>(
+        'POST',
+        `/taxation/assessments/${assessmentId}/override`,
+        payload,
+      ),
+
+    obligations: (state?: string, rule_id?: string) =>
+      request<TaxObligation[]>('GET', '/taxation/obligations', undefined, { state, rule_id }),
+    payments: (limit = 100) =>
+      request<TaxPayment[]>('GET', '/taxation/payments', undefined, { limit }),
+    recordPayment: (payload: Record<string, unknown>) =>
+      request<TaxPayment>('POST', '/taxation/payments', payload),
+    filings: (state?: string) =>
+      request<TaxFiling[]>('GET', '/taxation/filings', undefined, { state }),
+    openFiling: (obligationId: string) =>
+      request<TaxFiling>('POST', `/taxation/obligations/${obligationId}/filing`),
+    submitFiling: (
+      filingId: string,
+      payload: { reference: string; acknowledgement?: string | null },
+    ) => request<TaxFiling>('POST', `/taxation/filings/${filingId}/submit`, payload),
   },
 
   platform: {
