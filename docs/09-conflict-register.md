@@ -272,3 +272,13 @@ chart of accounts and journal model accommodate them.
 | C-13 Fixed assets | Low | Clarified; out of scope |
 
 Eight amendments would produce a consolidated PRD v1.5 in which no two sections disagree.
+
+## Postscript — C-02 resolved by the business
+
+C-02 recorded that PRD §7.1 specifies navy and §28.1 charcoal and orange, and that §7.1
+was never withdrawn. The resolution was to ship both as equal presets and impose no
+default, because nothing outside the document could settle a disagreement inside it.
+
+The business has since supplied its brand mark, which settles it. A fourth preset is
+built from the mark's own colours and is the one offered first; the other three remain
+available and unchanged. See [ADR-0002](decisions/adr-0002-dual-theme-token-engine.md).

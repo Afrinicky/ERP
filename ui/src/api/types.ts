@@ -774,3 +774,79 @@ export interface LedgerSummary {
   open_period_label: string | null;
   financial_year: number | null;
 }
+
+// -- documents -------------------------------------------------------------------------
+
+export type PageFormatCode = 'a4' | 'a5' | 'letter' | 'legal' | 'roll_80' | 'roll_58';
+
+export interface PageFormatInfo {
+  code: PageFormatCode;
+  label: string;
+  width_mm: string;
+  height_mm: string | null;
+  is_roll: boolean;
+}
+
+export interface DocumentType {
+  id: string;
+  code: string;
+  name: string;
+  kind: string;
+  classification: 'customer_facing' | 'internal';
+  sequence_kind: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  display_order: number;
+  page_format: PageFormatCode;
+  published_version: number | null;
+}
+
+export interface TemplateDefinition {
+  page?: PageFormatCode;
+  classification?: string;
+  show_bill_to?: boolean;
+  show_ship_to?: boolean;
+  show_delivery?: boolean;
+  show_totals?: boolean;
+  show_terms?: boolean;
+  show_banking?: boolean;
+  show_notes?: boolean;
+  show_signatures?: boolean;
+  show_index_column?: boolean;
+  show_unit_column?: boolean;
+  show_discount_column?: boolean;
+  show_batch_and_expiry?: boolean;
+  show_manufacturer?: boolean;
+  terms?: [string, string][];
+  notes?: string[];
+  footer_note?: string | null;
+}
+
+export interface DocumentTemplate {
+  id: string;
+  version: number;
+  name: string;
+  definition: TemplateDefinition;
+  is_published: boolean;
+  published_at: string | null;
+}
+
+export interface IssuedDocument {
+  id: string;
+  number: string;
+  kind: string;
+  issued_on: string;
+  issued_at: string;
+  issued_by_id: string | null;
+  template_version: number | null;
+  page_format: PageFormatCode;
+  media_type: string;
+  content_hash: string;
+  byte_count: number;
+  cancelled_at: string | null;
+}
+
+export interface ThermalPreview {
+  width: number;
+  text: string;
+}

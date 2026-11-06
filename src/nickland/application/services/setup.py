@@ -90,6 +90,7 @@ class SetupResult:
     account_groups_created: int
     accounts_created: int
     periods_created: int
+    document_types_created: int
 
 
 class SetupService:
@@ -197,6 +198,7 @@ class SetupService:
         sequences = self._seed_sequences(business.id)
         units = self._seed_units(business.id)
         groups, accounts, periods = self._seed_ledger(business, now.date())
+        document_types = self._seed_documents(business.id)
 
         self._db.add(
             ThemeProfile(
@@ -249,6 +251,7 @@ class SetupService:
                 "account_groups": groups,
                 "accounts": accounts,
                 "periods": periods,
+                "document_types": document_types,
                 "branches": 1 + len(request.extra_branches),
             },
         )
@@ -265,6 +268,7 @@ class SetupService:
             account_groups_created=groups,
             accounts_created=accounts,
             periods_created=periods,
+            document_types_created=document_types,
         )
 
     def _seed_ledger(self, business: Business, on: date) -> tuple[int, int, int]:
@@ -282,6 +286,16 @@ class SetupService:
         year = on.year if on.month >= start_month else on.year - 1
         periods = service.open_financial_year(business.id, year, start_month)
         return groups, accounts, periods
+
+    def _seed_documents(self, business_id: uuid.UUID) -> int:
+        """Create the twelve default document types, per PRD 6.6.
+
+        A business must be able to print from its first day, so the defaults are
+        provisioned rather than left to a later setup step.
+        """
+        from nickland.application.services.documents import DocumentRecordService
+
+        return DocumentRecordService(self._db, clock=self._clock).seed(business_id)
 
     def _seed_roles(self, business_id: uuid.UUID) -> int:
         """Create the eight roles of PRD 3. Each is editable after installation."""

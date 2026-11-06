@@ -1233,3 +1233,19 @@
 .file-input::file-selector-button:hover {
   background: var(--colour-border-subtle);
 }
+
+/* A thermal receipt is a fixed-width artefact: shown in the face it will print in,
+   at the column count it was laid out for, so what is on screen is what comes out. */
+.receipt-preview {
+  margin: 0;
+  padding: var(--space-4);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  line-height: 1.45;
+  white-space: pre;
+  color: var(--colour-text-primary);
+  background: var(--colour-surface-sunken);
+  border: var(--border-hairline) solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+}

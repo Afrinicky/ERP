@@ -503,6 +503,11 @@ from nickland.persistence.catalogue_models import (  # noqa: E402
     UnitConversionRow,
     UnitOfMeasure,
 )
+from nickland.persistence.document_models import (  # noqa: E402
+    DocumentTemplate,
+    DocumentType,
+    IssuedDocument,
+)
 from nickland.persistence.ledger_models import (  # noqa: E402
     JournalApproval,
     JournalEntry,
@@ -527,7 +532,10 @@ __all__ = [
     "CustomFieldDefinition",
     "CustomFieldValue",
     "CustomerPrice",
+    "DocumentTemplate",
+    "DocumentType",
     "ImportRun",
+    "IssuedDocument",
     "JournalApproval",
     "JournalEntry",
     "JournalLine",

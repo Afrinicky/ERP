@@ -10,6 +10,7 @@ import { api } from '@/api/client';
 import { Alert, Button, Card, Skeleton, ToastProvider } from '@/components/primitives';
 import { Shell } from '@/components/shell';
 import { Products } from '@/modules/catalogue/Products';
+import { Documents } from '@/modules/documents/Documents';
 import { Finance } from '@/modules/finance/Finance';
 import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Parties } from '@/modules/parties/Parties';
@@ -210,25 +211,7 @@ function Entry() {
 
         <Route path="/finance/*" element={<Finance />} />
 
-        <Route
-          path="/documents/*"
-          element={
-            <Placeholder
-              title="Documents"
-              phase="Phase 6"
-              stage="Commercial Core"
-              purpose="Generated and uploaded documents, templates and the visual designer."
-              depends="The quotation and costing engine, which supplies what documents present."
-              contents={[
-                'Visual designer for every document type, without developer intervention',
-                'Field palette grouped by business, party, transaction, product and tax',
-                'Conditional visibility and constrained calculated fields',
-                'Internal and customer-facing templates held separately',
-                'Issued documents reproducible after a template is amended',
-              ]}
-            />
-          }
-        />
+        <Route path="/documents/*" element={<Documents />} />
 
         <Route
           path="/reports/*"

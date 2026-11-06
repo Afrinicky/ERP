@@ -128,6 +128,38 @@ Satisfies PRD §6.12, §29.2, §29.8 in part, §10. Advanced ahead of PRD §13 P
   reconcile to it for any selected period.
 - Every subledger balance equals its control account balance.
 
+### Phase 3.5 — Brand Identity and Document Rendering
+
+Satisfies PRD §6.6 in part, §6.7, §7.1, §28.1, AC-05, AC-06.
+Specification: [document designer](06-document-designer.md).
+
+Brought forward from Phase 6 at the pilot's request, and built against two of their own
+pro forma invoices. Sales and the point of sale can then issue through a renderer that
+exists rather than each growing a print path that would later have to be unpicked.
+
+| Workstream | Scope |
+| --- | --- |
+| Brand | The supplied mark as vector paths, a palette derived from it, offered first at setup |
+| Page model | A4, A5, Letter, Legal, and the 80mm and 58mm thermal rolls, with their true printable widths |
+| Render model | Issuer, parties, lines, totals, tax summary, delivery, terms, banking, signatures, amount in words |
+| Rendering | HTML and CSS composition, PDF by WeasyPrint, and plain text for a printer driven directly |
+| Templates | A stored, versioned definition the renderer reads and the Phase 6 editor will write |
+| Defaults | The twelve document types of PRD §6.6, seeded at provisioning with one published version each |
+| Preview | Sample data drawn from the installation's own identity, watermarked and never issuable |
+| Issue | Render, then keep the bytes with a content hash; a reprint serves the snapshot |
+
+**Exit criteria**
+
+- Every one of the twelve default types renders to a PDF without error.
+- A receipt renders on both the 80mm and the 58mm roll, and as plain text at 42 and 32 columns.
+- A waybill, delivery note and packing list disclose no price, on any line or in any total.
+- The same context renders identical markup twice, so a stored snapshot is worth storing.
+- A reprint after a template amendment returns the bytes that were issued, not a re-render.
+- A document number is never reused.
+- The brand palette passes the contrast audit on every audited pairing.
+
+---
+
 ### Phase 4 — Tax and Statutory Engine
 
 Satisfies PRD §19, §21, §24, AC-13 to AC-17.

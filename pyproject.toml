@@ -62,7 +62,7 @@ packages = ["nickland"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["webview.*", "alembic.*"]
+module = ["webview.*", "alembic.*", "weasyprint.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

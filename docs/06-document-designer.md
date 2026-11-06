@@ -10,6 +10,55 @@ Documents are data, not code. A template is a stored structure the administrator
 rendering is a pure function of a template version and a transaction. No document layout
 exists in the source tree except as seeded template data.
 
+## Delivery in two parts
+
+The renderer, the stored template model and the twelve defaults were brought forward from
+Phase 6 to Phase 3.5, at the pilot's request and against two of their own documents. Sales
+and the point of sale can then issue through a renderer that already exists rather than
+each growing a one-off print path that would later have to be unpicked.
+
+What came forward: the page geometry including the two thermal roll widths, the render
+model, the HTML and CSS composition, PDF layout, plain-text output for a printer driven
+directly, the stored and versioned template definition, the twelve seeded types, the
+sample preview, and issue with a stored snapshot.
+
+What remains in Phase 6: the drag-and-drop editor, the field palette, conditional
+visibility, the calculated-expression grammar, and template export and import. These need
+transactions to bind against and an editor to write the definition the renderer already
+reads.
+
+## Reference layout
+
+Two documents were supplied by the pilot: a pro forma produced in a word processor on
+their own letterhead, and one produced by a supplier's ERP. The generated A4 documents
+follow the structure of the second — title left, issuer block left, references right, mark
+top right — with the first's typographic restraint. Neither document's branding, wording
+or identity is reproduced, per PRD §17 and §18.
+
+| Region | Content |
+| --- | --- |
+| Masthead | Issuer name, strapline, addresses, contacts, tax identifiers; mark at the right |
+| Title row | Document heading left; document number, issue date, validity, order reference and VAT number right |
+| Parties | Bill to, ship to, and dispatch detail where the kind carries it |
+| Items | Line number, SKU, description, quantity, price, discount where any line has one, line total |
+| Closing | Standout note, terms and banking left; totals, tax summary and amount in words right |
+| Signatures | Two ruled blocks, labelled for the kind |
+| Running footer | The issuer's name, and page *n* of *m* |
+
+## Thermal output
+
+A receipt prints on an 80mm or a 58mm roll. Both are supported, and a template laid out
+for one reflows to the other.
+
+| Concern | Treatment |
+| --- | --- |
+| Printable width | 72mm of an 80mm roll and 48mm of a 58mm one, which is what the print heads cover |
+| Page height | Open: the paper advances until the content ends, then the printer feeds and cuts |
+| Colour | None. A thermal head prints black dots; greys dither into smudge |
+| Rules | Dashed, not hairline, which disappears |
+| Typeface | Monospaced, so figure columns align on a printer with no font of its own |
+| Direct drive | Plain text at a fixed column width — 42 for 80mm, 32 for 58mm — for a printer fed over serial or USB with no layout engine |
+
 ## Template model
 
 ```
@@ -158,6 +207,7 @@ never issuable.
 | Concern | Specification |
 | --- | --- |
 | Engine | HTML and CSS composed from the template model, rendered to PDF by WeasyPrint |
+| Layer | `documents`, above `application`: the record of a document is an application concern, its rendering is not, and the application layer does not depend on Pango and Cairo to record that a document exists |
 | Determinism | A template version and a transaction always produce an identical document |
 | Fonts | Bundled and embedded; nothing is fetched at render time |
 | Output | PDF for file and print; direct thermal printing for receipt formats |

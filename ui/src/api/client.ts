@@ -25,16 +25,21 @@ import type {
   Contact,
   Credit,
   CustomField,
+  DocumentTemplate,
+  DocumentType,
   DraftLine,
   Health,
   ImportReport,
   ImportRun,
+  IssuedDocument,
   JournalApproval,
   JournalEntry,
   JournalPage,
   LedgerSummary,
   Page,
   Party,
+  PageFormatCode,
+  PageFormatInfo,
   Permission,
   PostingOutcome,
   Preset,
@@ -51,6 +56,8 @@ import type {
   SignInResult,
   SubledgerVariance,
   SupplierProduct,
+  TemplateDefinition,
+  ThermalPreview,
   Theme,
   TrialBalance,
   Unit,
@@ -529,6 +536,31 @@ export const api = {
       }),
     cashFlow: (start: string, end: string) =>
       request<CashFlow>('GET', '/reports/ledger/cash-flow', undefined, { start, end }),
+  },
+
+  documents: {
+    formats: () => request<PageFormatInfo[]>('GET', '/documents/formats'),
+    types: (includeInactive = false) =>
+      request<DocumentType[]>('GET', '/documents/types', undefined, {
+        include_inactive: includeInactive,
+      }),
+    template: (typeId: string) =>
+      request<DocumentTemplate>('GET', `/documents/types/${typeId}/template`),
+    amendTemplate: (typeId: string, changes: Partial<TemplateDefinition>) =>
+      request<DocumentTemplate>('PATCH', `/documents/types/${typeId}/template`, changes),
+    /** A browser navigation, not a fetch: the PDF is rendered by the viewer. */
+    previewUrl: (typeId: string, page?: PageFormatCode) =>
+      `${BASE}/documents/types/${typeId}/preview` + (page ? `?page=${page}` : ''),
+    previewThermal: (typeId: string, width = 42) =>
+      request<ThermalPreview>(
+        'GET',
+        `/documents/types/${typeId}/preview/thermal`,
+        undefined,
+        { width },
+      ),
+    issued: (kind?: string, limit = 50) =>
+      request<IssuedDocument[]>('GET', '/documents/issued', undefined, { kind, limit }),
+    fileUrl: (documentId: string) => `${BASE}/documents/issued/${documentId}/file`,
   },
 
   platform: {

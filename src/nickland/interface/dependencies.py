@@ -19,6 +19,7 @@ from nickland.application.services.accounts import AccountService
 from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.custom_fields import CustomFieldService
+from nickland.application.services.documents import DocumentRecordService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
 from nickland.application.services.importing import ImportService
@@ -31,6 +32,7 @@ from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.setup import SetupService
 from nickland.application.services.theme import ThemeService
 from nickland.application.services.units import UnitService
+from nickland.documents.service import DocumentRenderService
 from nickland.domain.errors import AuthenticationError, ConflictError
 from nickland.domain.identity import LockoutPolicy, PasswordPolicy, SessionPolicy
 from nickland.persistence.models import Business
@@ -254,3 +256,19 @@ AccountDependency = Annotated[AccountService, Depends(get_account_service)]
 JournalDependency = Annotated[JournalService, Depends(get_journal_service)]
 PeriodDependency = Annotated[PeriodService, Depends(get_period_service)]
 LedgerReportDependency = Annotated[LedgerReportService, Depends(get_ledger_report_service)]
+
+
+def get_document_records(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> DocumentRecordService:
+    return DocumentRecordService(session, clock=runtime.clock)
+
+
+def get_document_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> DocumentRenderService:
+    return DocumentRenderService(session, clock=runtime.clock)
+
+
+DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
+DocumentDependency = Annotated[DocumentRenderService, Depends(get_document_service)]
