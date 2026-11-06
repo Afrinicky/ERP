@@ -35,17 +35,21 @@ class TestKinds:
     @pytest.mark.parametrize(
         "kind", [DocumentKind.WAYBILL, DocumentKind.DELIVERY_NOTE, DocumentKind.PACKING_LIST]
     )
-    def test_a_document_that_travels_with_the_goods_carries_no_prices(
+    def test_a_document_that_travels_with_the_goods_withholds_prices_by_default(
         self, kind: DocumentKind
     ) -> None:
-        """A driver and a storekeeper handle these; commercial terms are not theirs."""
-        assert not kind.carries_prices
+        """A driver and a storekeeper handle these; commercial terms are not theirs.
+
+        The default is the safe way round. A template may turn them on, because some
+        customers require a priced delivery note for goods-inwards checking.
+        """
+        assert not kind.prices_by_default
 
     @pytest.mark.parametrize(
         "kind", [DocumentKind.PRO_FORMA, DocumentKind.INVOICE, DocumentKind.RECEIPT]
     )
     def test_a_commercial_document_carries_prices(self, kind: DocumentKind) -> None:
-        assert kind.carries_prices
+        assert kind.prices_by_default
 
     @pytest.mark.parametrize(
         "kind",

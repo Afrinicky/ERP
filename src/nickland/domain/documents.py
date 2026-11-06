@@ -46,12 +46,15 @@ class DocumentKind(StrEnum):
         return _HEADINGS[self]
 
     @property
-    def carries_prices(self) -> bool:
-        """Whether money appears on the face of the document.
+    def prices_by_default(self) -> bool:
+        """Whether money appears on this kind unless the template says otherwise.
 
         A waybill, delivery note or packing list accompanies goods and is read by a
-        driver and a storekeeper. Printing prices on it discloses commercial terms to
-        everyone who handles the carton, so the price columns are withheld.
+        driver and a storekeeper, so prices start off: printing commercial terms on
+        the carton's paperwork discloses them to everyone who handles it. Some
+        customers require a priced delivery note for goods-inwards checking, so the
+        template may turn them on. The default is the safe way round; the decision is
+        the administrator's.
         """
         return self not in (
             DocumentKind.WAYBILL,
@@ -396,6 +399,14 @@ class TemplateOptions:
     page: PageFormat = PageFormat.A4
     classification: Classification = Classification.CUSTOMER_FACING
 
+    show_prices: bool | None = None
+    """Whether the price columns and the totals appear.
+
+    ``None`` follows the kind's own default, which is the usual case. Setting it
+    explicitly is how an administrator puts prices on a delivery note, or takes them
+    off an internal copy of an invoice.
+    """
+
     show_bill_to: bool = True
     show_ship_to: bool = True
     show_delivery: bool = False
@@ -416,11 +427,16 @@ class TemplateOptions:
     notes: tuple[str, ...] = ()
     footer_note: str | None = None
 
+    def prices_on(self, kind: DocumentKind) -> bool:
+        """Whether this template shows money for the kind it belongs to."""
+        return kind.prices_by_default if self.show_prices is None else self.show_prices
+
     def as_dict(self) -> dict[str, object]:
         """The stored form. Tuples become lists so the JSON round-trips."""
         return {
             "page": self.page.value,
             "classification": self.classification.value,
+            "show_prices": self.show_prices,
             "show_bill_to": self.show_bill_to,
             "show_ship_to": self.show_ship_to,
             "show_delivery": self.show_delivery,
@@ -461,6 +477,7 @@ class TemplateOptions:
             notes = tuple(str(note) for note in raw_notes)
         return cls(
             page=PageFormat(str(data.get("page", PageFormat.A4.value))),
+            show_prices=(None if data.get("show_prices") is None else bool(data["show_prices"])),
             classification=Classification(
                 str(data.get("classification", Classification.CUSTOMER_FACING.value))
             ),

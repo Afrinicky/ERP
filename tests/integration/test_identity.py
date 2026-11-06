@@ -288,10 +288,10 @@ class TestPasswordChange:
         service = _service(db, clock)
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
         with pytest.raises(ValidationError, match="reason is required"):
             service.reset_password(admin, staff.id, "Kumasi8Ledger", reason="  ")
@@ -306,12 +306,12 @@ class TestUserAdministration:
         service = _service(db, clock)
         service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
-        result = service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
+        result = service.sign_in("seller1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         assert result.must_change_password
         assert result.actor.has("pos.operate")
         assert not result.actor.has("pos.refund")
@@ -328,7 +328,7 @@ class TestUserAdministration:
                 username="intruder",
                 full_name="Intruder",
                 password=STAFF_PASSWORD,
-                role_codes=["cashier"],
+                role_codes=["sales_person"],
             )
 
     def test_refuses_a_duplicate_username(
@@ -340,7 +340,7 @@ class TestUserAdministration:
                 username="proprietor",
                 full_name="Impostor",
                 password=STAFF_PASSWORD,
-                role_codes=["cashier"],
+                role_codes=["sales_person"],
             )
 
     def test_requires_at_least_one_role(self, db: Session, clock: FixedClock, admin: Actor) -> None:
@@ -359,10 +359,10 @@ class TestUserAdministration:
         service = _service(db, clock)
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
         with pytest.raises(ValidationError, match="reason is required"):
             service.set_active(admin, staff.id, active=False, reason="")
@@ -373,13 +373,13 @@ class TestUserAdministration:
         service = _service(db, clock)
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
         signed_in = service.sign_in(
-            "cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"]
+            "seller1", STAFF_PASSWORD, business_id=provisioned["business_id"]
         )
         service.set_active(admin, staff.id, active=False, reason="Left employment")
         with pytest.raises(AuthenticationError):
@@ -391,14 +391,14 @@ class TestUserAdministration:
         service = _service(db, clock)
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
         service.set_active(admin, staff.id, active=False, reason="Left employment")
         with pytest.raises(AuthenticationError):
-            service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
+            service.sign_in("seller1", STAFF_PASSWORD, business_id=provisioned["business_id"])
 
     def test_cannot_deactivate_own_account(
         self, db: Session, clock: FixedClock, admin: Actor
@@ -411,7 +411,7 @@ class TestUserAdministration:
     ) -> None:
         """A business must never be left without an administrator."""
         with pytest.raises(ConflictError, match="only active administrator"):
-            _service(db, clock).withdraw_role(admin, admin.user_id, "owner_administrator")
+            _service(db, clock).withdraw_role(admin, admin.user_id, "administrator")
 
     def test_the_last_role_cannot_be_withdrawn(
         self, db: Session, clock: FixedClock, admin: Actor
@@ -419,13 +419,13 @@ class TestUserAdministration:
         service = _service(db, clock)
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
         with pytest.raises(ConflictError, match="at least one role"):
-            service.withdraw_role(admin, staff.id, "cashier")
+            service.withdraw_role(admin, staff.id, "sales_person")
 
     def test_assigning_a_second_role_widens_permissions(
         self, db: Session, clock: FixedClock, admin: Actor, provisioned: dict[str, uuid.UUID]
@@ -433,13 +433,13 @@ class TestUserAdministration:
         service = _service(db, clock)
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
-        service.assign_role(admin, staff.id, "sales_officer")
-        result = service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
+        service.assign_role(admin, staff.id, "sales_person")
+        result = service.sign_in("seller1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         assert result.actor.has("pos.operate")
         assert result.actor.has("quotation.issue")
 
@@ -449,17 +449,17 @@ class TestUserAdministration:
         service = _service(db, clock, lockout_policy=LockoutPolicy(threshold=1))
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
         with pytest.raises(AuthenticationError):
-            service.sign_in("cashier1", "Wrong9Password", business_id=provisioned["business_id"])
+            service.sign_in("seller1", "Wrong9Password", business_id=provisioned["business_id"])
         with pytest.raises(AccountLockedError):
-            service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
+            service.sign_in("seller1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         service.unlock(admin, staff.id)
-        assert service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
+        assert service.sign_in("seller1", STAFF_PASSWORD, business_id=provisioned["business_id"])
 
     def test_an_unknown_user_is_not_found(
         self, db: Session, clock: FixedClock, admin: Actor
@@ -473,14 +473,16 @@ class TestRolePermissions:
         self, db: Session, clock: FixedClock, admin: Actor
     ) -> None:
         with pytest.raises(ValidationError, match="reason is required"):
-            _service(db, clock).set_role_permissions(admin, "cashier", {"pos.operate"}, reason="")
+            _service(db, clock).set_role_permissions(
+                admin, "sales_person", {"pos.operate"}, reason=""
+            )
 
     def test_an_unregistered_permission_is_refused(
         self, db: Session, clock: FixedClock, admin: Actor
     ) -> None:
         with pytest.raises(KeyError, match="Unregistered"):
             _service(db, clock).set_role_permissions(
-                admin, "cashier", {"pos.operate", "made.up"}, reason="Test"
+                admin, "sales_person", {"pos.operate", "made.up"}, reason="Test"
             )
 
     def test_permissions_can_be_widened(
@@ -489,18 +491,18 @@ class TestRolePermissions:
         service = _service(db, clock)
         service.set_role_permissions(
             admin,
-            "cashier",
+            "sales_person",
             {"pos.operate", "pos.refund", "business.view", "product.view"},
             reason="Till supervisor duties",
         )
         staff = service.create_user(
             admin,
-            username="cashier1",
+            username="seller1",
             full_name="A. Cashier",
             password=STAFF_PASSWORD,
-            role_codes=["cashier"],
+            role_codes=["sales_person"],
         )
-        result = service.sign_in("cashier1", STAFF_PASSWORD, business_id=provisioned["business_id"])
+        result = service.sign_in("seller1", STAFF_PASSWORD, business_id=provisioned["business_id"])
         assert result.actor.has("pos.refund")
         assert staff.id
 
@@ -509,5 +511,5 @@ class TestRolePermissions:
     ) -> None:
         with pytest.raises(ConflictError, match="cannot have permissions withdrawn"):
             _service(db, clock).set_role_permissions(
-                admin, "owner_administrator", {"business.view"}, reason="Test"
+                admin, "administrator", {"business.view"}, reason="Test"
             )

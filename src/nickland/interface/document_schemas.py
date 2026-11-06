@@ -46,6 +46,8 @@ class PageFormatReply(Reply):
 class AmendTemplateContract(Contract):
     """A change to the published definition. Publishing creates the next version."""
 
+    show_prices: bool | None = None
+    """Three-valued: true, false, or absent to follow the kind's own default."""
     show_bill_to: bool | None = None
     show_ship_to: bool | None = None
     show_delivery: bool | None = None

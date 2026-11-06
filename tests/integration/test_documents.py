@@ -163,6 +163,49 @@ class TestRendering:
             )
             assert ("VAT number" in render_html(context)) is expected, kind
 
+    def test_an_administrator_can_put_prices_on_a_delivery_note(
+        self, db: Session, records: DocumentRecordService, admin: Actor
+    ) -> None:
+        """Some customers require a priced delivery note for goods-inwards checking."""
+        note = records.type_by_code(admin.business_id, "delivery_note")  # type: ignore[arg-type]
+        assert note is not None
+        context = records.sample_context(
+            admin.business_id,  # type: ignore[arg-type]
+            DocumentKind.DELIVERY_NOTE,
+        )
+        assert "340.00" not in render_html(context, options=records.options_for(note))
+
+        records.amend_template(admin, note.id, {"show_prices": True, "show_totals": True})
+        db.flush()
+        assert "340.00" in render_html(context, options=records.options_for(note))
+
+    def test_an_administrator_can_take_prices_off_an_invoice(
+        self, db: Session, records: DocumentRecordService, admin: Actor
+    ) -> None:
+        invoice = records.type_by_code(admin.business_id, "invoice")  # type: ignore[arg-type]
+        assert invoice is not None
+        context = records.sample_context(
+            admin.business_id,  # type: ignore[arg-type]
+            DocumentKind.INVOICE,
+        )
+        records.amend_template(admin, invoice.id, {"show_prices": False})
+        db.flush()
+        assert "340.00" not in render_html(context, options=records.options_for(invoice))
+
+    def test_absent_is_not_the_same_as_false(
+        self, records: DocumentRecordService, admin: Actor
+    ) -> None:
+        """A delivery note and an invoice both leave it unset and behave differently."""
+        following = TemplateOptions()
+        assert following.prices_on(DocumentKind.INVOICE) is True
+        assert following.prices_on(DocumentKind.DELIVERY_NOTE) is False
+
+        forced = TemplateOptions(show_prices=True)
+        assert forced.prices_on(DocumentKind.DELIVERY_NOTE) is True
+
+        withheld = TemplateOptions(show_prices=False)
+        assert withheld.prices_on(DocumentKind.INVOICE) is False
+
     def test_an_invoice_does_disclose_its_prices(
         self, records: DocumentRecordService, admin: Actor
     ) -> None:

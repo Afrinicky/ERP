@@ -151,9 +151,24 @@ def verify(keep: Path | None) -> list[Outcome]:
         if str(context.totals.grand_total) in plain:
             leaked.append(f"{code}: grand total")
     record(
-        "A document that travels with the goods discloses no price",
+        "A document that travels with the goods discloses no price by default",
         not leaked,
         "three kinds checked against every line and total" if not leaked else str(leaked[:3]),
+    )
+
+    # The default is the safe way round, but the decision belongs to the administrator.
+    note = records.type_by_code(business_id, "delivery_note")
+    assert note is not None
+    records.amend_template(actor, note.id, {"show_prices": True, "show_totals": True})
+    session.commit()
+    context = records.sample_context(business_id, DocumentKind.DELIVERY_NOTE)
+    priced = render_html(context, options=records.options_for(note))
+    records.amend_template(actor, note.id, {"show_prices": None, "show_totals": False})
+    session.commit()
+    record(
+        "An administrator can put prices on a delivery note",
+        str(context.lines[0].line_total) in priced,
+        "and take them off again; the default is only a default",
     )
 
     # --- Criterion 4 ------------------------------------------------------------------

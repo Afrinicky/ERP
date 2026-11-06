@@ -17,7 +17,7 @@ class TestSession:
         assert body["username"] == "proprietor"
         assert body["is_administrator"] is True
         assert "journal.post" in body["permissions"]
-        assert body["role_codes"] == ["owner_administrator"]
+        assert body["role_codes"] == ["administrator"]
 
     def test_sign_out_invalidates_the_token(self, admin_client: TestClient) -> None:
         assert admin_client.delete(f"{API}/session").status_code == 204
@@ -271,27 +271,27 @@ class TestUsersAndPermissions:
         response = admin_client.post(
             f"{API}/users",
             json={
-                "username": "cashier1",
-                "full_name": "A. Cashier",
+                "username": "seller1",
+                "full_name": "A. Seller",
                 "password": STAFF_PASSWORD,
-                "role_codes": ["cashier"],
+                "role_codes": ["sales_person"],
             },
         )
         assert response.status_code == 201
-        assert response.json()["role_codes"] == ["cashier"]
+        assert response.json()["role_codes"] == ["sales_person"]
 
-    def test_a_cashier_cannot_reach_administration(self, admin_client: TestClient) -> None:
+    def test_a_sales_person_cannot_reach_administration(self, admin_client: TestClient) -> None:
         """PRD 10: the service refuses, whatever the interface displays."""
         admin_client.post(
             f"{API}/users",
             json={
-                "username": "cashier1",
-                "full_name": "A. Cashier",
+                "username": "seller1",
+                "full_name": "A. Seller",
                 "password": STAFF_PASSWORD,
-                "role_codes": ["cashier"],
+                "role_codes": ["sales_person"],
             },
         )
-        token = sign_in(admin_client, "cashier1", STAFF_PASSWORD)
+        token = sign_in(admin_client, "seller1", STAFF_PASSWORD)
         admin_client.headers[SESSION_HEADER] = token
 
         refused = admin_client.post(
@@ -300,36 +300,36 @@ class TestUsersAndPermissions:
                 "username": "accomplice",
                 "full_name": "Accomplice",
                 "password": STAFF_PASSWORD,
-                "role_codes": ["owner_administrator"],
+                "role_codes": ["administrator"],
             },
         )
         assert refused.status_code == 403
         assert refused.json()["error"]["detail"]["permission"] == "user.manage"
 
-    def test_a_cashier_cannot_read_the_audit_trail(self, admin_client: TestClient) -> None:
+    def test_a_sales_person_cannot_read_the_audit_trail(self, admin_client: TestClient) -> None:
         admin_client.post(
             f"{API}/users",
             json={
-                "username": "cashier1",
-                "full_name": "A. Cashier",
+                "username": "seller1",
+                "full_name": "A. Seller",
                 "password": STAFF_PASSWORD,
-                "role_codes": ["cashier"],
+                "role_codes": ["sales_person"],
             },
         )
-        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "cashier1", STAFF_PASSWORD)
+        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "seller1", STAFF_PASSWORD)
         assert admin_client.get(f"{API}/audit").status_code == 403
 
-    def test_a_cashier_cannot_amend_the_theme(self, admin_client: TestClient) -> None:
+    def test_a_sales_person_cannot_amend_the_theme(self, admin_client: TestClient) -> None:
         admin_client.post(
             f"{API}/users",
             json={
-                "username": "cashier1",
-                "full_name": "A. Cashier",
+                "username": "seller1",
+                "full_name": "A. Seller",
                 "password": STAFF_PASSWORD,
-                "role_codes": ["cashier"],
+                "role_codes": ["sales_person"],
             },
         )
-        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "cashier1", STAFF_PASSWORD)
+        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "seller1", STAFF_PASSWORD)
         response = admin_client.put(
             f"{API}/appearance", json={"preset_code": "navy", "overrides": {}}
         )
@@ -342,20 +342,20 @@ class TestUsersAndPermissions:
         costing = next(item for item in permissions if item["code"] == "costing.view")
         assert costing["sensitive"] is True
 
-    def test_the_eight_roles_are_listed(self, admin_client: TestClient) -> None:
+    def test_the_seeded_roles_are_listed(self, admin_client: TestClient) -> None:
         roles = admin_client.get(f"{API}/roles").json()
-        assert len(roles) == 8
-        auditor = next(item for item in roles if item["code"] == "auditor")
-        assert auditor["is_read_only"] is True
+        assert {item["code"] for item in roles} == {"administrator", "sales_person"}
+        administrator = next(item for item in roles if item["code"] == "administrator")
+        assert administrator["is_administrator"] is True
 
     def test_deactivation_requires_a_reason(self, admin_client: TestClient) -> None:
         created = admin_client.post(
             f"{API}/users",
             json={
-                "username": "cashier1",
-                "full_name": "A. Cashier",
+                "username": "seller1",
+                "full_name": "A. Seller",
                 "password": STAFF_PASSWORD,
-                "role_codes": ["cashier"],
+                "role_codes": ["sales_person"],
             },
         ).json()
         refused = admin_client.post(
@@ -365,9 +365,7 @@ class TestUsersAndPermissions:
 
     def test_the_last_administrator_cannot_lose_the_role(self, admin_client: TestClient) -> None:
         current = admin_client.get(f"{API}/session/current").json()
-        response = admin_client.delete(
-            f"{API}/users/{current['user_id']}/roles/owner_administrator"
-        )
+        response = admin_client.delete(f"{API}/users/{current['user_id']}/roles/administrator")
         assert response.status_code == 409
         assert "only active administrator" in response.json()["error"]["message"]
 

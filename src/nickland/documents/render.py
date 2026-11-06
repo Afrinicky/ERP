@@ -137,7 +137,7 @@ def _masthead(context: DocumentContext) -> str:
 """
 
 
-def _references(context: DocumentContext) -> str:
+def _references(context: DocumentContext, options: TemplateOptions) -> str:
     # "Document no." rather than the kind's own name: "Goods Received Note no."
     # wraps onto two lines in this column and the heading already says which kind
     # the reader is holding.
@@ -159,7 +159,7 @@ def _references(context: DocumentContext) -> str:
         rows.append(("Your reference", context.customer_reference))
     if context.our_reference:
         rows.append(("Our reference", context.our_reference))
-    if context.issuer.tax_identifier and context.kind.carries_prices:
+    if context.issuer.tax_identifier and options.prices_on(context.kind):
         rows.append(("VAT number", context.issuer.tax_identifier))
     body = "".join(f"<dt>{_e(label)}</dt><dd>{_e(value)}</dd>" for label, value in rows)
     return f'<div class="references"><dl>{body}</dl></div>'
@@ -200,7 +200,7 @@ def _parties(context: DocumentContext, options: TemplateOptions) -> str:
 
 
 def _items(context: DocumentContext, options: TemplateOptions) -> str:
-    priced = context.kind.carries_prices
+    priced = options.prices_on(context.kind)
     # A discount column with nothing in it is a column of zeros: shown only when the
     # template allows it and at least one line actually carries one.
     discounted = (
@@ -262,7 +262,7 @@ def _detail(line: Line, options: TemplateOptions) -> str:
 
 
 def _totals(context: DocumentContext, options: TemplateOptions) -> str:
-    if not context.kind.carries_prices or not options.show_totals:
+    if not options.prices_on(context.kind) or not options.show_totals:
         return ""
     totals = context.totals
     rows: list[str] = []
@@ -409,7 +409,7 @@ def render_html(
 {_masthead(context)}
 <div class="title-row">
   <h2 class="title">{_e(context.kind.heading)}</h2>
-  {_references(context)}
+  {_references(context, chosen)}
 </div>
 {_parties(context, chosen)}
 {_items(context, chosen)}

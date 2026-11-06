@@ -439,19 +439,21 @@ _VIEW_ONLY: Final[frozenset[str]] = frozenset(
 
 SEEDED_ROLES: Final[tuple[RoleDefinition, ...]] = (
     RoleDefinition(
-        code="owner_administrator",
-        name="Owner and administrator",
+        code="administrator",
+        name="Administrator",
         description=(
             "Business setup, branding, document templates, pricing, tax settings, "
-            "permissions and approvals."
+            "permissions and approvals. Holds every permission."
         ),
         permissions=ALL_CODES,
         is_administrator=True,
     ),
     RoleDefinition(
-        code="sales_officer",
-        name="Sales officer",
-        description="Customer requests, quotations, customer follow-up and sales orders.",
+        code="sales_person",
+        name="Sales Person",
+        description=(
+            "Customers, quotations, sales orders, the counter, and the documents each produces."
+        ),
         permissions=frozenset(
             {
                 "business.view",
@@ -471,173 +473,34 @@ SEEDED_ROLES: Final[tuple[RoleDefinition, ...]] = (
                 "stock.view",
                 "dispatch.view",
                 "receivable.view",
-                "document.view",
-                "document.issue",
-                "document.reprint",
-                "attachment.upload",
-                "template.view",
-                "report.view",
-                "health.view",
-            }
-        ),
-    ),
-    RoleDefinition(
-        code="purchasing_officer",
-        name="Purchasing officer",
-        description="Supplier sourcing, comparisons, purchase orders and supplier invoices.",
-        permissions=frozenset(
-            {
-                "business.view",
-                "product.view",
-                "supplier.view",
-                "supplier.manage",
-                "supplier_rfq.manage",
-                "supplier_quotation.manage",
-                "purchase_order.manage",
-                "supplier_invoice.manage",
-                "costing.view",
-                "stock.view",
-                "payable.view",
-                "tax.view",
-                "document.view",
-                "document.issue",
-                "document.reprint",
-                "attachment.upload",
-                "template.view",
-                "report.view",
-                "health.view",
-            }
-        ),
-    ),
-    RoleDefinition(
-        code="store_officer",
-        name="Receiving and store officer",
-        description="Goods receipt, inspection, assembly, batch and expiry, and stock.",
-        permissions=frozenset(
-            {
-                "business.view",
-                "product.view",
-                "supplier.view",
-                "stock.view",
-                "goods_receipt.manage",
-                "inspection.manage",
-                "stock_count.manage",
-                "assembly.manage",
-                "purchase_order.manage",
-                "dispatch.view",
-                "document.view",
-                "document.issue",
-                "document.reprint",
-                "attachment.upload",
-                "template.view",
-                "report.view",
-                "health.view",
-            }
-        ),
-    ),
-    RoleDefinition(
-        code="dispatch_officer",
-        name="Dispatch officer",
-        description="Picking, packing, waybills, delivery and proof of receipt.",
-        permissions=frozenset(
-            {
-                "business.view",
-                "product.view",
-                "customer.view",
-                "stock.view",
-                "dispatch.view",
-                "dispatch.manage",
-                "waybill.issue",
-                "proof_of_delivery.capture",
-                "document.view",
-                "document.issue",
-                "document.reprint",
-                "attachment.upload",
-                "template.view",
-                "report.view",
-                "health.view",
-            }
-        ),
-    ),
-    RoleDefinition(
-        code="cashier",
-        name="Cashier",
-        description="Point of sale, payments, receipts, returns and shift reconciliation.",
-        permissions=frozenset(
-            {
-                "business.view",
-                "product.view",
-                "customer.view",
-                "customer.manage",
-                "stock.view",
+                # The counter. There is no separate cashier role, so a sales person
+                # who could not operate the till would leave the point of sale usable
+                # by the proprietor alone.
                 "pos.operate",
-                "pos.discount",
                 "pos.shift_manage",
                 "receipt.manage",
                 "document.view",
                 "document.issue",
                 "document.reprint",
-                "report.view",
-                "health.view",
-            }
-        ),
-    ),
-    RoleDefinition(
-        code="accountant",
-        name="Accountant",
-        description="Receivables, payables, expenses, tax and financial reports.",
-        permissions=frozenset(
-            {
-                "business.view",
-                "product.view",
-                "customer.view",
-                "supplier.view",
-                "affiliate.view",
-                "quotation.view",
-                "costing.view",
-                "stock.view",
-                "sales_invoice.issue",
-                "supplier_invoice.manage",
-                "account.view",
-                "journal.view",
-                "journal.post",
-                "journal.reverse",
-                "period.close",
-                "expense.manage",
-                "receipt.manage",
-                "payment.manage",
-                "transfer.manage",
-                "reconciliation.manage",
-                "receivable.view",
-                "payable.view",
-                "budget.manage",
-                "loan.view",
-                "repayment.manage",
-                "tax.view",
-                "tax_payment.manage",
-                "tax_filing.manage",
-                "document.view",
-                "document.issue",
-                "document.reprint",
                 "attachment.upload",
                 "template.view",
                 "report.view",
-                "report.export",
-                "report.export_sensitive",
-                "dashboard.configure",
                 "health.view",
-                "audit.view",
             }
         ),
     ),
-    RoleDefinition(
-        code="auditor",
-        name="Auditor",
-        description="Read-only access to records, documents and the audit trail.",
-        permissions=_VIEW_ONLY | frozenset({"audit.view", "report.view"}),
-        is_read_only=True,
-    ),
 )
+"""The roles a new installation starts with.
+
+Two, and deliberately so: the proprietor, who holds everything, and the person who
+serves customers. A larger business would want the usual separation — purchasing,
+stores, dispatch, cash, accounts, audit — and the permission registry still carries
+every code those roles would need, so they can be created under Settings without a
+code change. Seeding roles nobody fills only makes the user list harder to read.
+
+``pos.discount`` is withheld from the sales person: discretion over price is the
+proprietor's, and an administrator can grant it to an individual.
+"""
 
 ROLES_BY_CODE: Final[dict[str, RoleDefinition]] = {role.code: role for role in SEEDED_ROLES}
 

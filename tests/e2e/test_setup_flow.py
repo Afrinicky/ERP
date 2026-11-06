@@ -38,7 +38,7 @@ def test_provisioning_creates_the_business(client: TestClient) -> None:
     response = client.post(f"{API}/setup", json=SETUP_PAYLOAD)
     assert response.status_code == 201
     body = response.json()
-    assert body["roles_created"] == 8
+    assert body["roles_created"] == 2
     assert body["sequences_created"] == 22
     assert client.get(f"{API}/setup").json()["setup_required"] is False
 

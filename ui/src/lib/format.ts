@@ -101,7 +101,7 @@ export function initials(fullName: string): string {
   return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
 }
 
-/** Convert a machine code to a readable label: `sales_officer` to `Sales officer`. */
+/** Convert a machine code to a readable label: `sales_person` to `Sales person`. */
 export function humanise(code: string): string {
   const text = code.replace(/[_.-]/g, ' ').trim();
   return text.charAt(0).toUpperCase() + text.slice(1);

@@ -216,7 +216,7 @@ class SetupService:
             username=username,
             full_name=request.administrator_full_name.strip() or username,
             password=request.administrator_password,
-            role_codes=["owner_administrator"],
+            role_codes=["administrator"],
             email=request.administrator_email,
             branch_id=branch.id,
             must_change_password=False,
@@ -298,7 +298,14 @@ class SetupService:
         return DocumentRecordService(self._db, clock=self._clock).seed(business_id)
 
     def _seed_roles(self, business_id: uuid.UUID) -> int:
-        """Create the eight roles of PRD 3. Each is editable after installation."""
+        """Create the shipped roles. Each is editable, and further roles may be added.
+
+        PRD 3 describes eight job functions. Two are seeded — the administrator and
+        the sales person — because those are the two this business has. The other six
+        are role definitions, not capabilities: every permission they would need is
+        in the registry, so an administrator creates them under Settings without a
+        code change.
+        """
         for definition in SEEDED_ROLES:
             role = Role(
                 business_id=business_id,

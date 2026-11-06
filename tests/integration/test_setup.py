@@ -68,12 +68,20 @@ class TestProvisioning:
         assert warehouse is not None and warehouse.is_default
         assert warehouse.branch_fk == branch.id
 
-    def test_seeds_the_eight_roles_of_prd_3(self, db: Session, clock: FixedClock) -> None:
+    def test_seeds_the_two_shipped_roles(self, db: Session, clock: FixedClock) -> None:
         result = SetupService(db, clock=clock).provision(_request())
-        assert result.roles_created == 8
+        assert result.roles_created == len(SEEDED_ROLES) == 2
         roles = db.scalars(select(Role).where(Role.business_id == result.business_id)).all()
-        assert {role.code for role in roles} == {item.code for item in SEEDED_ROLES}
+        assert {role.code for role in roles} == {"administrator", "sales_person"}
         assert all(role.is_system for role in roles)
+
+    def test_the_administrator_account_holds_the_administrator_role(
+        self, db: Session, clock: FixedClock
+    ) -> None:
+        result = SetupService(db, clock=clock).provision(_request())
+        administrator = db.get(User, result.administrator_id)
+        assert administrator is not None
+        assert {role.code for role in administrator.roles} == {"administrator"}
 
     def test_grants_each_role_its_permissions(self, db: Session, clock: FixedClock) -> None:
         result = SetupService(db, clock=clock).provision(_request())

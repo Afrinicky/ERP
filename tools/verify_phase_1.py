@@ -123,14 +123,14 @@ def verify() -> list[Outcome]:
         client.post(
             f"{API}/users",
             json={
-                "username": "cashier1",
+                "username": "seller1",
                 "full_name": "A. Cashier",
                 "password": STAFF,
-                "role_codes": ["cashier"],
+                "role_codes": ["sales_person"],
             },
         )
         client.headers[SESSION_HEADER] = client.post(
-            f"{API}/session", json={"username": "cashier1", "password": STAFF}
+            f"{API}/session", json={"username": "seller1", "password": STAFF}
         ).json()["token"]
         denied = client.post(
             f"{API}/users",
@@ -138,7 +138,7 @@ def verify() -> list[Outcome]:
                 "username": "accomplice",
                 "full_name": "Accomplice",
                 "password": STAFF,
-                "role_codes": ["owner_administrator"],
+                "role_codes": ["administrator"],
             },
         )
         record(

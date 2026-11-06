@@ -25,30 +25,35 @@ def test_every_code_is_verb_against_resource() -> None:
         assert resource and verb
 
 
-def test_eight_roles_are_seeded_per_prd_3() -> None:
-    assert len(SEEDED_ROLES) == 8
+def test_two_roles_are_seeded() -> None:
+    """The two this business has. Further roles are created under Settings."""
+    assert len(SEEDED_ROLES) == 2
     assert set(ROLES_BY_CODE) == {
-        "owner_administrator",
-        "sales_officer",
-        "purchasing_officer",
-        "store_officer",
-        "dispatch_officer",
-        "cashier",
-        "accountant",
-        "auditor",
+        "administrator",
+        "sales_person",
     }
 
 
 def test_administrator_holds_every_permission() -> None:
-    assert ROLES_BY_CODE["owner_administrator"].permissions == ALL_CODES
+    assert ROLES_BY_CODE["administrator"].permissions == ALL_CODES
+    assert ROLES_BY_CODE["administrator"].is_administrator
 
 
-def test_auditor_is_read_only() -> None:
-    """PRD 3: the auditor has read-only access to records, documents and the audit trail."""
-    auditor = ROLES_BY_CODE["auditor"]
-    assert auditor.is_read_only
-    assert all(code.endswith((".view", ".export")) for code in auditor.permissions)
-    assert "audit.view" in auditor.permissions
+def test_the_registry_still_covers_the_roles_that_are_not_seeded() -> None:
+    """PRD 3 names eight job functions; two are seeded and six are left to Settings.
+
+    Not seeding them must not mean they cannot be built, so the permissions each
+    would need are still registered.
+    """
+    for code in (
+        "purchase_order.manage",
+        "goods_receipt.manage",
+        "dispatch.manage",
+        "pos.refund",
+        "journal.post",
+        "audit.view",
+    ):
+        assert permission(code)
 
 
 @pytest.mark.parametrize(
@@ -71,19 +76,22 @@ def test_sensitive_permissions_are_marked(code: str) -> None:
     assert permission(code).sensitive
 
 
-def test_costing_view_is_withheld_from_customer_facing_roles() -> None:
+def test_costing_view_is_withheld_from_the_sales_person() -> None:
     """PRD 10: supplier cost and margin are protected from unauthorised roles."""
-    for role_code in ("sales_officer", "cashier", "dispatch_officer", "store_officer"):
-        assert "costing.view" not in ROLES_BY_CODE[role_code].permissions
+    assert "costing.view" not in ROLES_BY_CODE["sales_person"].permissions
+    assert "report.export_sensitive" not in ROLES_BY_CODE["sales_person"].permissions
 
 
-def test_cashier_cannot_authorise_its_own_refund() -> None:
-    """PRD 6.10: refunds and voids require authorisation."""
-    cashier = ROLES_BY_CODE["cashier"]
-    assert "pos.operate" in cashier.permissions
-    assert "pos.refund" not in cashier.permissions
-    assert "pos.price_override" not in cashier.permissions
-    assert "pos.shift_approve" not in cashier.permissions
+def test_the_sales_person_operates_the_counter_but_authorises_nothing() -> None:
+    """PRD 6.10: refunds, voids and price overrides require authorisation.
+
+    With no separate cashier role the sales person works the till, so the question
+    of what they may do there without the proprietor is the one that matters.
+    """
+    sales = ROLES_BY_CODE["sales_person"]
+    assert "pos.operate" in sales.permissions
+    for withheld in ("pos.refund", "pos.price_override", "pos.shift_approve", "pos.discount"):
+        assert withheld not in sales.permissions
 
 
 def test_no_role_but_the_administrator_can_manage_roles() -> None:

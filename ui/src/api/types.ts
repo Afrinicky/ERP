@@ -804,6 +804,8 @@ export interface DocumentType {
 export interface TemplateDefinition {
   page?: PageFormatCode;
   classification?: string;
+  /** null follows the kind's own default. */
+  show_prices?: boolean | null;
   show_bill_to?: boolean;
   show_ship_to?: boolean;
   show_delivery?: boolean;

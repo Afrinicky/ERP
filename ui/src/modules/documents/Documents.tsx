@@ -173,6 +173,22 @@ function Templates() {
   );
 }
 
+/**
+ * Which of the three price settings is in force.
+ *
+ * Absent means "follow the kind", which is not the same as "never": a delivery note
+ * and an invoice both read as absent and behave differently, so the control has to
+ * offer three states rather than a checkbox's two.
+ */
+function priceChoice(
+  draft: Partial<TemplateDefinition>,
+  definition: TemplateDefinition | undefined,
+): 'default' | 'always' | 'never' {
+  const value = 'show_prices' in draft ? draft.show_prices : definition?.show_prices;
+  if (value === null || value === undefined) return 'default';
+  return value ? 'always' : 'never';
+}
+
 function stockLabel(code: PageFormatCode): string {
   if (code === 'roll_80') return '80mm roll';
   if (code === 'roll_58') return '58mm roll';
@@ -266,6 +282,33 @@ function LayoutPanel({ type, onClose }: { type: DocumentType; onClose: () => voi
                   <option value="legal">Legal</option>
                   <option value="roll_80">80mm roll</option>
                   <option value="roll_58">58mm roll</option>
+                </Select>
+              )}
+            </Field>
+            <Field
+              label="Prices"
+              hint="A waybill and a delivery note withhold prices by default; some customers want them for goods-inwards checking."
+            >
+              {(id) => (
+                <Select
+                  id={id}
+                  value={priceChoice(draft, definition)}
+                  onChange={(event) => {
+                    const choice = event.target.value;
+                    setDraft((current) => ({
+                      ...current,
+                      show_prices: choice === 'default' ? null : choice === 'always',
+                      // Turning prices on without the totals block gives a priced
+                      // table that never adds up. Both are still separately
+                      // adjustable below.
+                      ...(choice === 'always' ? { show_totals: true } : {}),
+                      ...(choice === 'never' ? { show_totals: false } : {}),
+                    }));
+                  }}
+                >
+                  <option value="default">Follow the document&rsquo;s default</option>
+                  <option value="always">Always show</option>
+                  <option value="never">Never show</option>
                 </Select>
               )}
             </Field>
