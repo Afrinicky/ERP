@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
@@ -86,6 +87,9 @@ class SetupResult:
     roles_created: int
     sequences_created: int
     units_created: int
+    account_groups_created: int
+    accounts_created: int
+    periods_created: int
 
 
 class SetupService:
@@ -191,6 +195,7 @@ class SetupService:
         roles = self._seed_roles(business.id)
         sequences = self._seed_sequences(business.id)
         units = self._seed_units(business.id)
+        groups, accounts, periods = self._seed_ledger(business, now.date())
 
         self._db.add(
             ThemeProfile(
@@ -240,6 +245,9 @@ class SetupService:
                 "roles": roles,
                 "sequences": sequences,
                 "units": units,
+                "account_groups": groups,
+                "accounts": accounts,
+                "periods": periods,
                 "branches": 1 + len(request.extra_branches),
             },
         )
@@ -253,7 +261,26 @@ class SetupService:
             roles_created=roles,
             sequences_created=sequences,
             units_created=units,
+            account_groups_created=groups,
+            accounts_created=accounts,
+            periods_created=periods,
         )
+
+    def _seed_ledger(self, business: Business, on: date) -> tuple[int, int, int]:
+        """Create the chart of accounts and open the first financial year.
+
+        A business cannot record anything before it has a chart, and a posting cannot
+        be dated into a year that was never opened, so both belong to provisioning
+        rather than to a later setup step the user might not reach.
+        """
+        from nickland.application.services.accounts import AccountService
+
+        service = AccountService(self._db, clock=self._clock)
+        groups, accounts = service.seed(business.id)
+        start_month = business.financial_year_start_month
+        year = on.year if on.month >= start_month else on.year - 1
+        periods = service.open_financial_year(business.id, year, start_month)
+        return groups, accounts, periods
 
     def _seed_roles(self, business_id: uuid.UUID) -> int:
         """Create the eight roles of PRD 3. Each is editable after installation."""

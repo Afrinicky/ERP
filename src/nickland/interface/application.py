@@ -17,6 +17,9 @@ from nickland.interface.routers import (
     catalogue,
     custom_fields,
     importing,
+    journals,
+    ledger,
+    ledger_reports,
     organisation,
     parties,
     platform,
@@ -125,6 +128,9 @@ def create_application(
         catalogue.router,
         parties.router,
         importing.router,
+        ledger.router,
+        journals.router,
+        ledger_reports.router,
         platform.router,
     ):
         application.include_router(router, prefix=API_PREFIX)

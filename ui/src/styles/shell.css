@@ -28,28 +28,6 @@
   border-bottom: var(--border-hairline) solid var(--colour-border-inverse);
 }
 
-/* The navigation toggle sits beside the wordmark, where a terminal operator looks
-   for it. A control at the foot of the rail is not findable. */
-.header__toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  margin-right: var(--space-1);
-  color: var(--colour-text-inverse);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background var(--motion-fast) var(--motion-ease);
-}
-
-.header__toggle:hover {
-  background: var(--colour-surface-navigation-hover);
-}
-
 .header__business {
   display: flex;
   flex-direction: column;
@@ -184,8 +162,40 @@
   align-items: center;
   gap: var(--space-3);
   height: var(--layout-header);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3) 0 var(--space-4);
   border-bottom: var(--border-hairline) solid var(--colour-border-rail);
+}
+
+/* The collapse control belongs to the rail it collapses, at the end of the brand
+   row where the rail's own edge is. It was in the header, which put a second
+   control in a bar that already carries the business, the search and the account. */
+.rail__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--colour-text-inverse-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.rail__toggle:hover {
+  color: var(--colour-text-inverse);
+  background: var(--colour-surface-navigation-hover);
+}
+
+.shell[data-rail='collapsed'] .rail__toggle {
+  margin-left: 0;
+  transform: rotate(180deg);
 }
 
 .rail__mark {
@@ -315,6 +325,12 @@
 .shell[data-rail='collapsed'] .rail__brand {
   justify-content: center;
   padding: 0;
+}
+
+/* Collapsed, the brand row has room for one thing. It keeps the control, because a
+   rail that cannot be reopened is a rail that is simply gone. */
+.shell[data-rail='collapsed'] .rail__mark {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- Main */

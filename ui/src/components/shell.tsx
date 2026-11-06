@@ -78,6 +78,17 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="rail__product">Nickland</span>
             <span className="rail__edition">Enterprise edition</span>
           </span>
+          <button
+            type="button"
+            className="rail__toggle"
+            onClick={() => setCollapsed((current) => !current)}
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            aria-expanded={!collapsed}
+            aria-controls="main-navigation"
+            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          >
+            <Icons.collapse />
+          </button>
         </div>
 
         <div className="rail__nav">
@@ -108,18 +119,6 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
 
       <header className="header">
-        <button
-          type="button"
-          className="header__toggle"
-          onClick={() => setCollapsed((current) => !current)}
-          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          aria-expanded={!collapsed}
-          aria-controls="main-navigation"
-          title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-        >
-          <Icons.menu />
-        </button>
-
         <div className="header__business">
           <span className="header__name">{business?.name ?? 'Nickland ERP'}</span>
           <span className="header__context">
@@ -275,8 +274,34 @@ function StatusStrip() {
 
       <div className="grow" />
 
-      <span className="status-strip__item caption">Accounting period not yet configured</span>
+      <OpenPeriod />
     </footer>
+  );
+}
+
+/**
+ * Which accounting period a posting made now would land in.
+ *
+ * It sits at the end of the strip because it governs every transaction the operator
+ * is about to record: posting into a closed period, or into no period at all, fails
+ * at the point of saving, and the strip is where that is noticed first.
+ */
+function OpenPeriod() {
+  const { can } = useSession();
+  const summary = useQuery({
+    queryKey: ['ledger', 'summary'],
+    queryFn: () => api.financialReports.summary(),
+    enabled: can('account.view'),
+    staleTime: 60_000,
+  });
+
+  if (!can('account.view')) return null;
+  const period = summary.data?.open_period_label;
+  return (
+    <span className="status-strip__item caption">
+      <Mark state={period ? 'ok' : 'degraded'} />
+      {period ? `Period ${period}` : 'No accounting period covers today'}
+    </span>
   );
 }
 

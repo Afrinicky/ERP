@@ -6,23 +6,39 @@
  */
 
 import type {
+  Account,
+  AccountGroup,
+  AccountLedger,
+  AccountingBasis,
+  AccountingPeriod,
   AffiliateProfile,
+  ApprovalThreshold,
   Attribute,
   Backup,
+  BalanceSheet,
   Barcode,
   Branch,
   Business,
+  CashFlow,
+  CloseReadiness,
   Category,
   Contact,
   Credit,
   CustomField,
+  DraftLine,
   Health,
   ImportReport,
   ImportRun,
+  JournalApproval,
+  JournalEntry,
+  JournalPage,
+  LedgerSummary,
   Page,
   Party,
   Permission,
+  PostingOutcome,
   Preset,
+  ProfitAndLoss,
   PriceList,
   PriceListLine,
   Product,
@@ -33,8 +49,10 @@ import type {
   SetupResult,
   SetupStatus,
   SignInResult,
+  SubledgerVariance,
   SupplierProduct,
   Theme,
+  TrialBalance,
   Unit,
   ThemePreview,
   User,
@@ -42,6 +60,7 @@ import type {
   Actor,
   AuditEvent,
   ApiError,
+  YearEndOutcome,
 } from './types';
 
 const BASE = '/api/v1';
@@ -399,6 +418,117 @@ export const api = {
     commit: (kind: string, filename: string, content_base64: string) =>
       request<ImportReport>('POST', '/imports/commit', { kind, filename, content_base64 }),
     history: (limit = 30) => request<ImportRun[]>('GET', '/imports', undefined, { limit }),
+  },
+
+  ledger: {
+    groups: () => request<AccountGroup[]>('GET', '/ledger/groups'),
+    accounts: (params: {
+      term?: string;
+      kind?: string;
+      include_inactive?: boolean;
+      with_balances?: boolean;
+      as_at?: string;
+    } = {}) => request<Account[]>('GET', '/ledger/accounts', undefined, params),
+    account: (id: string) => request<Account>('GET', `/ledger/accounts/${id}`),
+    createAccount: (payload: {
+      code: string;
+      name: string;
+      group_id?: string | null;
+      description?: string | null;
+      cash_flow_category?: string;
+      currency_code?: string | null;
+      permits_manual_posting?: boolean;
+      display_order?: number;
+    }) => request<Account>('POST', '/ledger/accounts', payload),
+    amendAccount: (id: string, changes: Record<string, unknown>) =>
+      request<Account>('PATCH', `/ledger/accounts/${id}`, changes),
+
+    periods: (financial_year?: number) =>
+      request<AccountingPeriod[]>('GET', '/ledger/periods', undefined, { financial_year }),
+    openYear: (financial_year: number, start_month?: number) =>
+      request<AccountingPeriod[]>('POST', '/ledger/periods', { financial_year, start_month }),
+    readiness: (periodId: string) =>
+      request<CloseReadiness>('GET', `/ledger/periods/${periodId}/readiness`),
+    closePeriod: (periodId: string, note?: string) =>
+      request<CloseReadiness>('POST', `/ledger/periods/${periodId}/close`, { note }),
+    reopenPeriod: (periodId: string, reason: string, approved_by_id?: string) =>
+      request<AccountingPeriod>('POST', `/ledger/periods/${periodId}/reopen`, {
+        reason,
+        approved_by_id,
+      }),
+    closeYear: (financial_year: number, note?: string) =>
+      request<YearEndOutcome>('POST', '/ledger/year-end', { financial_year, note }),
+
+    subledgers: () =>
+      request<SubledgerVariance[]>('GET', '/ledger/reconciliation/subledgers'),
+  },
+
+  journals: {
+    list: (params: {
+      term?: string;
+      state?: string;
+      source?: string;
+      account_id?: string;
+      party_id?: string;
+      start?: string;
+      end?: string;
+      offset?: number;
+      limit?: number;
+    } = {}) => request<JournalPage>('GET', '/journals', undefined, params),
+    read: (id: string) => request<JournalEntry>('GET', `/journals/${id}`),
+    post: (payload: {
+      posting_date: string;
+      narration: string;
+      lines: DraftLine[];
+      source?: string;
+      source_reference?: string | null;
+      idempotency_key?: string | null;
+      currency_code?: string | null;
+    }) => request<PostingOutcome>('POST', '/journals', payload),
+    pending: () => request<JournalEntry[]>('GET', '/journals/pending'),
+    approvals: (id: string) => request<JournalApproval[]>('GET', `/journals/${id}/approvals`),
+    approve: (id: string, note?: string) =>
+      request<JournalEntry>('POST', `/journals/${id}/approve`, { note }),
+    reject: (id: string, reason: string) =>
+      request<JournalEntry>('POST', `/journals/${id}/reject`, { reason }),
+    reverse: (id: string, reason: string, posting_date?: string) =>
+      request<JournalEntry>('POST', `/journals/${id}/reverse`, { reason, posting_date }),
+    threshold: () => request<ApprovalThreshold | null>('GET', '/journals/threshold'),
+    setThreshold: (amount: string | null, requires_distinct_checker = true) =>
+      request<ApprovalThreshold | null>('PUT', '/journals/threshold', {
+        amount,
+        requires_distinct_checker,
+      }),
+  },
+
+  financialReports: {
+    summary: (as_at?: string, basis: AccountingBasis = 'accrual') =>
+      request<LedgerSummary>('GET', '/reports/ledger/summary', undefined, { as_at, basis }),
+    trialBalance: (params: { as_at?: string; start?: string; basis?: AccountingBasis } = {}) =>
+      request<TrialBalance>('GET', '/reports/ledger/trial-balance', undefined, params),
+    accountLedger: (
+      accountId: string,
+      params: { start?: string; end?: string; basis?: AccountingBasis; limit?: number } = {},
+    ) =>
+      request<AccountLedger>(
+        'GET',
+        `/reports/ledger/accounts/${accountId}`,
+        undefined,
+        params,
+      ),
+    profitAndLoss: (start: string, end: string, basis: AccountingBasis = 'accrual') =>
+      request<ProfitAndLoss>('GET', '/reports/ledger/profit-and-loss', undefined, {
+        start,
+        end,
+        basis,
+      }),
+    balanceSheet: (as_at?: string, basis: AccountingBasis = 'accrual') =>
+      request<BalanceSheet>('GET', '/reports/ledger/balance-sheet', undefined, {
+        as_at,
+        basis,
+      }),
+    cashFlow: (start: string, end: string) =>
+      request<CashFlow>('GET', '/reports/ledger/cash-flow', undefined, { start, end }),
   },
 
   platform: {

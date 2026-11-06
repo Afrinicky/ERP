@@ -15,14 +15,18 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
+from nickland.application.services.accounts import AccountService
 from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.custom_fields import CustomFieldService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
 from nickland.application.services.importing import ImportService
+from nickland.application.services.journals import JournalService
+from nickland.application.services.ledger_reports import LedgerReportService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.parties import PartyService
+from nickland.application.services.periods import PeriodService
 from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.setup import SetupService
 from nickland.application.services.theme import ThemeService
@@ -226,3 +230,27 @@ CatalogueDependency = Annotated[CatalogueService, Depends(get_catalogue_service)
 PartyDependency = Annotated[PartyService, Depends(get_party_service)]
 PriceListDependency = Annotated[PriceListService, Depends(get_price_list_service)]
 ImportDependency = Annotated[ImportService, Depends(get_import_service)]
+
+
+def get_account_service(session: SessionDependency, runtime: RuntimeDependency) -> AccountService:
+    return AccountService(session, clock=runtime.clock)
+
+
+def get_journal_service(session: SessionDependency, runtime: RuntimeDependency) -> JournalService:
+    return JournalService(session, clock=runtime.clock)
+
+
+def get_period_service(session: SessionDependency, runtime: RuntimeDependency) -> PeriodService:
+    return PeriodService(session, clock=runtime.clock)
+
+
+def get_ledger_report_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> LedgerReportService:
+    return LedgerReportService(session, clock=runtime.clock)
+
+
+AccountDependency = Annotated[AccountService, Depends(get_account_service)]
+JournalDependency = Annotated[JournalService, Depends(get_journal_service)]
+PeriodDependency = Annotated[PeriodService, Depends(get_period_service)]
+LedgerReportDependency = Annotated[LedgerReportService, Depends(get_ledger_report_service)]

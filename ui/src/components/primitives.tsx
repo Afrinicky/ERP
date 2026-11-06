@@ -776,14 +776,17 @@ export function TotalDisplay({
   value,
   caption,
   tone,
+  compact,
 }: {
   label?: string;
   value: string;
   caption?: string;
   tone?: 'default' | 'due' | 'settled';
+  /** Sized for a dialog footer rather than for a counter read at arm's length. */
+  compact?: boolean;
 }) {
   return (
-    <div className={`total total--${tone ?? 'default'}`}>
+    <div className={`total total--${tone ?? 'default'}${compact ? ' total--compact' : ''}`}>
       <span className="total__label">{label}</span>
       <span className="total__value">{value}</span>
       {caption ? <span className="total__caption">{caption}</span> : null}

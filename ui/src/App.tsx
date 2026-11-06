@@ -10,6 +10,7 @@ import { api } from '@/api/client';
 import { Alert, Button, Card, Skeleton, ToastProvider } from '@/components/primitives';
 import { Shell } from '@/components/shell';
 import { Products } from '@/modules/catalogue/Products';
+import { Finance } from '@/modules/finance/Finance';
 import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Parties } from '@/modules/parties/Parties';
 import { Placeholder } from '@/modules/Placeholder';
@@ -207,26 +208,7 @@ function Entry() {
           }
         />
 
-        <Route
-          path="/finance/*"
-          element={
-            <Placeholder
-              title="Financial Management"
-              phase="Phases 3 and 11 to 14"
-              stage="Fiscal Core and Financial Command"
-              purpose="Ledger, treasury, receivables, payables, debt, budgets and reporting."
-              depends="Nothing. The accounting ledger is the next phase to be built."
-              contents={[
-                'Double-entry ledger with a configurable chart of accounts',
-                'Periods, locking and audited reopening',
-                'Cash, bank and Mobile Money treasury with reconciliation',
-                'Receivables and payables with ageing and allocation',
-                'Debt, loans and amortisation schedules',
-                'Budgets, cash forecasts and the monthly management pack',
-              ]}
-            />
-          }
-        />
+        <Route path="/finance/*" element={<Finance />} />
 
         <Route
           path="/documents/*"

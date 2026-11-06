@@ -492,3 +492,284 @@ export interface ImportRun {
   amended_rows: number;
   failure_reason: string | null;
 }
+
+// -- the ledger ------------------------------------------------------------------------
+
+export type AccountingBasis = 'accrual' | 'cash';
+export type JournalState =
+  | 'draft'
+  | 'pending_approval'
+  | 'posted'
+  | 'reversed'
+  | 'rejected';
+
+export interface AccountGroup {
+  id: string;
+  code: string;
+  name: string;
+  kind: string;
+  statement: string;
+  display_order: number;
+  is_active: boolean;
+}
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  kind: string;
+  statement: string;
+  group_fk: string | null;
+  cash_flow_category: string;
+  control_subledger: string | null;
+  currency_code: string | null;
+  is_active: boolean;
+  is_system: boolean;
+  permits_manual_posting: boolean;
+  display_order: number;
+  balance: string;
+  presented_side: 'debit' | 'credit';
+}
+
+export interface AccountingPeriod {
+  id: string;
+  financial_year: number;
+  sequence: number;
+  label: string;
+  starts_on: string;
+  ends_on: string;
+  state: 'open' | 'closed' | 'reopened';
+  closed_at: string | null;
+  reopened_at: string | null;
+  reopen_reason: string | null;
+  is_year_end: boolean;
+  year_end_posted_at: string | null;
+}
+
+export interface CloseCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+  measurements: Record<string, unknown>;
+}
+
+export interface CloseReadiness {
+  period: AccountingPeriod;
+  checks: CloseCheck[];
+  ready: boolean;
+}
+
+export interface YearEndOutcome {
+  period: AccountingPeriod;
+  entry_number: string | null;
+  accounts_closed: number;
+  net_result: string;
+}
+
+export interface JournalLine {
+  id: string;
+  account_fk: string;
+  display_order: number;
+  debit: string;
+  credit: string;
+  currency_code: string;
+  narration: string | null;
+  party_fk: string | null;
+  subledger: string | null;
+  state: JournalState;
+  account_code: string;
+  account_name: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  number: string | null;
+  posting_date: string;
+  period_fk: string | null;
+  state: JournalState;
+  source: string;
+  source_reference: string | null;
+  narration: string;
+  currency_code: string;
+  total_debit: string;
+  total_credit: string;
+  created_at: string;
+  created_by_id: string | null;
+  posted_at: string | null;
+  approved_at: string | null;
+  approved_by_id: string | null;
+  rejection_reason: string | null;
+  reverses_fk: string | null;
+  reversed_by_fk: string | null;
+  reversal_reason: string | null;
+  lines: JournalLine[];
+}
+
+export interface PostingOutcome {
+  entry: JournalEntry;
+  created: boolean;
+  awaiting_approval: boolean;
+}
+
+export interface JournalPage {
+  entries: JournalEntry[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface JournalApproval {
+  id: string;
+  decided_at: string;
+  decided_by_id: string;
+  decision: string;
+  reason: string | null;
+  threshold_amount: string | null;
+}
+
+export interface ApprovalThreshold {
+  id: string;
+  scope: string;
+  amount: string;
+  requires_distinct_checker: boolean;
+  is_active: boolean;
+}
+
+export interface DraftLine {
+  account_code: string;
+  side: 'debit' | 'credit';
+  amount: string;
+  narration?: string | null;
+  party_id?: string | null;
+  subledger?: string | null;
+}
+
+export interface TrialBalanceRow {
+  code: string;
+  name: string;
+  kind: string;
+  debit: string;
+  credit: string;
+}
+
+export interface TrialBalance {
+  as_at: string;
+  starts_on: string | null;
+  basis: AccountingBasis;
+  rows: TrialBalanceRow[];
+  total_debit: string;
+  total_credit: string;
+  difference: string;
+  balanced: boolean;
+}
+
+export interface LedgerMovement {
+  entry_id: string;
+  number: string | null;
+  posting_date: string;
+  narration: string;
+  line_narration: string | null;
+  source: string;
+  debit: string;
+  credit: string;
+  running_balance: string;
+  party_id: string | null;
+  state: JournalState;
+}
+
+export interface AccountLedger {
+  account: Account;
+  starts_on: string | null;
+  ends_on: string;
+  basis: AccountingBasis;
+  opening_balance: string;
+  movements: LedgerMovement[];
+  total_debit: string;
+  total_credit: string;
+  closing_balance: string;
+  presented_side: 'debit' | 'credit';
+}
+
+export interface StatementLine {
+  code: string;
+  name: string;
+  amount: string;
+}
+
+export interface StatementSection {
+  code: string;
+  name: string;
+  lines: StatementLine[];
+  total: string;
+}
+
+export interface ProfitAndLoss {
+  starts_on: string;
+  ends_on: string;
+  basis: AccountingBasis;
+  revenue: StatementSection[];
+  expenses: StatementSection[];
+  total_revenue: string;
+  total_cost_of_sales: string;
+  gross_profit: string;
+  total_expenses: string;
+  net_result: string;
+}
+
+export interface BalanceSheet {
+  as_at: string;
+  basis: AccountingBasis;
+  assets: StatementSection[];
+  liabilities: StatementSection[];
+  equity: StatementSection[];
+  total_assets: string;
+  total_liabilities: string;
+  total_equity: string;
+  total_liabilities_and_equity: string;
+  retained_result: string;
+  difference: string;
+  balanced: boolean;
+}
+
+export interface CashFlow {
+  starts_on: string;
+  ends_on: string;
+  opening_cash: string;
+  operating: string;
+  investing: string;
+  financing: string;
+  unclassified: string;
+  net_movement: string;
+  closing_cash: string;
+  reconciles: boolean;
+}
+
+export interface SubledgerVariance {
+  account_code: string;
+  account_name: string;
+  subledger: string;
+  control_balance: string;
+  subledger_balance: string;
+  difference: string;
+  agrees: boolean;
+}
+
+export interface LedgerSummary {
+  as_at: string;
+  basis: AccountingBasis;
+  total_assets: string;
+  total_liabilities: string;
+  total_equity: string;
+  cash_on_hand: string;
+  receivables: string;
+  payables: string;
+  revenue_year_to_date: string;
+  expenses_year_to_date: string;
+  net_result_year_to_date: string;
+  trial_balance_difference: string;
+  accounting_equation_difference: string;
+  pending_approvals: number;
+  open_period_label: string | null;
+  financial_year: number | null;
+}

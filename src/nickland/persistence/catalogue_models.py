@@ -575,7 +575,7 @@ class AffiliateProfile(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMi
 
     __table_args__ = (
         UniqueConstraint("business_id", "party_fk", "effective_from", name=None),
-        CheckConstraint("rate >= 0 AND rate < 1", name="rate_fraction"),
+        CheckConstraint("rate >= 0", name="rate_non_negative"),
     )
 
 

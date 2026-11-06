@@ -407,6 +407,16 @@
   white-space: nowrap;
 }
 
+/* A column heading is prose, not a figure. The .numeric class makes a column's cells
+   monospaced so the digits align; applied to the heading as well it set the words in
+   monospace too, which read as a different typeface for no reason. The heading keeps
+   the alignment and gives back the face. */
+.table th.numeric {
+  font-family: var(--font-sans);
+  font-size: var(--size-xs);
+  letter-spacing: var(--tracking-wider);
+}
+
 .table td {
   height: var(--control-row-md);
   padding: 0 var(--space-4);
@@ -431,12 +441,32 @@
   height: var(--control-row-compact);
 }
 
-.table tfoot td {
+.table tfoot td,
+.table tfoot th {
+  position: static;
   height: var(--control-row-md);
+  font-size: var(--size-sm);
   font-weight: var(--weight-semibold);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--colour-text-primary);
   background: var(--colour-surface-sunken);
   border-top: var(--border-thick) solid var(--colour-border-default);
   border-bottom: 0;
+}
+
+/* A total belongs to the figures above it, so its monospace is kept while the label
+   beside it stays prose. */
+.table tfoot th.numeric {
+  font-family: var(--font-mono);
+}
+
+/* A heading row inside the body of a statement — a statement section, not a column
+   heading — so it reads as a division rather than as a second table starting. */
+.table tbody th.column-header {
+  position: static;
+  background: var(--colour-surface-sunken);
+  color: var(--colour-text-primary);
 }
 
 .table__cell--wrap {
@@ -616,12 +646,21 @@
   color: var(--colour-text-secondary);
 }
 
+/* A measure is read, not reconciled against the line above it, so it is set in the
+   sans face with tabular figures rather than in monospace. Monospace is kept for the
+   columns that must align digit under digit — tables, and the terminal total — where
+   its even advance is the point. At this size its wide advance only spread a currency
+   amount across the tile and made four tiles look like four different widths. */
 .measure__value {
-  font-family: var(--font-mono);
-  font-size: var(--size-3xl);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-3xl);
+  font-family: var(--font-sans);
+  font-size: var(--size-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-2xl);
   letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .measure__value--text {
@@ -1069,6 +1108,18 @@
 .total__caption {
   font-size: var(--size-xs);
   color: var(--colour-text-tertiary);
+}
+
+/* The terminal total is sized for a cashier reading across a counter. In a dialog
+   footer, beside two buttons, that size shouts; this variant keeps the alignment and
+   the colour coding and gives back the room. */
+.total--compact {
+  align-items: flex-start;
+}
+
+.total--compact .total__value {
+  font-size: var(--size-xl);
+  line-height: var(--leading-xl);
 }
 
 .radio-group {

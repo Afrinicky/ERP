@@ -14,6 +14,7 @@ from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from nickland.persistence.immutability import register_append_only_guards
 from nickland.platform.config import Settings
 from nickland.platform.logging import get_logger
 
@@ -76,13 +77,15 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
     SQLAlchemy does by default, and the explicitness was not worth the class of bug it
     invited. Transaction boundaries remain explicit; only the flush is automatic.
     """
-    return sessionmaker(
+    factory = sessionmaker(
         bind=engine,
         autoflush=True,
         autocommit=False,
         expire_on_commit=False,
         future=True,
     )
+    register_append_only_guards(factory)
+    return factory
 
 
 @contextmanager

@@ -1,18 +1,33 @@
 """Column types.
 
 Money is fixed-precision decimal everywhere, including on SQLite, which has no native
-numeric type. ``Money`` stores as text and returns Decimal, so arithmetic never passes
-through binary floating-point, per PRD 9.5.
+numeric type, per PRD 9.5.
+
+SQLite holds a monetary value as a scaled integer: the amount multiplied by ten to the
+power of the column's scale, so 1,150.00 at six places is stored as 1150000000. An
+earlier revision stored a zero-padded decimal string instead. That sorted correctly
+and never lost a digit on a single value, but it was wrong in two ways that only
+appear in aggregate. SQLite compares by storage class before value, so text sorts
+after every number whatever the digits say and ``CHECK (debit >= 0)`` asserted
+nothing; and ``SUM()`` over text coerces to REAL, which put the whole of financial
+reporting through binary floating-point — the one thing this module exists to
+prevent. A trial balance over a large ledger would then report itself out by a
+fraction of a pesewa that no entry accounts for.
+
+Scaled integers fix both. Comparison and ordering are native, ``SUM()`` is exact
+integer arithmetic, and the result arrives as an integer that is scaled back to a
+Decimal on the way out — including the result of an aggregate, since SQLAlchemy
+applies the column's type to it.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from sqlalchemy import CHAR, DateTime, Dialect, String, TypeDecorator
+from sqlalchemy import CHAR, BigInteger, DateTime, Dialect, TypeDecorator
 from sqlalchemy.dialects.postgresql import NUMERIC as PG_NUMERIC
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
@@ -50,11 +65,12 @@ class Uuid(TypeDecorator[uuid.UUID]):
 class Money(TypeDecorator[Decimal]):
     """Fixed-precision decimal.
 
-    PostgreSQL uses NUMERIC(18, 4) by default. SQLite stores a zero-padded decimal
-    string, which sorts and compares correctly and never loses precision.
+    PostgreSQL uses NUMERIC(18, 4) by default. SQLite holds the amount as an integer
+    scaled by the column's number of decimal places, so comparison, ordering and
+    summation are exact integer operations rather than text or floating-point ones.
     """
 
-    impl = String
+    impl = BigInteger
     cache_ok = True
 
     def __init__(self, precision: int = 18, scale: int = DEFAULT_PRESENTATION_PRECISION) -> None:
@@ -62,10 +78,14 @@ class Money(TypeDecorator[Decimal]):
         self.scale = scale
         super().__init__()
 
+    @property
+    def _exponent(self) -> Decimal:
+        return Decimal(1).scaleb(-self.scale)
+
     def load_dialect_impl(self, dialect: Dialect) -> Any:
         if dialect.name == "postgresql":
             return dialect.type_descriptor(PG_NUMERIC(self.precision, self.scale))
-        return dialect.type_descriptor(String(self.precision + self.scale + 4))
+        return dialect.type_descriptor(BigInteger())
 
     def process_bind_param(self, value: Any, dialect: Dialect) -> Any:
         if value is None:
@@ -76,24 +96,34 @@ class Money(TypeDecorator[Decimal]):
                 "Pass a Decimal, int or str."
             )
         as_decimal = value if isinstance(value, Decimal) else Decimal(str(value))
-        as_decimal = as_decimal.quantize(Decimal(1).scaleb(-self.scale))
+        as_decimal = as_decimal.quantize(self._exponent, rounding=ROUND_HALF_UP)
         if dialect.name == "postgresql":
             return as_decimal
-        # Sign-preserving, zero-padded so lexical order matches numeric order.
-        sign = "-" if as_decimal < 0 else "0"
-        digits = f"{abs(as_decimal):0{self.precision + self.scale + 1}.{self.scale}f}"
-        return f"{sign}{digits}"
+        scaled = as_decimal.scaleb(self.scale)
+        if scaled != scaled.to_integral_value():
+            raise ValueError(f"{value} cannot be held to {self.scale} decimal places without loss.")
+        return int(scaled)
 
     def process_result_value(self, value: Any, dialect: Dialect) -> Decimal | None:
+        """Scale an integer back to a Decimal.
+
+        An aggregate arrives here too — SQLAlchemy applies the column's type to the
+        result of ``SUM`` — so a summed column is scaled back exactly once, by the
+        same factor, and comes out right.
+        """
         if value is None:
             return None
         if isinstance(value, Decimal):
             return value
-        text = str(value)
-        if text.startswith(("0", "-")) and dialect.name != "postgresql":
-            sign, text = text[0], text[1:]
-            return Decimal(text) * (-1 if sign == "-" else 1)
-        return Decimal(text)
+        if isinstance(value, int):
+            return Decimal(value).scaleb(-self.scale).quantize(self._exponent)
+        if isinstance(value, float):
+            raise TypeError(
+                "A monetary column returned a floating-point value, which means the "
+                "query performed arithmetic SQLite could not keep exact. Aggregate "
+                "the column itself, or compute in Python."
+            )
+        return Decimal(str(value)).quantize(self._exponent)
 
 
 class Quantity(Money):
@@ -102,6 +132,23 @@ class Quantity(Money):
     cache_ok = True
     """Declared on the subclass: without it SQLAlchemy cannot cache a compiled
     statement that uses this type, which costs a recompilation on every query."""
+
+    def __init__(self) -> None:
+        super().__init__(precision=18, scale=WORKING_PRECISION)
+
+
+class PostedAmount(Money):
+    """A monetary amount in the ledger. Six decimal places.
+
+    Elsewhere four places is right: a price is a presentation figure and the pricing
+    engine rounds to presentation precision at the boundary. The ledger is different.
+    An entry is validated as balanced at working precision, so storing it at four
+    places could round a balanced entry into an unbalanced one on disk, and the one
+    invariant the whole accounting model rests on would be broken by the act of saving
+    it. Amounts are stored exactly as validated and rounded only for display.
+    """
+
+    cache_ok = True
 
     def __init__(self) -> None:
         super().__init__(precision=18, scale=WORKING_PRECISION)

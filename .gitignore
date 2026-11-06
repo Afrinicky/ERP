@@ -20,3 +20,6 @@ ui/dist/
 *.db
 *.db-shm
 *.db-wal
+
+# Vite/TypeScript incremental build state
+ui/tsconfig.tsbuildinfo
