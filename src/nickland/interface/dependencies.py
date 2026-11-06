@@ -18,6 +18,7 @@ from nickland.application.context import Actor
 from nickland.application.services.accounts import AccountService
 from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
+from nickland.application.services.commissions import CommissionService
 from nickland.application.services.custom_fields import CustomFieldService
 from nickland.application.services.documents import DocumentRecordService
 from nickland.application.services.health import HealthService
@@ -29,7 +30,10 @@ from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.parties import PartyService
 from nickland.application.services.periods import PeriodService
 from nickland.application.services.pricing_lists import PriceListService
+from nickland.application.services.pricing_policy import PricingPolicyService
+from nickland.application.services.quotations import QuotationService
 from nickland.application.services.setup import SetupService
+from nickland.application.services.sourcing import SourcingService
 from nickland.application.services.taxation import TaxService
 from nickland.application.services.theme import ThemeService
 from nickland.application.services.units import UnitService
@@ -280,3 +284,31 @@ def get_tax_service(session: SessionDependency, runtime: RuntimeDependency) -> T
 
 
 TaxDependency = Annotated[TaxService, Depends(get_tax_service)]
+
+
+def get_sourcing_service(session: SessionDependency, runtime: RuntimeDependency) -> SourcingService:
+    return SourcingService(session, clock=runtime.clock)
+
+
+def get_quotation_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> QuotationService:
+    return QuotationService(session, clock=runtime.clock)
+
+
+def get_pricing_policy_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> PricingPolicyService:
+    return PricingPolicyService(session, clock=runtime.clock)
+
+
+def get_commission_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CommissionService:
+    return CommissionService(session, clock=runtime.clock)
+
+
+SourcingDependency = Annotated[SourcingService, Depends(get_sourcing_service)]
+QuotationDependency = Annotated[QuotationService, Depends(get_quotation_service)]
+PricingPolicyDependency = Annotated[PricingPolicyService, Depends(get_pricing_policy_service)]
+CommissionDependency = Annotated[CommissionService, Depends(get_commission_service)]

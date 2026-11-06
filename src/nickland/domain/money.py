@@ -101,8 +101,15 @@ def allocate(total: Decimal, weights: list[Decimal], precision: int) -> list[Dec
         share = present(divide(total, Decimal(len(weights))), precision)
         parts = [share] * len(weights)
     else:
+        # The product is formed before the division. Dividing first would quantize the
+        # ratio to working precision, and an error of 5e-7 in a ratio becomes an error
+        # of 5e-7 multiplied by the total in the share: apportioning 1,576.1786 over
+        # six equal parts that way leaves a residue of 0.0028 rather than 0.0002, and
+        # the whole of it lands on one part. Multiplying first keeps each share within
+        # half a unit of the last place of its own figure, which is what rounding a
+        # share is supposed to cost.
         parts = [
-            present(multiply(total, divide(weight, weight_total)), precision) for weight in weights
+            present(divide(multiply(total, weight), weight_total), precision) for weight in weights
         ]
 
     residue = present(total, precision) - sum(parts, ZERO)

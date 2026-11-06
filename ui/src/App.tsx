@@ -14,7 +14,9 @@ import { Documents } from '@/modules/documents/Documents';
 import { Finance } from '@/modules/finance/Finance';
 import { Taxation } from '@/modules/taxation/Taxation';
 import { Dashboard } from '@/modules/dashboard/Dashboard';
+import { Affiliates } from '@/modules/affiliates/Affiliates';
 import { Parties } from '@/modules/parties/Parties';
+import { Sales } from '@/modules/sales/Sales';
 import { Placeholder } from '@/modules/Placeholder';
 import { SetupWizard } from '@/modules/setup/SetupWizard';
 import { SignIn } from '@/modules/session/SignIn';
@@ -69,25 +71,7 @@ function Entry() {
         <Route path="/products/*" element={<Products />} />
         <Route path="/parties/*" element={<Parties />} />
 
-        <Route
-          path="/sales/*"
-          element={
-            <Placeholder
-              title="Sales"
-              phase="Phase 5"
-              stage="Commercial Core"
-              purpose="Requests for quotation, quotations, pro formas, sales orders, invoices and returns."
-              depends="The accounting ledger and the tax engine, which govern how a sale is priced and posted."
-              contents={[
-                'Capture a customer request with its requested lines and due date',
-                'Record supplier quotations and compare price, availability and lead time',
-                'Build the cost up through allocation, margin, commission and financing',
-                'Issue a versioned quotation and record the customer’s acceptance',
-                'Convert an accepted quotation to a sales order without re-entry',
-              ]}
-            />
-          }
-        />
+        <Route path="/sales/*" element={<Sales />} />
 
         <Route
           path="/register/*"
@@ -170,25 +154,7 @@ function Entry() {
           }
         />
 
-        <Route
-          path="/affiliates/*"
-          element={
-            <Placeholder
-              title="Affiliates"
-              phase="Phase 5"
-              stage="Commercial Core"
-              purpose="Referrers, eligibility, rates, accruals and payouts."
-              depends="The costing and pricing engine, which computes commission."
-              contents={[
-                'Referrer profiles and payment details',
-                'Eligibility by product, category or selected lines',
-                'Fixed or percentage commission with effective-dated rates',
-                'Accrued, approved, payable and paid states',
-                'Commission payable only once the customer has paid',
-              ]}
-            />
-          }
-        />
+        <Route path="/affiliates/*" element={<Affiliates />} />
 
         <Route path="/taxation/*" element={<Taxation />} />
 

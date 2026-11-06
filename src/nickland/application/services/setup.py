@@ -92,6 +92,8 @@ class SetupResult:
     periods_created: int
     document_types_created: int
     tax_rules_created: int
+    pricing_policies_created: int
+    instalment_bands_created: int
 
 
 class SetupService:
@@ -201,6 +203,7 @@ class SetupService:
         groups, accounts, periods = self._seed_ledger(business, now.date())
         document_types = self._seed_documents(business.id)
         _, tax_rules = self._seed_taxation(business.id)
+        pricing_policies, instalment_bands = self._seed_pricing(business.id)
 
         self._db.add(
             ThemeProfile(
@@ -273,6 +276,8 @@ class SetupService:
             periods_created=periods,
             document_types_created=document_types,
             tax_rules_created=tax_rules,
+            pricing_policies_created=pricing_policies,
+            instalment_bands_created=instalment_bands,
         )
 
     def _seed_ledger(self, business: Business, on: date) -> tuple[int, int, int]:
@@ -312,6 +317,17 @@ class SetupService:
         from nickland.application.services.taxation import TaxService
 
         return TaxService(self._db, clock=self._clock).seed(business_id)
+
+    def _seed_pricing(self, business_id: uuid.UUID) -> tuple[int, int]:
+        """Create the house margin policy, the discount limits and one instalment plan.
+
+        The margin is seeded at zero so the first quotation prices at cost, which is
+        visibly wrong and will be corrected, rather than at a plausible rate nobody
+        chose, which is invisibly wrong and will not.
+        """
+        from nickland.application.services.pricing_policy import PricingPolicyService
+
+        return PricingPolicyService(self._db, clock=self._clock).seed(business_id)
 
     def _seed_roles(self, business_id: uuid.UUID) -> int:
         """Create the shipped roles. Each is editable, and further roles may be added.

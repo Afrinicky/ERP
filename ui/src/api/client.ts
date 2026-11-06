@@ -11,52 +11,71 @@ import type {
   AccountLedger,
   AccountingBasis,
   AccountingPeriod,
+  Actor,
   AffiliateProfile,
+  ApiError,
   ApprovalThreshold,
   Attribute,
+  AuditEvent,
   Backup,
   BalanceSheet,
   Barcode,
   Branch,
   Business,
   CashFlow,
-  CloseReadiness,
   Category,
+  CloseReadiness,
+  CommissionAccrual,
+  CommissionTotals,
+  Comparison,
   Contact,
+  Costing,
   Credit,
   CustomField,
+  DiscountLimit,
   DocumentTemplate,
   DocumentType,
   DraftLine,
   Health,
   ImportReport,
   ImportRun,
+  InstalmentPlan,
   IssuedDocument,
   JournalApproval,
   JournalEntry,
   JournalPage,
   LedgerSummary,
+  MarginPolicy,
   Page,
-  Party,
   PageFormatCode,
   PageFormatInfo,
+  Party,
   Permission,
   PostingOutcome,
   Preset,
-  ProfitAndLoss,
   PriceList,
   PriceListLine,
   Product,
+  ProfitAndLoss,
+  Quotation,
+  QuotationPage,
+  QuotationRequest,
+  QuotationSnapshot,
+  RecordedAssessment,
+  RequestPage,
   ResolvedPrice,
   Role,
+  SalesSummary,
+  Schedule,
   Sequence,
   SetupPayload,
   SetupResult,
   SetupStatus,
   SignInResult,
   SubledgerVariance,
-  RecordedAssessment,
   SupplierProduct,
+  SupplierQuotation,
+  SupplierRequest,
   TaxAuthority,
   TaxCondition,
   TaxEvaluation,
@@ -67,16 +86,13 @@ import type {
   TaxSummary,
   TaxableLineInput,
   TemplateDefinition,
-  ThermalPreview,
   Theme,
+  ThemePreview,
+  ThermalPreview,
   TrialBalance,
   Unit,
-  ThemePreview,
   User,
   Warehouse,
-  Actor,
-  AuditEvent,
-  ApiError,
   YearEndOutcome,
 } from './types';
 
@@ -637,6 +653,194 @@ export const api = {
       filingId: string,
       payload: { reference: string; acknowledgement?: string | null },
     ) => request<TaxFiling>('POST', `/taxation/filings/${filingId}/submit`, payload),
+  },
+
+  sourcing: {
+    requests: (
+      params: { state?: string; limit?: number; offset?: number } = {},
+    ) => request<RequestPage>("GET", "/sourcing/requests", undefined, params),
+    request: (requestId: string) =>
+      request<QuotationRequest>("GET", `/sourcing/requests/${requestId}`),
+    createRequest: (payload: Record<string, unknown>) =>
+      request<QuotationRequest>("POST", "/sourcing/requests", payload),
+    setRequestState: (requestId: string, state: string, reason?: string) =>
+      request<QuotationRequest>(
+        "POST",
+        `/sourcing/requests/${requestId}/state`,
+        {
+          state,
+          reason,
+        },
+      ),
+    comparison: (requestId: string) =>
+      request<Comparison[]>(
+        "GET",
+        `/sourcing/requests/${requestId}/comparison`,
+      ),
+    supplierRequests: (requestId?: string) =>
+      request<SupplierRequest[]>(
+        "GET",
+        "/sourcing/supplier-requests",
+        undefined,
+        {
+          request_id: requestId,
+        },
+      ),
+    createSupplierRequest: (payload: Record<string, unknown>) =>
+      request<SupplierRequest>("POST", "/sourcing/supplier-requests", payload),
+    issueSupplierRequest: (supplierRequestId: string) =>
+      request<SupplierRequest>(
+        "POST",
+        `/sourcing/supplier-requests/${supplierRequestId}/issue`,
+      ),
+    supplierQuotations: (requestId?: string) =>
+      request<SupplierQuotation[]>(
+        "GET",
+        "/sourcing/supplier-quotations",
+        undefined,
+        {
+          request_id: requestId,
+        },
+      ),
+    recordSupplierQuotation: (payload: Record<string, unknown>) =>
+      request<SupplierQuotation>(
+        "POST",
+        "/sourcing/supplier-quotations",
+        payload,
+      ),
+  },
+
+  quotations: {
+    list: (
+      params: {
+        state?: string;
+        customer_id?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+    ) => request<QuotationPage>("GET", "/quotations", undefined, params),
+    summary: () => request<SalesSummary>("GET", "/quotations/summary"),
+    read: (quotationId: string) =>
+      request<Quotation>("GET", `/quotations/${quotationId}`),
+    create: (payload: Record<string, unknown>) =>
+      request<Quotation>("POST", "/quotations", payload),
+    fromRequest: (requestId: string, payload?: Record<string, unknown>) =>
+      request<Quotation>(
+        "POST",
+        `/quotations/from-request/${requestId}`,
+        payload,
+      ),
+    costing: (quotationId: string) =>
+      request<Costing>("GET", `/quotations/${quotationId}/costing`),
+    snapshots: (quotationId: string) =>
+      request<QuotationSnapshot[]>(
+        "GET",
+        `/quotations/${quotationId}/snapshots`,
+      ),
+    setSources: (lineId: string, sources: Record<string, unknown>[]) =>
+      request<Quotation>("PUT", `/quotations/lines/${lineId}/sources`, {
+        sources,
+      }),
+    setExpenses: (quotationId: string, expenses: Record<string, unknown>[]) =>
+      request<Quotation>("PUT", `/quotations/${quotationId}/expenses`, {
+        expenses,
+      }),
+    setPaymentPlan: (quotationId: string, payload: Record<string, unknown>) =>
+      request<Quotation>(
+        "PUT",
+        `/quotations/${quotationId}/payment-plan`,
+        payload,
+      ),
+    recordActualCost: (lineId: string, payload: Record<string, unknown>) =>
+      request<Quotation>(
+        "POST",
+        `/quotations/lines/${lineId}/actual-cost`,
+        payload,
+      ),
+    submit: (quotationId: string) =>
+      request<Quotation>("POST", `/quotations/${quotationId}/submit`),
+    approve: (quotationId: string) =>
+      request<Quotation>("POST", `/quotations/${quotationId}/approve`),
+    issue: (quotationId: string, valid_until?: string | null) =>
+      request<Quotation>("POST", `/quotations/${quotationId}/issue`, {
+        valid_until,
+      }),
+    decide: (quotationId: string, payload: Record<string, unknown>) =>
+      request<Quotation>("POST", `/quotations/${quotationId}/decide`, payload),
+    revise: (quotationId: string, reason: string) =>
+      request<Quotation>("POST", `/quotations/${quotationId}/revise`, {
+        reason,
+      }),
+    schedule: (quotationId: string) =>
+      request<Schedule>("GET", `/quotations/${quotationId}/schedule`),
+    reschedule: (quotationId: string, payload: Record<string, unknown>) =>
+      request<Schedule>(
+        "POST",
+        `/quotations/${quotationId}/reschedule`,
+        payload,
+      ),
+
+    marginPolicies: () =>
+      request<MarginPolicy[]>("GET", "/quotations/policy/margins"),
+    setMarginPolicy: (payload: Record<string, unknown>) =>
+      request<MarginPolicy>("PUT", "/quotations/policy/margins", payload),
+    withdrawMarginPolicy: (policyId: string) =>
+      request<void>("DELETE", `/quotations/policy/margins/${policyId}`),
+    discountLimits: () =>
+      request<DiscountLimit[]>("GET", "/quotations/policy/discount-limits"),
+    setDiscountLimit: (payload: Record<string, unknown>) =>
+      request<DiscountLimit>(
+        "PUT",
+        "/quotations/policy/discount-limits",
+        payload,
+      ),
+    plans: () => request<InstalmentPlan[]>("GET", "/quotations/policy/plans"),
+    createPlan: (payload: Record<string, unknown>) =>
+      request<InstalmentPlan>("POST", "/quotations/policy/plans", payload),
+    setBands: (planId: string, bands: Record<string, unknown>[]) =>
+      request<InstalmentPlan>(
+        "PUT",
+        `/quotations/policy/plans/${planId}/bands`,
+        { bands },
+      ),
+  },
+
+  commissions: {
+    register: (
+      params: { state?: string; affiliate_id?: string; limit?: number } = {},
+    ) => request<CommissionAccrual[]>("GET", "/commissions", undefined, params),
+    totals: () => request<CommissionTotals>("GET", "/commissions/totals"),
+    accrue: (payload: Record<string, unknown>) =>
+      request<CommissionAccrual[]>("POST", "/commissions/accrue", payload),
+    approve: (accrualId: string) =>
+      request<CommissionAccrual>("POST", `/commissions/${accrualId}/approve`),
+    recordCollection: (accrualId: string, paid_fraction: string) =>
+      request<CommissionAccrual>(
+        "POST",
+        `/commissions/${accrualId}/collection`,
+        {
+          paid_fraction,
+        },
+      ),
+    pay: (
+      accrualId: string,
+      payload: { amount: string; reference?: string | null },
+    ) =>
+      request<CommissionAccrual>(
+        "POST",
+        `/commissions/${accrualId}/pay`,
+        payload,
+      ),
+    cancel: (accrualId: string, reason: string) =>
+      request<CommissionAccrual>("POST", `/commissions/${accrualId}/cancel`, {
+        reason,
+      }),
+    override: (accrualId: string, payload: { rate: string; reason: string }) =>
+      request<CommissionAccrual>(
+        "POST",
+        `/commissions/${accrualId}/override`,
+        payload,
+      ),
   },
 
   platform: {

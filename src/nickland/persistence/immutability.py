@@ -12,6 +12,12 @@ change would alter a record that is closed to alteration. The guard is deliberat
 narrow: a draft entry remains fully editable, and a posted entry still accepts the
 one transition the accounting model allows — being marked as reversed by the entry
 that reverses it.
+
+Three kinds of record are closed to alteration: a posted journal entry and its lines,
+the audit trail, and a quotation's costing snapshot. The last is here for the same
+reason as the first two. PRD §6.3 promises that a supplier price change after issue
+leaves the issued quotation numerically unchanged, and a promise enforced only by the
+absence of an update statement is a promise until somebody writes one.
 """
 
 from __future__ import annotations
@@ -96,10 +102,18 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
     """Refuse the flush where it would rewrite a settled record."""
     from nickland.persistence.ledger_models import JournalEntry, JournalLine
     from nickland.persistence.models import AuditEvent
+    from nickland.persistence.pricing_models import QuotationSnapshot
 
     for obj in session.dirty:
         if not session.is_modified(obj, include_collections=False):
             continue
+        if isinstance(obj, QuotationSnapshot):
+            raise ConflictError(
+                "A costing snapshot cannot be altered. It exists to prove that a "
+                "later change to a supplier price left the issued quotation alone, "
+                "and a snapshot that can be rewritten proves nothing.",
+                snapshot_id=str(obj.id),
+            )
         if isinstance(obj, AuditEvent):
             raise ConflictError(
                 "An audit entry cannot be altered. The trail is append-only, so a "
@@ -116,6 +130,12 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
                 _refuse_line_change(obj, changed)
 
     for obj in session.deleted:
+        if isinstance(obj, QuotationSnapshot):
+            raise ConflictError(
+                "A costing snapshot cannot be deleted. The quotation it belongs to "
+                "was issued, and what was quoted stays on the record.",
+                snapshot_id=str(obj.id),
+            )
         if isinstance(obj, AuditEvent):
             raise ConflictError(
                 "An audit entry cannot be deleted. The trail is append-only.",

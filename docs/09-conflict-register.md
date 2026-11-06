@@ -136,6 +136,11 @@ the order is fixed.
 
 **Amendment.** §6.3 is extended with the canonical sequence. §15 bullet 1 is closed.
 
+**Built in Phase 5.** `nickland.domain.pricing.price_document` runs the seven steps in
+order and nothing else can; `tools/verify_phase_5.py` asserts the placements that matter —
+that commission precedes discount, that discount precedes the uplift, and that margin is
+earned on the landed cost.
+
 See [ADR-0007](decisions/adr-0007-pricing-sequence.md) and the
 [pricing engine](04-pricing-engine.md).
 
@@ -155,6 +160,10 @@ invoice; payable on receipt of the customer's payment; proportional on partial f
 Basis and trigger remain configurable.
 
 **Amendment.** §6.4 is extended. §15 bullet 2 is closed.
+
+**Built in Phase 5.** The register in `nickland.application.services.commissions`
+accrues at invoice and makes the entitlement payable in proportion to what the customer has
+actually paid, so a half-collected sale owes half a commission.
 
 See [ADR-0008](decisions/adr-0008-affiliate-commission.md).
 

@@ -123,3 +123,19 @@ export function addressAs(fullName: string | null | undefined): string {
 export function ratio(value: number): string {
   return `${value.toFixed(2)}:1`;
 }
+
+/**
+ * A rate held as a fraction, shown as a percentage.
+ *
+ * The service holds 0.075 and a reader wants 7.5%. The conversion is presentation,
+ * not arithmetic on money: no monetary figure passes through it, and a rate is never
+ * summed, so the exact-decimal rule that governs amounts does not apply here.
+ */
+export function percent(
+  rate: string | number | null | undefined,
+  places = 2,
+): string {
+  if (rate === null || rate === undefined || rate === "") return "—";
+  const scaled = (Number(rate) * 100).toFixed(places);
+  return `${scaled.replace(/\.?0+$/, "")}%`;
+}

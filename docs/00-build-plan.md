@@ -27,11 +27,15 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 | 3 — Accounting Core and General Ledger | **Delivered** | `tools/verify_phase_3.py` |
 | 3.5 — Brand Identity and Document Rendering | **Delivered** | `tools/verify_phase_3_5.py` |
 | 4 — Tax and Statutory Engine | **Delivered** | `tools/verify_phase_4.py` |
-| 5 — Quotation, Costing and Pricing | Next | |
-| 6 to 16 | Not started | |
+| 5 — Quotation, Costing and Pricing | **Delivered** | `tools/verify_phase_5.py` |
+| 6 — Document Designer and Rendering | Next | The renderer arrived in Phase 3.5; the editor is what remains |
+| 7 to 16 | Not started | |
 
-758 tests pass against both SQLite and PostgreSQL. Each verifier exercises its phase's
-exit criteria against a live database rather than asserting that the code was written.
+Each verifier exercises its phase's exit criteria against a live database rather than
+asserting that the code was written. 1,331 tests pass: 910 against SQLite, and the
+integration and end-to-end layers again against PostgreSQL. Phase 5 was the first run
+to configure PostgreSQL, and it found a Phase 3 reporting query that only SQLite would
+accept; see the [quality strategy](08-quality-strategy.md) on running both.
 
 The two criteria that cannot be verified in this environment are marked in Phase 1
 below: the signed installer on a clean Windows 11 machine, and operation with the

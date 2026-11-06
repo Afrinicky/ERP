@@ -154,6 +154,23 @@ class PostedAmount(Money):
         super().__init__(precision=18, scale=WORKING_PRECISION)
 
 
+class UnitPrice(Money):
+    """A unit price. Six decimal places.
+
+    A price presented at four places is right for a figure a customer reads. It is
+    wrong for the figure a line total is computed from, because the pricing engine
+    requires the line total to be derived from the stored unit price and a unit price
+    rounded to four places does not reproduce it: 1,824.2807 over ten units is
+    182.428070 a unit, and 182.4281 times ten is 1,824.2810. Three pesewas on one line
+    is three cedis on a hundred, and the customer adds the column up.
+    """
+
+    cache_ok = True
+
+    def __init__(self) -> None:
+        super().__init__(precision=18, scale=WORKING_PRECISION)
+
+
 class Rate(Money):
     """A rate or percentage held as a fraction. Six decimal places."""
 

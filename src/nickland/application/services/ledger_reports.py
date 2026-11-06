@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.orm import selectinload
 
 from nickland.application.context import AnyActor
 from nickland.domain.errors import ConflictError, NotFoundError
@@ -821,13 +822,23 @@ class LedgerReportService:
         end: date,
         basis: AccountingBasis,
     ) -> list[tuple[Account, Decimal, Decimal]]:
-        """Debit and credit totals per account over a window, in code order."""
+        """Debit and credit totals per account over a window, in code order.
+
+        ``Account.group`` is a joined eager load on the mapper, which is right almost
+        everywhere and wrong here: the join puts the group's columns in the SELECT,
+        and PostgreSQL then refuses the statement because they are neither grouped nor
+        aggregated. SQLite accepts it and returns an arbitrary row per group, so the
+        fault was invisible until the suite ran against both. The relationship is
+        loaded in a second statement instead, which is valid on every engine and
+        avoids a query per account.
+        """
         statement: Select[Any] = (
             select(
                 Account,
                 func.coalesce(func.sum(JournalLine.base_debit), 0),
                 func.coalesce(func.sum(JournalLine.base_credit), 0),
             )
+            .options(selectinload(Account.group))
             .join(JournalLine, JournalLine.account_fk == Account.id)
             .where(
                 Account.business_id == business_id,

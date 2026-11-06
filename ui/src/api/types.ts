@@ -1043,3 +1043,411 @@ export interface TaxableLineInput {
   product_category?: string | null;
   item_class?: string | null;
 }
+
+// -- Sourcing, quotations and commission (Phase 5) ------------------------------------
+//
+// Every monetary figure is a string. The service computes it; this layer transports
+// and displays it, and never does arithmetic on it.
+
+export interface MarginPolicy {
+  id: string;
+  scope: "business" | "category" | "product";
+  category_fk: string | null;
+  product_fk: string | null;
+  method: "markup_on_cost" | "target_gross_margin";
+  rate: string;
+  is_active: boolean;
+  notes: string | null;
+  target_name: string | null;
+}
+
+export interface DiscountLimit {
+  id: string;
+  role_code: string;
+  maximum_rate: string;
+  maximum_amount: string | null;
+}
+
+export interface InstalmentBand {
+  id: string;
+  label: string;
+  minimum_months: number;
+  maximum_months: number;
+  method: "percentage" | "fixed_per_unit";
+  rate: string;
+  fixed_per_unit: string | null;
+}
+
+export interface InstalmentPlan {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  applies_to: string;
+  frequency: "weekly" | "fortnightly" | "monthly" | "quarterly";
+  deposit_rate: string;
+  is_active: boolean;
+  bands: InstalmentBand[];
+}
+
+export type RequestState =
+  | "draft"
+  | "open"
+  | "sourcing"
+  | "quoted"
+  | "closed"
+  | "cancelled";
+
+export interface RequestLine {
+  id: string;
+  position: number;
+  product_fk: string | null;
+  description: string;
+  specification: string | null;
+  quantity: string;
+  unit_fk: string | null;
+  required_by: string | null;
+  notes: string | null;
+}
+
+export interface QuotationRequest {
+  id: string;
+  number: string;
+  customer_fk: string;
+  contact_fk: string | null;
+  customer_reference: string | null;
+  received_on: string;
+  required_by: string | null;
+  delivery_address: string | null;
+  currency_code: string;
+  state: RequestState;
+  cancellation_reason: string | null;
+  notes: string | null;
+  lines: RequestLine[];
+  customer_name: string | null;
+}
+
+export interface RequestPage {
+  items: QuotationRequest[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface SupplierRequest {
+  id: string;
+  number: string;
+  supplier_fk: string;
+  request_fk: string | null;
+  issued_on: string | null;
+  respond_by: string | null;
+  currency_code: string;
+  state: "draft" | "sent" | "answered" | "closed" | "cancelled";
+  notes: string | null;
+  lines: {
+    id: string;
+    position: number;
+    description: string;
+    quantity: string;
+  }[];
+  supplier_name: string | null;
+}
+
+export interface SupplierQuotationLine {
+  id: string;
+  position: number;
+  request_line_fk: string | null;
+  product_fk: string | null;
+  description: string;
+  quantity_offered: string;
+  unit_cost: string;
+  discount_rate: string;
+  lead_time_days: number | null;
+  is_available: boolean;
+  availability_note: string | null;
+}
+
+export interface SupplierQuotation {
+  id: string;
+  reference: string;
+  supplier_fk: string;
+  request_fk: string | null;
+  received_on: string;
+  valid_until: string | null;
+  currency_code: string;
+  exchange_rate: string;
+  lead_time_days: number | null;
+  freight_amount: string;
+  other_charges: string;
+  payment_terms: string | null;
+  state: string;
+  lines: SupplierQuotationLine[];
+  supplier_name: string | null;
+}
+
+export interface Offer {
+  supplier_quotation_id: string;
+  supplier_quotation_line_id: string;
+  supplier_id: string;
+  supplier_name: string;
+  reference: string;
+  currency_code: string;
+  exchange_rate: string;
+  unit_cost: string;
+  discount_rate: string;
+  net_unit_cost: string;
+  base_unit_cost: string;
+  charges_per_unit: string;
+  comparable_unit_cost: string;
+  quantity_offered: string;
+  lead_time_days: number | null;
+  is_available: boolean;
+  availability_note: string | null;
+  valid_until: string | null;
+  payment_terms: string | null;
+  meets_quantity: boolean;
+  minimum_order_quantity: string | null;
+}
+
+export interface Comparison {
+  request_line_id: string;
+  description: string;
+  quantity: string;
+  offers: Offer[];
+  best_offer_id: string | null;
+}
+
+export type QuotationState =
+  | "draft"
+  | "pending_approval"
+  | "issued"
+  | "accepted"
+  | "rejected"
+  | "expired"
+  | "superseded";
+
+export interface QuotationLine {
+  id: string;
+  position: number;
+  product_fk: string | null;
+  description: string;
+  specification: string | null;
+  quantity: string;
+  unit_net_price: string;
+  list_price: string;
+  discount_amount: string;
+  net_price: string;
+  finance_charge: string;
+  payable_before_tax: string;
+  tax_amount: string;
+  total_payable: string;
+}
+
+export interface Quotation {
+  id: string;
+  number: string;
+  revision: number;
+  supersedes_fk: string | null;
+  request_fk: string | null;
+  customer_fk: string;
+  customer_reference: string | null;
+  state: QuotationState;
+  quoted_on: string;
+  valid_until: string | null;
+  currency_code: string;
+  precision: number;
+  payment_plan: "outright" | "instalment";
+  instalment_months: number | null;
+  instalment_frequency: string | null;
+  deposit_rate: string;
+  requires_approval: boolean;
+  approval_reason: string | null;
+  approved_at: string | null;
+  issued_at: string | null;
+  accepted_on: string | null;
+  decided_on: string | null;
+  decision_reason: string | null;
+  discount_total: string;
+  net_total: string;
+  finance_charge_total: string;
+  payable_before_tax: string;
+  tax_total: string;
+  total_payable: string;
+  terms: string | null;
+  notes: string | null;
+  lines: QuotationLine[];
+  customer_name: string | null;
+}
+
+export interface QuotationPage {
+  items: Quotation[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface BuildUpStep {
+  step: string;
+  label: string;
+  amount: string;
+}
+
+export interface LineSource {
+  id: string;
+  position: number;
+  kind: "stock" | "supplier";
+  supplier_fk: string | null;
+  warehouse_fk: string | null;
+  quantity: string;
+  unit_cost: string;
+  currency_code: string;
+  exchange_rate: string;
+  lead_time_days: number | null;
+  selection_reason: string | null;
+  supplier_name: string | null;
+}
+
+export interface LineCosting {
+  position: number;
+  description: string;
+  quantity: string;
+  supplier_cost: string;
+  supplier_discount: string;
+  allocated_cost: string;
+  landed_cost: string;
+  margin_method: string;
+  margin_rate: string;
+  margin_source: string;
+  margin_amount: string;
+  commission: string;
+  commission_rate: string;
+  commission_in_scope: boolean;
+  commission_reason: string;
+  list_price: string;
+  discount: string;
+  net_price: string;
+  finance_charge: string;
+  payable_before_tax: string;
+  contribution_before_commission: string;
+  contribution_after_commission: string;
+  realised_margin_rate: string;
+  estimated_cost: string;
+  actual_cost: string;
+  variance: string;
+  variance_rate: string;
+  steps: BuildUpStep[];
+  sources: LineSource[];
+}
+
+export interface Allocation {
+  line_position: number;
+  expense_reference: string;
+  category: string;
+  method: string;
+  amount: string;
+}
+
+export interface Costing {
+  quotation_id: string;
+  number: string;
+  state: QuotationState;
+  currency_code: string;
+  landed_cost_total: string;
+  margin_total: string;
+  commission_total: string;
+  list_total: string;
+  discount_total: string;
+  net_total: string;
+  finance_charge_total: string;
+  payable_before_tax: string;
+  tax_total: string;
+  total_payable: string;
+  contribution_before_commission: string;
+  contribution_after_commission: string;
+  requires_approval: boolean;
+  approval_reason: string | null;
+  tax_by_rule: Record<string, string>;
+  tax_review: string[];
+  lines: LineCosting[];
+  allocations: Allocation[];
+}
+
+export interface Instalment {
+  id: string;
+  sequence: number;
+  due_on: string;
+  amount: string;
+  state: string;
+  paid_on: string | null;
+  paid_amount: string;
+  is_deposit: boolean;
+}
+
+export interface Schedule {
+  deposit: string;
+  instalment_amount: string;
+  frequency: string | null;
+  duration_months: number | null;
+  first_due_on: string | null;
+  final_due_on: string | null;
+  finance_charge: string;
+  total_payable: string;
+  instalments: Instalment[];
+}
+
+export interface QuotationSnapshot {
+  id: string;
+  revision: number;
+  taken_at: string;
+  content_hash: string;
+  payload: Record<string, unknown>;
+}
+
+export interface SalesSummary {
+  counts: Record<string, number>;
+  issued_value: string;
+  accepted_value: string;
+  open_requests: number;
+  awaiting_approval: number;
+  acceptance_rate: string;
+}
+
+export type CommissionState =
+  | "accrued"
+  | "approved"
+  | "payable"
+  | "paid"
+  | "cancelled";
+
+export interface CommissionAccrual {
+  id: string;
+  affiliate_fk: string;
+  quotation_fk: string | null;
+  quotation_line_fk: string | null;
+  source_reference: string | null;
+  state: CommissionState;
+  accrued_on: string;
+  basis_amount: string;
+  method: string;
+  rate: string;
+  accrued_amount: string;
+  fulfilled_fraction: string;
+  paid_fraction: string;
+  entitlement: string;
+  settled_amount: string;
+  prior_rate: string | null;
+  override_reason: string | null;
+  cancellation_reason: string | null;
+  payment_reference: string | null;
+  affiliate_name: string | null;
+  quotation_number: string | null;
+}
+
+export interface CommissionTotals {
+  accrued: string;
+  approved: string;
+  payable: string;
+  cancelled: string;
+  settled: string;
+  outstanding: string;
+}

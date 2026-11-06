@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
+from nickland.domain.money import ZERO
 from nickland.interface.dependencies import SESSION_HEADER
 from tests.e2e.conftest import API, sign_in
 
@@ -536,3 +539,201 @@ class TestThemePreviewMatchesSave:
         )
         assert response.status_code == 200
         assert response.json()["passes"] is True
+
+
+class TestSalesOverHttp:
+    """The whole Phase 5 sequence through the published API, not the service objects.
+
+    The costing endpoint sits behind its own permission, which is the confidentiality
+    boundary of PRD 14 expressed in the contract: a client that never calls it has
+    never been sent a margin.
+    """
+
+    def _world(self, admin_client: TestClient) -> dict[str, str]:
+        customer = admin_client.post(
+            f"{API}/parties", json={"name": "Banhart Hospital", "is_customer": True}
+        ).json()
+        supplier = admin_client.post(
+            f"{API}/parties", json={"name": "Gamma Labs", "is_supplier": True}
+        ).json()
+        unit = admin_client.get(f"{API}/units").json()[0]
+        product = admin_client.post(
+            f"{API}/products",
+            json={
+                "sku": "RGT-002",
+                "name": "Reagent pack",
+                "stock_unit_id": unit["id"],
+                "weight_kg": "2",
+            },
+        ).json()
+        return {
+            "customer": customer["id"],
+            "supplier": supplier["id"],
+            "product": product["id"],
+        }
+
+    def test_a_request_is_sourced_compared_quoted_and_issued(
+        self, admin_client: TestClient
+    ) -> None:
+        world = self._world(admin_client)
+
+        created = admin_client.post(
+            f"{API}/sourcing/requests",
+            json={
+                "customer_id": world["customer"],
+                "customer_reference": "BH/2026/114",
+                "lines": [
+                    {
+                        "description": "Reagent pack",
+                        "quantity": "40",
+                        "product_id": world["product"],
+                    }
+                ],
+            },
+        )
+        assert created.status_code == 200, created.text
+        request = created.json()
+        assert request["number"].startswith("RFQ-")
+
+        moved = admin_client.post(
+            f"{API}/sourcing/requests/{request['id']}/state", json={"state": "open"}
+        )
+        assert moved.status_code == 200, moved.text
+
+        recorded = admin_client.post(
+            f"{API}/sourcing/supplier-quotations",
+            json={
+                "supplier_id": world["supplier"],
+                "reference": "GL-Q1",
+                "request_id": request["id"],
+                "freight_amount": "400",
+                "lines": [
+                    {
+                        "description": "Reagent pack",
+                        "quantity_offered": "40",
+                        "unit_cost": "172",
+                        "request_line_id": request["lines"][0]["id"],
+                        "product_id": world["product"],
+                        "lead_time_days": 14,
+                    }
+                ],
+            },
+        )
+        assert recorded.status_code == 200, recorded.text
+
+        comparison = admin_client.get(f"{API}/sourcing/requests/{request['id']}/comparison").json()
+        assert len(comparison) == 1
+        offer = comparison[0]["offers"][0]
+        assert comparison[0]["best_offer_id"] == offer["supplier_quotation_line_id"]
+        assert Decimal(offer["comparable_unit_cost"]) > Decimal(offer["net_unit_cost"])
+
+        quoted = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": world["customer"],
+                "request_id": request["id"],
+                "lines": [
+                    {
+                        "description": "Reagent pack",
+                        "quantity": "40",
+                        "product_id": world["product"],
+                        "sources": [
+                            {
+                                "kind": "supplier",
+                                "quantity": "40",
+                                "supplier_quotation_line_id": offer["supplier_quotation_line_id"],
+                            }
+                        ],
+                    }
+                ],
+                "expenses": [{"category": "clearing", "amount": "450", "method": "by_value"}],
+            },
+        )
+        assert quoted.status_code == 200, quoted.text
+        quotation = quoted.json()
+        assert quotation["number"].startswith("QTN-")
+        assert Decimal(quotation["total_payable"]) > ZERO
+        # Nothing confidential crosses the quotation contract.
+        for forbidden in ("landed", "margin", "commission", "supplier_cost"):
+            assert forbidden not in quoted.text
+
+        costing = admin_client.get(f"{API}/quotations/{quotation['id']}/costing")
+        assert costing.status_code == 200, costing.text
+        assert Decimal(costing.json()["landed_cost_total"]) > ZERO
+        assert costing.json()["lines"][0]["steps"]
+
+        issued = admin_client.post(
+            f"{API}/quotations/{quotation['id']}/issue", json={"valid_until": "2026-12-31"}
+        )
+        assert issued.status_code == 200, issued.text
+        assert issued.json()["state"] == "issued"
+
+        snapshots = admin_client.get(f"{API}/quotations/{quotation['id']}/snapshots").json()
+        assert len(snapshots) == 1
+        assert snapshots[0]["content_hash"]
+
+    def test_a_sales_person_sees_the_offer_and_not_the_costing(
+        self, admin_client: TestClient, client: TestClient
+    ) -> None:
+        """The shipped sales role holds ``quotation.view`` and not ``costing.view``.
+
+        So the boundary is tested as it ships, rather than against a role invented
+        for the test: a sales officer can read the offer they are selling and cannot
+        read the margin inside it.
+        """
+        world = self._world(admin_client)
+        quotation = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": world["customer"],
+                "lines": [{"description": "Reagent pack", "quantity": "1", "unit_cost": "100"}],
+            },
+        ).json()
+
+        created = admin_client.post(
+            f"{API}/users",
+            json={
+                "username": "seller",
+                "full_name": "A. Seller",
+                "password": STAFF_PASSWORD,
+                "role_codes": ["sales_person"],
+                "must_change_password": False,
+            },
+        )
+        assert created.status_code == 201, created.text
+
+        signed_in = client.post(
+            f"{API}/session", json={"username": "seller", "password": STAFF_PASSWORD}
+        )
+        assert signed_in.status_code == 200, signed_in.text
+        client.headers[SESSION_HEADER] = signed_in.json()["token"]
+
+        offer = client.get(f"{API}/quotations/{quotation['id']}")
+        assert offer.status_code == 200, offer.text
+        assert client.get(f"{API}/quotations/{quotation['id']}/costing").status_code == 403
+        assert client.get(f"{API}/quotations/{quotation['id']}/snapshots").status_code == 403
+
+    def test_the_instalment_schedule_is_published(self, admin_client: TestClient) -> None:
+        world = self._world(admin_client)
+        plan = admin_client.get(f"{API}/quotations/policy/plans").json()[0]
+        quotation = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": world["customer"],
+                "payment_plan": "instalment",
+                "instalment_plan_id": plan["id"],
+                "instalment_months": 6,
+                "first_instalment_on": "2026-12-01",
+                "lines": [{"description": "Reagent pack", "quantity": "40", "unit_cost": "172"}],
+            },
+        )
+        assert quotation.status_code == 200, quotation.text
+        issued = admin_client.post(f"{API}/quotations/{quotation.json()['id']}/issue", json={})
+        assert issued.status_code == 200, issued.text
+
+        schedule = admin_client.get(f"{API}/quotations/{quotation.json()['id']}/schedule").json()
+        assert schedule["duration_months"] == 6
+        assert schedule["first_due_on"] == "2026-12-01"
+        assert schedule["final_due_on"] == "2027-05-01"
+        assert Decimal(schedule["finance_charge"]) > ZERO
+        assert len(schedule["instalments"]) == 7

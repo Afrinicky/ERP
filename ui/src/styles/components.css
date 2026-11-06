@@ -474,9 +474,16 @@
 }
 
 .table__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-1);
+  /* Right-aligned inline content, not a flex container.
+     `display: flex` on a cell takes it out of the table's width algorithm, so a row
+     with three actions grew wider than the frame it sits in and the buttons spilled
+     past the card's edge. Inline buttons with a nowrap cell keep the cell a cell. */
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table__actions > .button + .button {
+  margin-left: var(--space-1);
 }
 
 /* ---------------------------------------------------------------- Status */

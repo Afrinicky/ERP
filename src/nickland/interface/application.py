@@ -15,6 +15,7 @@ from nickland.interface.errors import install_error_handlers
 from nickland.interface.routers import (
     appearance,
     catalogue,
+    commissions,
     custom_fields,
     documents,
     importing,
@@ -24,8 +25,10 @@ from nickland.interface.routers import (
     organisation,
     parties,
     platform,
+    quotations,
     session,
     setup,
+    sourcing,
     taxation,
     users,
 )
@@ -131,6 +134,9 @@ def create_application(
         catalogue.router,
         parties.router,
         importing.router,
+        sourcing.router,
+        quotations.router,
+        commissions.router,
         ledger.router,
         journals.router,
         ledger_reports.router,
