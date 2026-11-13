@@ -14,6 +14,7 @@ from nickland.domain.money import (
     money,
     multiply,
     present,
+    suggested_tenders,
 )
 
 
@@ -102,3 +103,41 @@ class TestAllocate:
         total = money("1000")
         parts = allocate(total, [money("7"), money("11"), money("13"), money("17")], precision)
         assert sum(parts) == present(total, precision)
+
+
+class TestSuggestedTenders:
+    """What a cash tender offers as one-press choices, per the design system's audit."""
+
+    def test_the_exact_figure_comes_first_then_the_next_notes(self) -> None:
+        assert suggested_tenders(Decimal("48.23")) == [
+            Decimal("48.23"),
+            Decimal("50.00"),
+            Decimal("100.00"),
+            Decimal("200.00"),
+        ]
+
+    def test_a_small_sale_offers_small_notes(self) -> None:
+        assert suggested_tenders(Decimal("3.40")) == [
+            Decimal("3.40"),
+            Decimal("5.00"),
+            Decimal("10.00"),
+            Decimal("20.00"),
+        ]
+
+    def test_a_round_figure_is_not_offered_twice(self) -> None:
+        offered = suggested_tenders(Decimal("50"))
+        assert offered[0] == Decimal("50.00")
+        assert len(offered) == len(set(offered))
+
+    def test_beyond_the_largest_note_the_next_bundle_is_offered(self) -> None:
+        assert suggested_tenders(Decimal("1380")) == [Decimal("1380.00"), Decimal("1400.00")]
+
+    def test_nothing_is_offered_when_nothing_is_due(self) -> None:
+        assert suggested_tenders(Decimal("0")) == []
+        assert suggested_tenders(Decimal("-5")) == []
+
+    def test_the_currency_decides_its_notes(self) -> None:
+        offered = suggested_tenders(
+            Decimal("7.10"), denominations=(Decimal("5"), Decimal("20"), Decimal("100"))
+        )
+        assert offered == [Decimal("7.10"), Decimal("20.00"), Decimal("100.00")]

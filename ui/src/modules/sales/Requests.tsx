@@ -20,10 +20,11 @@ import {
   Select,
   Skeleton,
   StatusChip,
+  Stepper,
   TextArea,
   TextInput,
-  useToast,
   type Tone,
+  useToast,
 } from "@/components/primitives";
 import { describe, fieldError } from "@/lib/errors";
 import { date as formatDate, humanise, quantity } from "@/lib/format";
@@ -391,14 +392,12 @@ function CaptureRequest({
               </Field>
               <Field label="Quantity">
                 {(id) => (
-                  <TextInput
+                  <Stepper
                     id={id}
-                    numeric
-                    inputMode="decimal"
+                    size="standard"
+                    min={1}
                     value={line.quantity}
-                    onChange={(event) =>
-                      amend(index, { quantity: event.target.value })
-                    }
+                    onChange={(quantity) => amend(index, { quantity })}
                   />
                 )}
               </Field>

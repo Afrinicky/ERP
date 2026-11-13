@@ -86,10 +86,16 @@ class DocumentSourceService:
         kind: DocumentKind,
         *,
         number: str,
+        issuable_only: bool = True,
     ) -> DocumentContext:
-        """The quotation as a document, at the figures that were quoted."""
+        """The quotation as a document, at the figures that were quoted.
+
+        ``issuable_only`` is relaxed for a preview, which may be drawn from a draft:
+        a preview takes no number and keeps no bytes, so the reason a draft cannot be
+        issued does not apply to looking at it.
+        """
         quotation = self._quotations.require(actor, quotation_id)
-        if quotation.state not in ISSUABLE_STATES:
+        if issuable_only and quotation.state not in ISSUABLE_STATES:
             raise ConflictError(
                 f"This quotation is {quotation.state.replace('_', ' ')}. A document is "
                 "issued once the offer has been issued to the customer; until then the "

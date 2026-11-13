@@ -1,9 +1,9 @@
 /**
  * The document tree: sections in order, and the items table's columns within it.
  *
- * Reordering is by button, and each button is an ordinary focusable control, so the
- * keyboard path and the pointer path are the same path. There is no drag handler
- * that the keyboard has to imitate.
+ * Reordering is by drag or by button. The buttons are ordinary focusable controls,
+ * so the keyboard path is complete on its own; the drag is a second route to the
+ * same service call, not a different operation that the keyboard has to imitate.
  */
 
 import { useState } from 'react';
@@ -11,9 +11,18 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
 import type { Draft, TemplateColumn, TemplateSection } from '@/api/types';
+import { Icons } from '@/components/icons';
 import { Button, Card, Select, StatusChip, useToast } from '@/components/primitives';
 import { describe } from '@/lib/errors';
 import { humanise } from '@/lib/format';
+
+/** What is being dragged: a section, or a column within one section. */
+interface Dragged {
+  kind: 'section' | 'column';
+  id: string;
+  sectionId: string;
+  index: number;
+}
 
 export type Selection =
   | { kind: 'section'; sectionId: string }
@@ -33,6 +42,8 @@ export function Outline({
 }) {
   const toast = useToast();
   const [kind, setKind] = useState('custom');
+  const [dragging, setDragging] = useState<Dragged | null>(null);
+  const [over, setOver] = useState<string | null>(null);
 
   const kinds = useQuery({
     queryKey: ['designer', 'sections'],
@@ -46,6 +57,60 @@ export function Outline({
   });
 
   const run = (operation: () => Promise<Draft>) => act.mutate(operation);
+
+  /** Drop handlers for one row: the item it holds and where it sits in its list. */
+  const dropTarget = (item: Dragged, index: number) => ({
+    onDragOver: (event: React.DragEvent) => {
+      if (!dragging || dragging.kind !== item.kind || dragging.sectionId !== item.sectionId) {
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setOver(item.id);
+    },
+    onDragLeave: () => setOver((current) => (current === item.id ? null : current)),
+    onDrop: (event: React.DragEvent) => {
+      event.preventDefault();
+      setOver(null);
+      if (!dragging || dragging.id === item.id) return;
+      const offset = index - dragging.index;
+      if (offset === 0) return;
+      if (dragging.kind === 'section') {
+        run(() => api.designer.moveSection(draft.template_id, dragging.id, offset));
+      } else {
+        run(() =>
+          api.designer.moveColumn(draft.template_id, dragging.sectionId, dragging.id, offset),
+        );
+      }
+      setDragging(null);
+    },
+  });
+
+  /** The handle: the one part of a row that starts a drag. */
+  const handle = (item: Dragged) => (
+    <span
+      className="outline__grip"
+      draggable
+      aria-hidden="true"
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        // Something must be set for Firefox to start the drag at all.
+        event.dataTransfer.setData('text/plain', item.id);
+        setDragging(item);
+      }}
+      onDragEnd={() => {
+        setDragging(null);
+        setOver(null);
+      }}
+    >
+      <Icons.grip />
+    </span>
+  );
+
+  const rowClass = (selected: boolean, id: string) =>
+    `outline__row${selected ? ' outline__row--on' : ''}${over === id ? ' outline__row--over' : ''}${
+      dragging?.id === id ? ' outline__row--lifted' : ''
+    }`;
 
   const isSelected = (candidate: Selection) =>
     selection !== null &&
@@ -86,10 +151,13 @@ export function Outline({
         {draft.definition.sections.map((section: TemplateSection, index: number) => (
           <li key={section.id}>
             <div
-              className={`outline__row${
-                isSelected({ kind: 'section', sectionId: section.id }) ? ' outline__row--on' : ''
-              }`}
+              className={rowClass(
+                isSelected({ kind: 'section', sectionId: section.id }),
+                section.id,
+              )}
+              {...dropTarget({ kind: 'section', id: section.id, sectionId: '', index }, index)}
             >
+              {handle({ kind: 'section', id: section.id, sectionId: '', index })}
               <button
                 type="button"
                 className="outline__name"
@@ -140,16 +208,25 @@ export function Outline({
                 {section.columns.map((column: TemplateColumn, position: number) => (
                   <li key={column.id}>
                     <div
-                      className={`outline__row${
+                      className={rowClass(
                         isSelected({
                           kind: 'column',
                           sectionId: section.id,
                           columnId: column.id,
-                        })
-                          ? ' outline__row--on'
-                          : ''
-                      }`}
+                        }),
+                        column.id,
+                      )}
+                      {...dropTarget(
+                        { kind: 'column', id: column.id, sectionId: section.id, index: position },
+                        position,
+                      )}
                     >
+                      {handle({
+                        kind: 'column',
+                        id: column.id,
+                        sectionId: section.id,
+                        index: position,
+                      })}
                       <button
                         type="button"
                         className="outline__name"

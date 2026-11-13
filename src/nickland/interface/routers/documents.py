@@ -123,7 +123,7 @@ def preview(
 
 @router.get(
     "/templates/{template_id}/preview",
-    summary="Preview one version against sample data",
+    summary="Preview one version against sample data or a transaction",
     response_class=Response,
     responses={200: {"content": {"text/html": {}}}},
 )
@@ -132,9 +132,16 @@ def preview_version(
     actor: ActorDependency,
     documents: DocumentDependency,
     page: PageFormat | None = Query(default=None),
+    source_type: str | None = Query(default=None),
+    source_id: uuid.UUID | None = Query(default=None),
 ) -> Response:
-    """The draft as it will print. Watermarked, and never issuable."""
-    markup = documents.preview_version(actor, template_id, page=page)
+    """The draft as it will print, against sample data or a named quotation.
+
+    Watermarked, and never issuable.
+    """
+    markup = documents.preview_version(
+        actor, template_id, page=page, source_type=source_type, source_id=source_id
+    )
     return Response(content=markup, media_type="text/html; charset=utf-8")
 
 

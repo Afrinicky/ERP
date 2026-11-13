@@ -27,6 +27,7 @@ import {
   useToast,
 } from '@/components/primitives';
 import { describe } from '@/lib/errors';
+import { humanise } from '@/lib/format';
 import { useSession } from '@/lib/session';
 
 import { Inspector } from './Inspector';
@@ -34,10 +35,24 @@ import { NewTypeDialog } from './NewTypeDialog';
 import { Outline, type Selection } from './Outline';
 import { Palette } from './Palette';
 
-function Preview({ templateId, nonce }: { templateId: string; nonce: number }) {
+function Preview({
+  templateId,
+  nonce,
+  source,
+}: {
+  templateId: string;
+  nonce: number;
+  /** A real quotation to lay out, or none for the sample transaction. */
+  source: string;
+}) {
   const markup = useQuery({
-    queryKey: ['designer', 'preview', templateId, nonce],
-    queryFn: () => api.designer.previewHtml(templateId),
+    queryKey: ['designer', 'preview', templateId, nonce, source],
+    queryFn: () =>
+      api.designer.previewHtml(
+        templateId,
+        undefined,
+        source ? { type: 'quotation', id: source } : undefined,
+      ),
   });
   if (markup.isPending) {
     return (
@@ -62,6 +77,16 @@ export function Designer() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [creating, setCreating] = useState(false);
   const [preview, setPreview] = useState(0);
+  const [source, setSource] = useState('');
+
+  // Recent quotations, so the layout can be checked against a real order rather than
+  // the eight tidy sample lines: a template that looks right over the sample may not
+  // over a forty-line order with a specification on every line.
+  const quotations = useQuery({
+    queryKey: ['designer', 'preview-sources'],
+    queryFn: () => api.quotations.list({ limit: 20 }),
+    enabled: canManage,
+  });
 
   const types = useQuery({ queryKey: ['documents', 'types'], queryFn: () => api.documents.types() });
   const chosen = typeId || types.data?.[0]?.id || '';
@@ -228,15 +253,34 @@ export function Designer() {
       {current ? (
         <Card
           title="Preview"
-          subtitle="Rendered by the engine that produces the final document, against sample data."
+          subtitle={
+            source
+              ? 'Rendered by the engine that produces the final document, against the quotation chosen.'
+              : 'Rendered by the engine that produces the final document, against sample data.'
+          }
           actions={
-            <Button tone="plain" size="compact" onClick={() => setPreview((v) => v + 1)}>
-              Refresh
-            </Button>
+            <div className="row gap-2">
+              <Select
+                aria-label="Preview against"
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+              >
+                <option value="">Sample transaction</option>
+                {(quotations.data?.items ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.number}
+                    {item.revision > 1 ? ` rev ${item.revision}` : ''} · {humanise(item.state)}
+                  </option>
+                ))}
+              </Select>
+              <Button tone="plain" size="compact" onClick={() => setPreview((v) => v + 1)}>
+                Refresh
+              </Button>
+            </div>
           }
           flush
         >
-          <Preview templateId={current.template_id} nonce={preview} />
+          <Preview templateId={current.template_id} nonce={preview} source={source} />
         </Card>
       ) : null}
 

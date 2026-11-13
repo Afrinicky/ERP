@@ -915,6 +915,19 @@ class TestDocumentsOverHttp:
         assert published.status_code == 200, published.text
         assert published.json()["version"] == 2
 
+    def test_a_preview_is_drawn_from_a_named_quotation(self, admin_client: TestClient) -> None:
+        quotation = self._quotation(admin_client)
+        types = admin_client.get(f"{API}/documents/types").json()
+        pro_forma = next(item for item in types if item["code"] == "pro_forma")
+        state = admin_client.get(f"{API}/designer/types/{pro_forma['id']}/draft").json()
+        preview = admin_client.get(
+            f"{API}/documents/templates/{state['template_id']}/preview",
+            params={"source_type": "quotation", "source_id": quotation["id"]},
+        )
+        assert preview.status_code == 200, preview.text
+        assert "Reagent pack" in preview.text
+        assert "Sample Customer" not in preview.text
+
     def test_an_internal_binding_is_refused_over_http(self, admin_client: TestClient) -> None:
         types = admin_client.get(f"{API}/documents/types").json()
         pro_forma = next(item for item in types if item["code"] == "pro_forma")

@@ -9,7 +9,7 @@ boundary, never between steps, per the pricing engine specification.
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 from typing import Final
 
 WORKING_PRECISION: Final = 6
@@ -126,3 +126,52 @@ def quantity(value: Decimal | int | str) -> Decimal:
 
 def is_zero(value: Decimal) -> bool:
     return value == ZERO
+
+
+def suggested_tenders(
+    due: Decimal,
+    *,
+    denominations: tuple[Decimal, ...] = (
+        Decimal("1"),
+        Decimal("2"),
+        Decimal("5"),
+        Decimal("10"),
+        Decimal("20"),
+        Decimal("50"),
+        Decimal("100"),
+        Decimal("200"),
+    ),
+    precision: int = DEFAULT_PRESENTATION_PRECISION,
+    limit: int = 4,
+) -> list[Decimal]:
+    """The amounts a cash tender offers as one-press choices.
+
+    The exact figure first, then the next notes above it, then the next bundle of the
+    largest note, with duplicates dropped: GH₵48.23 due offers 48.23, 50, 100 and 200;
+    GH₵3.40 due offers 3.40, 5, 10 and 20. Derived from what is due at the moment rather
+    than a fixed row of buttons, which is how the audited tills do it, because a fixed
+    row is wrong for most sales.
+
+    Here rather than in the interface because the notes a currency comes in, and the
+    way a figure rounds up to them, are business facts; the screen shows what it is
+    given.
+    """
+    if due <= ZERO:
+        return []
+    exact = present(due, precision)
+    offered: list[Decimal] = [exact]
+    for note in sorted(denominations):
+        if note <= exact:
+            continue
+        multiples = (exact / note).to_integral_value(rounding=ROUND_CEILING)
+        rounded = present(multiples * note, precision)
+        if rounded not in offered:
+            offered.append(rounded)
+        if len(offered) >= limit:
+            return offered
+    largest = max(denominations) if denominations else Decimal("100")
+    bundles = (exact / largest).to_integral_value(rounding=ROUND_CEILING)
+    bundle = present(bundles * largest, precision)
+    if bundle not in offered and len(offered) < limit:
+        offered.append(bundle)
+    return offered

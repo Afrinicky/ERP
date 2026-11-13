@@ -916,3 +916,68 @@ class TestIssuingFromAQuotation:
         quotation_id, _ = quoted
         with pytest.raises(NotFoundError):
             renderer.issue_from_quotation(admin, "no_such_type", quotation_id)
+
+
+class TestPreviewAgainstATransaction:
+    """PRD §6.6: a preview against a real draft transaction, not only sample data."""
+
+    def test_a_preview_can_be_drawn_from_a_draft_quotation(
+        self,
+        renderer: DocumentRenderService,
+        records: DocumentRecordService,
+        db: Session,
+        clock: FixedClock,
+        admin: Actor,
+    ) -> None:
+        from nickland.application.services.parties import PartyDraft, PartyService
+        from nickland.application.services.quotations import (
+            LineDraft,
+            QuotationDraft,
+            QuotationService,
+        )
+
+        customer = PartyService(db, clock=clock).create(
+            admin, PartyDraft(name="Banhart Hospital", is_customer=True)
+        )
+        db.flush()
+        draft = QuotationService(db, clock=clock).create(
+            admin,
+            QuotationDraft(
+                customer_id=customer.id,
+                lines=[
+                    LineDraft(
+                        description="Haematology analyser, 5-part differential",
+                        quantity=Decimal("2"),
+                        unit_cost=Decimal("18500"),
+                    )
+                ],
+            ),
+        )
+        db.flush()
+        pro_forma = records.type_by_code(admin.business_id, "pro_forma")  # type: ignore[arg-type]
+        assert pro_forma is not None
+        template = records.published_template(pro_forma)
+
+        html = renderer.preview_version(
+            admin, template.id, source_type="quotation", source_id=draft.id
+        )
+        assert "Haematology analyser" in html
+        assert "Banhart Hospital" in html
+        assert "Preview" in html
+        # A draft may be previewed; it still may not be issued.
+        with pytest.raises(ConflictError):
+            renderer.issue_from_quotation(admin, "pro_forma", draft.id)
+
+    def test_a_source_this_release_cannot_preview_from_is_refused(
+        self,
+        renderer: DocumentRenderService,
+        records: DocumentRecordService,
+        admin: Actor,
+    ) -> None:
+        pro_forma = records.type_by_code(admin.business_id, "pro_forma")  # type: ignore[arg-type]
+        assert pro_forma is not None
+        template = records.published_template(pro_forma)
+        with pytest.raises(ValidationError):
+            renderer.preview_version(
+                admin, template.id, source_type="sales_order", source_id=uuid.uuid4()
+            )

@@ -22,10 +22,25 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 
+import { Icons } from './icons';
+
 /* ------------------------------------------------------------------ Button */
 
 type ButtonTone = 'primary' | 'secondary' | 'plain' | 'destructive';
-type ControlSize = 'compact' | 'standard' | 'touch';
+/**
+ * The sizing tiers of the design system. `transactional` and `counter` are the two
+ * point-of-sale tiers: a control pressed many times an hour, and the keypad keys and
+ * the one primary action of a sale.
+ */
+type ControlSize = 'compact' | 'standard' | 'touch' | 'transactional' | 'counter';
+
+const SIZE_CLASS: Record<ControlSize, string> = {
+  compact: 'button--compact',
+  standard: '',
+  touch: 'button--touch',
+  transactional: 'button--transactional',
+  counter: 'button--counter',
+};
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   tone?: ButtonTone;
@@ -49,8 +64,7 @@ export function Button({
   const classes = [
     'button',
     `button--${tone}`,
-    size === 'compact' ? 'button--compact' : '',
-    size === 'touch' ? 'button--touch' : '',
+    SIZE_CLASS[size],
     block ? 'button--block' : '',
     className ?? '',
   ]
@@ -933,6 +947,287 @@ export function SearchField({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
       />
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------ Transactional controls */
+
+/**
+ * A quantity stepper: decrement, a typed field, increment.
+ *
+ * The field accepts direct typing because a stepper suits a small adjustment from a
+ * common value, and a quantity of three hundred is faster typed than tapped. Holding a
+ * button repeats after a short delay; the arrow keys do what the buttons do; a button at
+ * its bound is disabled rather than hidden, so the bound is visible. Never used for a
+ * price: a price is continuous and precise, and belongs in a field alone.
+ */
+export function Stepper({
+  id,
+  value,
+  onChange,
+  min = 0,
+  max,
+  step = 1,
+  unit,
+  size = 'transactional',
+  disabled,
+  describedBy,
+  label,
+}: {
+  id?: string;
+  /** The current value as text, so a typed fraction is never rounded under the finger. */
+  value: string;
+  onChange: (value: string) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Announced with the value, and shown after it: "4 boxes". */
+  unit?: string;
+  size?: 'standard' | 'transactional' | 'counter';
+  disabled?: boolean;
+  describedBy?: string;
+  /** An accessible name where no visible Field label wraps the control. */
+  label?: string;
+}) {
+  const repeat = useRef<number | null>(null);
+  const delay = useRef<number | null>(null);
+  const numeric = Number.parseFloat(value);
+  const current = Number.isFinite(numeric) ? numeric : 0;
+  const atMin = current <= min;
+  const atMax = max !== undefined && current >= max;
+
+  const settle = (next: number) => {
+    const bounded = Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, next));
+    // Keep the step's own precision: a step of 0.5 must not come back as 0.50000001.
+    const places = (String(step).split('.')[1] ?? '').length;
+    onChange(bounded.toFixed(places));
+  };
+
+  const stop = useCallback(() => {
+    if (delay.current !== null) window.clearTimeout(delay.current);
+    if (repeat.current !== null) window.clearInterval(repeat.current);
+    delay.current = null;
+    repeat.current = null;
+  }, []);
+
+  useEffect(() => stop, [stop]);
+
+  /** Press once; hold to repeat after a short delay, as a physical keypad would. */
+  const press = (direction: 1 | -1) => {
+    let next = current;
+    const tick = () => {
+      next += direction * step;
+      settle(next);
+    };
+    tick();
+    delay.current = window.setTimeout(() => {
+      repeat.current = window.setInterval(tick, 90);
+    }, 400);
+  };
+
+  const sizeClass =
+    size === 'counter'
+      ? 'stepper--counter'
+      : size === 'transactional'
+        ? 'stepper--transactional'
+        : '';
+
+  return (
+    <div className={`stepper ${sizeClass}`.trim()} role="group" aria-label={label}>
+      <button
+        type="button"
+        className="stepper__button"
+        aria-label="Reduce"
+        disabled={disabled || atMin}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          press(-1);
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onPointerLeave={stop}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            settle(current - step);
+          }
+        }}
+      >
+        <Icons.minus />
+      </button>
+      <input
+        id={id}
+        className="stepper__field"
+        type="text"
+        inputMode="decimal"
+        value={value}
+        disabled={disabled}
+        aria-describedby={describedBy}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={current}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => settle(current)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            settle(current + step);
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            settle(current - step);
+          }
+        }}
+      />
+      {unit ? <span className="stepper__unit">{unit}</span> : null}
+      <button
+        type="button"
+        className="stepper__button"
+        aria-label="Add"
+        disabled={disabled || atMax}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          press(1);
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onPointerLeave={stop}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            settle(current + step);
+          }
+        }}
+      >
+        <Icons.plus />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A numeric keypad: the digits in telephone order, the decimal point, a backspace,
+ * and a tall key for the primary completion. The keys are the counter tier.
+ *
+ * A secondary path by design: whatever it feeds can also be typed, so a keyboard or a
+ * scanner is never the slower route.
+ */
+export function Keypad({
+  value,
+  onChange,
+  onComplete,
+  completeLabel = 'Enter',
+  decimal = true,
+  maximumLength = 12,
+  disabled,
+  compact,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onComplete?: () => void;
+  completeLabel?: string;
+  decimal?: boolean;
+  maximumLength?: number;
+  disabled?: boolean;
+  /** For a dialog rather than the counter. */
+  compact?: boolean;
+}) {
+  const put = (digit: string) => {
+    if (value.length >= maximumLength) return;
+    if (digit === '.' && (!decimal || value.includes('.'))) return;
+    if (value === '0' && digit !== '.') {
+      onChange(digit);
+      return;
+    }
+    onChange(value + digit);
+  };
+  const erase = () => onChange(value.slice(0, -1));
+
+  const key = (label: string, onPress: () => void, extra = '') => (
+    <button
+      key={label}
+      type="button"
+      className={`keypad__key ${extra}`.trim()}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className={`keypad${compact ? ' keypad--compact' : ''}`} role="group" aria-label="Keypad">
+      {key('7', () => put('7'))}
+      {key('8', () => put('8'))}
+      {key('9', () => put('9'))}
+      <button
+        type="button"
+        className="keypad__key keypad__key--erase"
+        aria-label="Backspace"
+        disabled={disabled}
+        onClick={erase}
+      >
+        <Icons.backspace />
+      </button>
+      {key('4', () => put('4'))}
+      {key('5', () => put('5'))}
+      {key('6', () => put('6'))}
+      <button
+        type="button"
+        className="keypad__key keypad__key--complete"
+        disabled={disabled || !onComplete}
+        onClick={onComplete}
+      >
+        {completeLabel}
+      </button>
+      {key('1', () => put('1'))}
+      {key('2', () => put('2'))}
+      {key('3', () => put('3'))}
+      {key('0', () => put('0'), 'keypad__key--zero')}
+      {decimal ? key('.', () => put('.')) : <span className="keypad__blank" aria-hidden="true" />}
+    </div>
+  );
+}
+
+/**
+ * Suggested amounts for a cash tender: the exact figure first, then the next notes
+ * above it.
+ *
+ * The suggestions are computed by the service, not here. Which notes a currency has
+ * and how a figure rounds to them is a business fact, and the interface only shows
+ * what it is given — the same rule that keeps every other monetary figure in Python.
+ */
+export function AmountShortcuts({
+  suggestions,
+  onChoose,
+  format,
+  disabled,
+}: {
+  /** As the service returns them: decimal strings, the exact amount first. */
+  suggestions: { amount: string; exact: boolean }[];
+  onChoose: (amount: string) => void;
+  /** Presents an amount string as the business writes money. */
+  format: (amount: string) => string;
+  disabled?: boolean;
+}) {
+  if (suggestions.length === 0) return null;
+  return (
+    <div className="amounts" role="group" aria-label="Suggested amounts">
+      {suggestions.map((candidate) => (
+        <button
+          key={candidate.amount}
+          type="button"
+          className={`amounts__choice${candidate.exact ? ' amounts__choice--exact' : ''}`}
+          disabled={disabled}
+          onClick={() => onChoose(candidate.amount)}
+        >
+          {candidate.exact ? <span className="amounts__caption">Exact</span> : null}
+          <span className="amounts__value">{format(candidate.amount)}</span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -188,7 +188,7 @@ A 4px base unit. Permitted steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 | Card padding | 20px |
 | Table row height | 40px standard, 32px compact, 48px touch |
 | Form field height | 36px |
-| Control height | 36px standard, 32px compact, 44px point of sale |
+| Control height | 36px standard, 32px compact, 44px touch, 56px transactional, 64px counter |
 | Dialog width | 480px small, 640px standard, 880px large |
 | Maximum content width | 1600px, centred beyond that |
 
@@ -201,6 +201,64 @@ A 4px base unit. Permitted steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 | Wide | 1440px and above | Three-column forms; side panel persistent rather than overlaid |
 
 Desktop is the primary target. Key workflows remain usable at tablet width, per PRD §28.2.
+
+## Transactional controls
+
+The controls a person operates while serving a customer — adding, reducing, tendering,
+confirming — are governed by a separate set of rules from the rest of the interface. They
+were drawn from an audit of point-of-sale and ERP conventions (Odoo's register, Lightspeed's
+tender flow, SAP Fiori's step input, the NN/g guidance on steppers, and the WCAG, Apple and
+Material sizing floors), and the reasoning behind each is recorded so a later screen does
+not quietly fall back to a desktop control where a counter control is wanted.
+
+### Sizing tiers
+
+| Tier | Height | Where |
+| --- | --- | --- |
+| Standard | 36px | Forms and administration, operated with a mouse |
+| Touch | 44px | Any control a finger may reach: the floor Apple and the W3C mobile task force set, and above WCAG 2.2's 24px minimum |
+| Transactional | 56px | A quantity stepper, a tender choice, a line action at the counter — anything pressed many times an hour, often while looking at the customer rather than the screen |
+| Counter | 64px | The keypad keys and the one primary action of a sale: the two things pressed most, and the two that must not be missed |
+
+Adjacent transactional controls are separated by at least 8px of inert space, so a miss
+lands on nothing. The audited kiosk guidance asks for more (5–8mm); 8px is the floor and a
+keypad uses the full 8px between every key.
+
+### Stepper
+
+A quantity is adjusted with a horizontal stepper: a decrement button, a typed field and an
+increment button, in that order, with `−` and `+` glyphs. The field accepts direct typing,
+because a stepper suits small adjustments from a common value and a figure far from the
+default is faster typed than tapped; a stepper alone would be the wrong control for a
+quantity of three hundred. Holding a button repeats after a short delay, the arrow keys do
+what the buttons do, and the button at a bound is disabled rather than hidden, so the bound
+is visible. The field announces its unit. A stepper is never used for a value that is
+continuous and precise, such as a price.
+
+### Keypad
+
+A numeric keypad is four columns and four rows: the digits in telephone order, the decimal
+point, a backspace, and a tall key spanning two rows for the primary completion — *Exact*
+on a cash tender, *Enter* elsewhere. The keys are the counter tier. The keypad is a
+secondary path: the same value can always be typed into the field it feeds, so a keyboard
+or a scanner is never the slower route.
+
+### Tender
+
+Cash tender offers suggested amounts beside the keypad: the exact amount, then the next
+round notes above it. The suggestions are derived from the balance due at the moment, as
+Lightspeed derives them from the total, and are not a fixed list. Choosing a tender is a
+radio-style choice with the current selection visible; the methods the business uses most
+sit first, and the rest are behind a single *More* control. A split tender is one line per
+method with the balance pre-filled on the last, so an exact single-method sale needs one
+confirmation. Cash over-tender returns change; a card over-tender is refused, because a card
+invents no change.
+
+### One primary action
+
+A transactional screen carries exactly one filled primary button, labelled for what it
+does with the selected method — *Take GH₵120.00 cash*, not *Confirm*. Secondary actions are
+plain. Two confirm buttons on one screen is a design fault, not a convenience.
 
 ## Shell structure
 

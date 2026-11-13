@@ -1433,3 +1433,260 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+
+/* -- Transactional controls ------------------------------------------------------ */
+
+.button--transactional {
+  height: var(--control-height-touch-lg);
+  padding: 0 var(--space-5);
+  font-size: var(--size-lg);
+}
+
+.button--counter {
+  height: var(--control-height-touch-xl);
+  padding: 0 var(--space-6);
+  font-size: var(--size-xl);
+  font-weight: var(--weight-semibold);
+}
+
+/* Stepper: decrement, typed field, increment. The buttons are square at the tier's
+   height and separated from the field by the inert gap, so a miss lands on nothing. */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--control-touch-gap);
+}
+
+.stepper__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-touch);
+  height: var(--control-height-touch);
+  color: var(--colour-text-primary);
+  background: var(--colour-surface-raised);
+  border: var(--border-hairline) solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background var(--motion-fast) var(--motion-ease);
+}
+
+.stepper__button:hover:not(:disabled) {
+  background: var(--colour-surface-sunken);
+  border-color: var(--colour-border-strong);
+}
+
+.stepper__button:active:not(:disabled) {
+  background: var(--colour-border-subtle);
+}
+
+.stepper__button:disabled {
+  color: var(--colour-text-tertiary);
+  background: var(--colour-surface-sunken);
+  cursor: not-allowed;
+}
+
+.stepper__field {
+  width: 4.5em;
+  height: var(--control-height-touch);
+  padding: 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--size-lg);
+  text-align: center;
+  color: var(--colour-text-primary);
+  background: var(--colour-surface-raised);
+  border: var(--border-hairline) solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+}
+
+.stepper__field:focus-visible {
+  outline: 2px solid var(--colour-focus-ring);
+  outline-offset: 1px;
+}
+
+.stepper__unit {
+  font-size: var(--size-sm);
+  color: var(--colour-text-secondary);
+  white-space: nowrap;
+}
+
+.stepper--transactional .stepper__button,
+.stepper--transactional .stepper__field {
+  height: var(--control-height-touch-lg);
+}
+
+.stepper--transactional .stepper__button {
+  width: var(--control-height-touch-lg);
+}
+
+.stepper--transactional .stepper__field {
+  width: 5.5em;
+  font-size: var(--size-xl);
+}
+
+.stepper--counter .stepper__button,
+.stepper--counter .stepper__field {
+  height: var(--control-height-touch-xl);
+}
+
+.stepper--counter .stepper__button {
+  width: var(--control-height-touch-xl);
+}
+
+.stepper--counter .stepper__field {
+  width: 6em;
+  font-size: var(--size-2xl);
+}
+
+/* Keypad: four columns, telephone order, a tall completion key. */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, var(--control-key));
+  grid-auto-rows: var(--control-key);
+  gap: var(--control-touch-gap);
+}
+
+.keypad--compact {
+  grid-template-columns: repeat(4, var(--control-key-compact));
+  grid-auto-rows: var(--control-key-compact);
+}
+
+.keypad__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--size-2xl);
+  font-weight: var(--weight-medium);
+  color: var(--colour-text-primary);
+  background: var(--colour-surface-raised);
+  border: var(--border-hairline) solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background var(--motion-instant) var(--motion-ease);
+}
+
+.keypad--compact .keypad__key {
+  font-size: var(--size-xl);
+}
+
+.keypad__key:hover:not(:disabled) {
+  background: var(--colour-surface-sunken);
+}
+
+.keypad__key:active:not(:disabled) {
+  background: var(--colour-border-subtle);
+}
+
+.keypad__key:disabled {
+  color: var(--colour-text-tertiary);
+  background: var(--colour-surface-sunken);
+  cursor: not-allowed;
+}
+
+.keypad__key--erase {
+  color: var(--colour-text-secondary);
+}
+
+.keypad__key--complete {
+  grid-row: span 2;
+  font-family: var(--font-sans);
+  font-size: var(--size-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--colour-text-on-accent);
+  background: var(--colour-accent-primary);
+  border-color: transparent;
+}
+
+.keypad__key--complete:hover:not(:disabled) {
+  background: var(--colour-accent-primary-hover);
+}
+
+.keypad__key--complete:active:not(:disabled) {
+  background: var(--colour-accent-primary-active);
+}
+
+.keypad__key--zero {
+  grid-column: span 2;
+}
+
+.keypad__blank {
+  display: block;
+}
+
+/* Suggested cash amounts: the exact figure first, then the next notes above it. */
+.amounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--control-touch-gap);
+}
+
+.amounts__choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--control-height-touch-lg);
+  padding: var(--space-2) var(--space-3);
+  color: var(--colour-text-primary);
+  background: var(--colour-surface-raised);
+  border: var(--border-hairline) solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.amounts__choice:hover:not(:disabled) {
+  background: var(--colour-surface-sunken);
+  border-color: var(--colour-border-strong);
+}
+
+.amounts__choice--exact {
+  border-color: var(--colour-accent-primary);
+}
+
+.amounts__caption {
+  font-size: var(--size-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--colour-accent-primary);
+}
+
+.amounts__value {
+  font-family: var(--font-mono);
+  font-size: var(--size-lg);
+  font-weight: var(--weight-medium);
+}
+
+/* Drag handle and drop feedback in the designer outline. The handle is the one part
+   of a row that starts a drag, so selecting a row by its name never lifts it. */
+.outline__grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  margin-right: var(--space-1);
+  color: var(--colour-text-tertiary);
+  cursor: grab;
+  touch-action: none;
+}
+
+.outline__grip:active {
+  cursor: grabbing;
+}
+
+.outline__row--lifted {
+  opacity: 0.45;
+}
+
+.outline__row--over {
+  box-shadow: inset 0 2px 0 var(--colour-accent-primary);
+}

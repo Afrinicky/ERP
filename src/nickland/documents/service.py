@@ -14,6 +14,7 @@ to record that a document exists.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 
 from sqlalchemy.orm import Session as DbSession
 
@@ -26,7 +27,7 @@ from nickland.documents.render import (
     render_thermal_text,
 )
 from nickland.domain.documents import DocumentContext, DocumentKind, PageFormat
-from nickland.domain.errors import NotFoundError
+from nickland.domain.errors import NotFoundError, ValidationError
 from nickland.domain.templates import TemplateDefinition
 from nickland.persistence.document_models import IssuedDocument
 from nickland.platform.clock import Clock, SystemClock
@@ -71,6 +72,8 @@ class DocumentRenderService:
         template_id: uuid.UUID,
         *,
         page: PageFormat | None = None,
+        source_type: str | None = None,
+        source_id: uuid.UUID | None = None,
     ) -> str:
         """One version — draft or published — rendered as HTML, watermarked.
 
@@ -78,15 +81,38 @@ class DocumentRenderService:
         re-renders on every change; a PDF would need a viewer and a round trip
         through a layout engine for each keystroke. It goes through the same
         composer as the final document, so what is on screen is what will print.
+
+        Against sample data by default, or against a real quotation when one is named,
+        per PRD §6.6: a layout that looks right over eight tidy sample lines may not
+        over a customer's forty-line order with a specification on every one.
         """
         from nickland.application.services.designer import DesignerService
+        from nickland.application.services.document_sources import DocumentSourceService
 
         designer = DesignerService(self._db, clock=self._clock)
         state = designer.read(actor, template_id)
         document_type = designer.require_type(actor, state.template.type_fk)
-        context = self._records.sample_context(
-            _business_of(actor), DocumentKind(document_type.kind), watermark="Preview"
-        )
+        if source_id is not None:
+            if source_type != "quotation":
+                raise ValidationError(
+                    f"A preview cannot be drawn from a {source_type!r}; quotations are the "
+                    "source this release previews from.",
+                    field="source_type",
+                )
+            context = replace(
+                DocumentSourceService(self._db, clock=self._clock).context_for_quotation(
+                    actor,
+                    source_id,
+                    DocumentKind(document_type.kind),
+                    number="PREVIEW",
+                    issuable_only=False,
+                ),
+                watermark="Preview",
+            )
+        else:
+            context = self._records.sample_context(
+                _business_of(actor), DocumentKind(document_type.kind), watermark="Preview"
+            )
         options = options_of(state.template.definition)
         stock = page or (state.definition.page.page if state.definition.sections else options.page)
         return render_html(context, page=stock, options=options, definition=state.definition)

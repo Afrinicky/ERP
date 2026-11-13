@@ -136,6 +136,32 @@ export const Icons = {
       <path d="M16 16l4.5 4.5" />
     </Glyph>
   ),
+  plus: () => (
+    <Glyph width="18" height="18">
+      <path d="M12 5v14M5 12h14" />
+    </Glyph>
+  ),
+  minus: () => (
+    <Glyph width="18" height="18">
+      <path d="M5 12h14" />
+    </Glyph>
+  ),
+  backspace: () => (
+    <Glyph width="20" height="20">
+      <path d="M21 6H8l-5 6 5 6h13a1 1 0 001-1V7a1 1 0 00-1-1z" />
+      <path d="M12 9l6 6M18 9l-6 6" />
+    </Glyph>
+  ),
+  grip: () => (
+    <Glyph width="14" height="14">
+      <circle cx="9" cy="6" r="1.2" />
+      <circle cx="15" cy="6" r="1.2" />
+      <circle cx="9" cy="12" r="1.2" />
+      <circle cx="15" cy="12" r="1.2" />
+      <circle cx="9" cy="18" r="1.2" />
+      <circle cx="15" cy="18" r="1.2" />
+    </Glyph>
+  ),
 };
 
 export type IconName = keyof typeof Icons;

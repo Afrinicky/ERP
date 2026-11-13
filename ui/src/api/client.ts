@@ -802,8 +802,12 @@ export const api = {
     acceptImport: (typeId: string, payload: Record<string, unknown>) =>
       request<Draft>('POST', `/designer/types/${typeId}/import`, { payload }),
 
-    previewHtml: (templateId: string, page?: PageFormatCode) =>
-      requestText(`/documents/templates/${templateId}/preview`, { page }),
+    previewHtml: (templateId: string, page?: PageFormatCode, source?: { type: string; id: string }) =>
+      requestText(`/documents/templates/${templateId}/preview`, {
+        page,
+        source_type: source?.type,
+        source_id: source?.id,
+      }),
   },
 
   taxation: {

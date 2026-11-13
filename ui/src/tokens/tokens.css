@@ -45,9 +45,14 @@
   --control-height-compact: 32px;
   --control-height-md: 36px;
   --control-height-touch: 44px;
+  --control-height-touch-lg: 56px;
+  --control-height-touch-xl: 64px;
   --control-row-compact: 32px;
   --control-row-md: 40px;
   --control-row-touch: 48px;
+  --control-touch-gap: 8px;
+  --control-key: 64px;
+  --control-key-compact: 52px;
   --layout-rail-expanded: 240px;
   --layout-rail-collapsed: 64px;
   --layout-header: 56px;
