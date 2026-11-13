@@ -4,6 +4,8 @@
   "description": "Bluish-black navigation with a blue accent and a cool slate support tone.",
   "source": "PRD 7.1",
   "colour": {
+    "$signature-ink": "A signature is captured on screen but stored as an image for the printed page, so this ink stays near-black in every preset.",
+    "signature-ink": "#141414",
     "surface-canvas": "#F6F8FA",
     "surface-raised": "#FFFFFF",
     "surface-sunken": "#EFF3F7",

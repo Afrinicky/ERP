@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.audit import AuditAction, AuditRecorder
@@ -421,8 +421,17 @@ class OrganisationService:
         """Allocate the next document number.
 
         Allocation occurs inside the caller's transaction, so a rolled-back document
-        leaves no gap. The row is locked for update where the engine supports it, which
-        keeps numbering unique under concurrent issue in LAN mode, per PRD 9.5.
+        leaves no gap.
+
+        The counter is claimed by one statement that both reads and writes it, rather
+        than by reading the row, adding one and writing it back. The read-then-write
+        form was wrong under concurrent issue: two tills reading the same row before
+        either had written it were handed the same number, which is the one failure a
+        numbering sequence must not have. PostgreSQL additionally locks the row before
+        reading, so a second transaction waits rather than racing; SQLite has no row
+        lock and relies on the statement being atomic, and refuses the flush where its
+        snapshot has moved underneath it. Either way the loser of a race is told to try
+        again and nobody is handed a number that was already given out. PRD 9.5.
         """
         business = self._db.get(Business, actor.business_id)
         if business is None:
@@ -432,13 +441,7 @@ class OrganisationService:
         sequence = self._require_sequence(actor, str(document_kind), branch_id, for_update=True)
 
         bucket = period_key(ResetCadence(sequence.reset_cadence), issue_date)
-        if bucket != sequence.period_key:
-            sequence.period_key = bucket
-            sequence.next_value = 1
-
-        counter = sequence.next_value
-        sequence.next_value = counter + 1
-        self._db.flush()
+        counter = self._claim_counter(sequence, bucket)
 
         branch_code = ""
         if branch_id is not None:
@@ -452,6 +455,31 @@ class OrganisationService:
             on=issue_date,
         )
         return AllocatedNumber(number=number, counter=counter, sequence_id=sequence.id)
+
+    def _claim_counter(self, sequence: NumberSequence, bucket: str) -> int:
+        """Take the next counter off a sequence, atomically, and return it.
+
+        The period reset is part of the same statement. Deciding in Python whether the
+        year had turned and then writing ``next_value = 1`` would reopen the window
+        the single statement exists to close: the first document of January would be
+        numbered 1 by two tills at once.
+        """
+        claimed = self._db.execute(
+            update(NumberSequence)
+            .where(NumberSequence.id == sequence.id)
+            .values(
+                next_value=case(
+                    (NumberSequence.period_key == bucket, NumberSequence.next_value + 1),
+                    else_=2,
+                ),
+                period_key=bucket,
+            )
+            .returning(NumberSequence.next_value)
+        ).scalar_one()
+        # The instance in the identity map still holds what it was loaded with, and
+        # the caller may read the sequence back in this same unit of work.
+        self._db.expire(sequence, ["next_value", "period_key"])
+        return int(claimed) - 1
 
     def preview_number(
         self,

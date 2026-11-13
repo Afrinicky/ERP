@@ -369,6 +369,12 @@ REGISTRY: Final[tuple[Permission, ...]] = (
     _permission("document.view", "View documents", _C, "Read generated and uploaded documents."),
     _permission("document.issue", "Issue documents", _C, "Issue a document from a transaction."),
     _permission("document.reprint", "Reprint documents", _C, "Reprint an issued document."),
+    _permission(
+        "document.acknowledge",
+        "Record proof of receipt",
+        _C,
+        "Capture a recipient's signature or a scanned acknowledgement against an issued document.",
+    ),
     _permission("template.view", "View templates", _C, "Read document templates."),
     _permission(
         "template.manage", "Design templates", _C, "Amend templates and create document types."
@@ -482,6 +488,10 @@ SEEDED_ROLES: Final[tuple[RoleDefinition, ...]] = (
                 "document.view",
                 "document.issue",
                 "document.reprint",
+                # The person who hands the goods over is the person who collects the
+                # signature, so proof of receipt belongs to this role and not only to
+                # the proprietor.
+                "document.acknowledge",
                 "attachment.upload",
                 "template.view",
                 "report.view",

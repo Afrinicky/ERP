@@ -18,10 +18,16 @@ import uuid
 from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.context import AnyActor
-from nickland.application.services.documents import DocumentRecordService
-from nickland.documents.render import RenderedDocument, render_pdf, render_thermal_text
-from nickland.domain.documents import DocumentContext, DocumentKind, PageFormat, TemplateOptions
+from nickland.application.services.documents import DocumentRecordService, options_of
+from nickland.documents.render import (
+    RenderedDocument,
+    render_html,
+    render_pdf,
+    render_thermal_text,
+)
+from nickland.domain.documents import DocumentContext, DocumentKind, PageFormat
 from nickland.domain.errors import NotFoundError
+from nickland.domain.templates import TemplateDefinition
 from nickland.persistence.document_models import IssuedDocument
 from nickland.platform.clock import Clock, SystemClock
 
@@ -59,6 +65,32 @@ class DocumentRenderService:
         )
         return render_pdf(context, page=page or options.page, options=options)
 
+    def preview_version(
+        self,
+        actor: AnyActor,
+        template_id: uuid.UUID,
+        *,
+        page: PageFormat | None = None,
+    ) -> str:
+        """One version — draft or published — rendered as HTML, watermarked.
+
+        HTML rather than PDF because the editor shows it beside the outline and
+        re-renders on every change; a PDF would need a viewer and a round trip
+        through a layout engine for each keystroke. It goes through the same
+        composer as the final document, so what is on screen is what will print.
+        """
+        from nickland.application.services.designer import DesignerService
+
+        designer = DesignerService(self._db, clock=self._clock)
+        state = designer.read(actor, template_id)
+        document_type = designer.require_type(actor, state.template.type_fk)
+        context = self._records.sample_context(
+            _business_of(actor), DocumentKind(document_type.kind), watermark="Preview"
+        )
+        options = options_of(state.template.definition)
+        stock = page or (state.definition.page.page if state.definition.sections else options.page)
+        return render_html(context, page=stock, options=options, definition=state.definition)
+
     def preview_thermal(self, actor: AnyActor, type_id: uuid.UUID, *, width: int = 42) -> str:
         """What a printer driven directly, with no layout engine, would receive."""
         document_type = self._records.require_type(actor, type_id)
@@ -68,6 +100,52 @@ class DocumentRenderService:
         return render_thermal_text(context, width=width)
 
     # --------------------------------------------------------------------- issuing
+
+    def issue_from_quotation(
+        self,
+        actor: AnyActor,
+        type_code: str,
+        quotation_id: uuid.UUID,
+        *,
+        page: PageFormat | None = None,
+    ) -> IssuedDocument:
+        """Put a quotation on paper: pro forma, quotation or invoice. PRD §6.6.
+
+        The number comes from the type's own sequence inside this transaction, so a
+        document that fails to render leaves no gap behind it, and the figures come
+        from the quotation's customer-facing projection rather than from this method
+        reading the line rows.
+        """
+        from nickland.application.services.document_sources import DocumentSourceService
+        from nickland.application.services.organisation import OrganisationService
+
+        business_id = _business_of(actor)
+        document_type = self._records.type_by_code(business_id, type_code)
+        if document_type is None:
+            raise NotFoundError(f"No document type is registered under {type_code!r}.")
+
+        allocated = OrganisationService(self._db, clock=self._clock).allocate_number(
+            actor,
+            document_type.sequence_kind or document_type.code,
+            branch_id=actor.branch_id,
+        )
+        sources = DocumentSourceService(self._db, clock=self._clock)
+        context = sources.context_for_quotation(
+            actor,
+            quotation_id,
+            DocumentKind(document_type.kind),
+            number=allocated.number,
+        )
+        quotation = sources.quotation_of(actor, quotation_id)
+        return self.issue(
+            actor,
+            type_code,
+            context,
+            page=page,
+            source_type="quotation",
+            source_id=quotation_id,
+            party_id=quotation.customer_fk,
+        )
 
     def issue(
         self,
@@ -87,9 +165,10 @@ class DocumentRenderService:
             raise NotFoundError(f"No document type is registered under {type_code!r}.")
 
         template = self._records.published_template(document_type)
-        options = TemplateOptions.from_dict(template.definition)
-        stock = page or options.page
-        rendered = render_pdf(context, page=stock, options=options)
+        options = options_of(template.definition)
+        definition = TemplateDefinition.from_dict(template.definition)
+        stock = page or (definition.page.page if definition.sections else options.page)
+        rendered = render_pdf(context, page=stock, options=options, definition=definition)
 
         return self._records.record_issued(
             actor,

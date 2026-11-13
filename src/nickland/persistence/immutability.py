@@ -13,11 +13,14 @@ narrow: a draft entry remains fully editable, and a posted entry still accepts t
 one transition the accounting model allows — being marked as reversed by the entry
 that reverses it.
 
-Three kinds of record are closed to alteration: a posted journal entry and its lines,
-the audit trail, and a quotation's costing snapshot. The last is here for the same
-reason as the first two. PRD §6.3 promises that a supplier price change after issue
-leaves the issued quotation numerically unchanged, and a promise enforced only by the
-absence of an update statement is a promise until somebody writes one.
+Five kinds of record are closed to alteration: a posted journal entry and its lines,
+the audit trail, a quotation's costing snapshot, an issued document and a proof of
+receipt. The last three are here for the same reason as the first two. PRD §6.3
+promises that a supplier price change after issue leaves the issued quotation
+numerically unchanged; PRD §6.6 promises that a reprint serves the bytes that were
+sent; PRD §6.7 promises that proof of delivery is preserved unaltered. A promise
+enforced only by the absence of an update statement is a promise until somebody
+writes one.
 """
 
 from __future__ import annotations
@@ -51,6 +54,20 @@ being filed later, which adds to the record without restating it.
 
 LINE_FIELDS_AFTER_POSTING = frozenset({"state"})
 """A posted line's only permitted change is the state it carries from its entry."""
+
+ISSUED_FIELDS_AFTER_ISSUE = frozenset(
+    {
+        "cancelled_at",
+        "cancelled_by_id",
+        "cancellation_reason",
+    }
+)
+"""What may still change on an issued document.
+
+Only the three columns that record its cancellation. The bytes, the hash, the number
+and the template version are what a reprint serves, and a reprint that differs from
+the copy the customer holds is worse than no reprint at all.
+"""
 
 
 def _original_state(obj: Any) -> str | None:
@@ -100,6 +117,7 @@ def _refuse_line_change(obj: Any, changed: set[str]) -> None:
 
 def _guard(session: Session, _context: Any, _instances: Any) -> None:
     """Refuse the flush where it would rewrite a settled record."""
+    from nickland.persistence.document_models import DocumentAcknowledgement, IssuedDocument
     from nickland.persistence.ledger_models import JournalEntry, JournalLine
     from nickland.persistence.models import AuditEvent
     from nickland.persistence.pricing_models import QuotationSnapshot
@@ -107,6 +125,24 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
     for obj in session.dirty:
         if not session.is_modified(obj, include_collections=False):
             continue
+        if isinstance(obj, DocumentAcknowledgement):
+            raise ConflictError(
+                "A proof of receipt cannot be altered. It is the evidence that a "
+                "document was delivered, and evidence that can be rewritten is not "
+                "evidence. Record a further acknowledgement instead.",
+                acknowledgement_id=str(obj.id),
+            )
+        if isinstance(obj, IssuedDocument):
+            changed = _changed_fields(obj)
+            if changed - ISSUED_FIELDS_AFTER_ISSUE:
+                raise ConflictError(
+                    f"Document {obj.number} has been issued, so what was sent cannot "
+                    f"be rewritten ({', '.join(sorted(changed - ISSUED_FIELDS_AFTER_ISSUE))}). "
+                    "Cancel it and issue a replacement: the customer's copy cannot be "
+                    "recalled and amended.",
+                    document_id=str(obj.id),
+                    fields=sorted(changed - ISSUED_FIELDS_AFTER_ISSUE),
+                )
         if isinstance(obj, QuotationSnapshot):
             raise ConflictError(
                 "A costing snapshot cannot be altered. It exists to prove that a "
@@ -130,6 +166,18 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
                 _refuse_line_change(obj, changed)
 
     for obj in session.deleted:
+        if isinstance(obj, DocumentAcknowledgement):
+            raise ConflictError(
+                "A proof of receipt cannot be deleted. It is the evidence that a "
+                "document was delivered.",
+                acknowledgement_id=str(obj.id),
+            )
+        if isinstance(obj, IssuedDocument):
+            raise ConflictError(
+                f"Document {obj.number} has been issued, so it cannot be deleted. "
+                "Cancel it: a document that went out stays on the record.",
+                document_id=str(obj.id),
+            )
         if isinstance(obj, QuotationSnapshot):
             raise ConflictError(
                 "A costing snapshot cannot be deleted. The quotation it belongs to "

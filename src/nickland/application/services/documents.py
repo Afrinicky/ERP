@@ -16,7 +16,7 @@ import base64
 import hashlib
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -42,12 +42,28 @@ from nickland.domain.documents import (
     validate_document_number,
 )
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
-from nickland.persistence.document_models import DocumentTemplate, DocumentType, IssuedDocument
+from nickland.domain.templates import default_definition
+from nickland.persistence.document_models import (
+    DocumentAcknowledgement,
+    DocumentTemplate,
+    DocumentType,
+    IssuedDocument,
+)
 from nickland.persistence.models import Address, Branch, Business
 from nickland.platform.clock import Clock, SystemClock
 
 MARK_PATH = Path(__file__).resolve().parents[4] / "ui" / "public" / "mark.svg"
 """The product mark, used on a document until the business uploads its own logo."""
+
+ACKNOWLEDGEMENT_KINDS = frozenset({"signature", "scan", "photograph", "verbal"})
+"""How proof of receipt was taken.
+
+``verbal`` carries no evidence bytes and is recorded for a delivery confirmed by
+telephone. It is admitted because the alternative is the driver inventing a signature.
+"""
+
+MAXIMUM_EVIDENCE_BYTES = 2 * 1024 * 1024
+"""Two megabytes. A signature is a few kilobytes and a scanned sheet a few hundred."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +94,7 @@ SEEDED_TYPES: tuple[SeededType, ...] = (
         "pro_forma",
         "Pro forma invoice",
         DocumentKind.PRO_FORMA,
-        "proforma",
+        "pro_forma",
         TemplateOptions(
             terms=TRADING_TERMS,
             notes=("Goods sold are not returnable.",),
@@ -102,7 +118,7 @@ SEEDED_TYPES: tuple[SeededType, ...] = (
         "invoice",
         "Sales invoice",
         DocumentKind.INVOICE,
-        "invoice",
+        "sales_invoice",
         TemplateOptions(
             terms=_terms(("Payment terms", "Due on receipt"), ("Tax", "Exclusive unless stated")),
             footer_note="Please quote the invoice number with your payment.",
@@ -185,7 +201,7 @@ SEEDED_TYPES: tuple[SeededType, ...] = (
         "goods_received_note",
         "Goods received note",
         DocumentKind.GOODS_RECEIVED_NOTE,
-        "grn",
+        "goods_receipt",
         TemplateOptions(
             show_totals=False,
             show_banking=False,
@@ -235,6 +251,18 @@ SEEDED_TYPES: tuple[SeededType, ...] = (
 )
 
 
+def options_of(definition: dict[str, Any]) -> TemplateOptions:
+    """The option block of a stored template, whichever shape it is in.
+
+    A template written before the designer existed *is* the option block. One written
+    since carries the composed structure with the options beside it. Both are read
+    here rather than at each call site, because a stored row outlives the code that
+    wrote it and the reader is the one that has to cope.
+    """
+    nested = definition.get("options")
+    return TemplateOptions.from_dict(nested if isinstance(nested, dict) else definition)
+
+
 class DocumentRecordService:
     """Seeds the default types, holds their templates, and records what was issued."""
 
@@ -264,15 +292,22 @@ class DocumentRecordService:
                 kind=seeded.kind.value,
                 classification=seeded.options.classification.value,
                 sequence_kind=seeded.sequence_kind,
+                data_source=seeded.kind.value,
                 is_system=True,
                 display_order=seeded.order,
+            )
+            definition = default_definition(
+                seeded.kind,
+                priced=seeded.options.prices_on(seeded.kind),
+                page=seeded.options.page,
+                options=seeded.options.as_dict(),
             )
             document_type.templates.append(
                 DocumentTemplate(
                     business_id=business_id,
                     version=1,
                     name=f"{seeded.name} — standard",
-                    definition=seeded.options.as_dict(),
+                    definition=definition.as_dict(),
                     is_published=True,
                     published_at=now,
                 )
@@ -320,7 +355,7 @@ class DocumentRecordService:
         return max(published, key=lambda item: item.version)
 
     def options_for(self, document_type: DocumentType) -> TemplateOptions:
-        return TemplateOptions.from_dict(self.published_template(document_type).definition)
+        return options_of(self.published_template(document_type).definition)
 
     # ------------------------------------------------------------------- amending
 
@@ -335,10 +370,13 @@ class DocumentRecordService:
         actor.require("template.manage")
         document_type = self.require_type(actor, type_id)
         current = self.published_template(document_type)
-        definition = {**current.definition, **changes}
+        # ``changes`` are option-level: the designer of Phase 6 writes the structure,
+        # and this path remains for the handful of switches that are not structural.
+        stored = dict(current.definition)
+        merged = {**options_of(stored).as_dict(), **changes}
 
         # Parsing proves the definition is renderable before it is published.
-        options = TemplateOptions.from_dict(definition)
+        options = TemplateOptions.from_dict(merged)
         if (
             document_type.classification == Classification.CUSTOMER_FACING.value
             and options.classification is Classification.INTERNAL
@@ -355,7 +393,9 @@ class DocumentRecordService:
             type_fk=document_type.id,
             version=max(item.version for item in document_type.templates) + 1,
             name=current.name,
-            definition=options.as_dict(),
+            definition={**stored, "options": options.as_dict()}
+            if "sections" in stored
+            else options.as_dict(),
             is_published=True,
             published_at=now,
             published_by_id=actor.user_id,
@@ -471,6 +511,120 @@ class DocumentRecordService:
             ).all()
         )
 
+    # ------------------------------------------------------- proof of receipt
+
+    def acknowledge(
+        self,
+        actor: AnyActor,
+        document_id: uuid.UUID,
+        *,
+        recipient_name: str,
+        recipient_role: str | None = None,
+        location: str | None = None,
+        comments: str | None = None,
+        evidence_kind: str = "signature",
+        evidence: bytes | None = None,
+        media_type: str | None = None,
+        acknowledged_at: datetime | None = None,
+    ) -> DocumentAcknowledgement:
+        """Record that a document was received, with the evidence. PRD §6.7.
+
+        The timestamp is the installation's clock rather than anything the caller
+        supplies, unless a time is passed for a receipt that was collected on paper
+        and entered afterwards. The evidence is stored as the bytes that were captured,
+        with a hash, and the row is append-only: proof of delivery that could be
+        amended afterwards is not proof of anything in the dispute it exists for.
+        """
+        actor.require("document.acknowledge")
+        issued = self._db.get(IssuedDocument, document_id)
+        if issued is None or issued.business_id != _business_of(actor):
+            raise NotFoundError("Issued document not found.")
+        if issued.cancelled_at is not None:
+            raise ConflictError(
+                f"Document {issued.number} was cancelled, so a receipt cannot be "
+                "recorded against it.",
+                number=issued.number,
+            )
+
+        name = recipient_name.strip()
+        if not name:
+            raise ValidationError(
+                "A receipt needs the name of the person who took it.",
+                field="recipient_name",
+            )
+        if evidence_kind not in ACKNOWLEDGEMENT_KINDS:
+            raise ValidationError(
+                f"{evidence_kind!r} is not a kind of evidence. Use one of: "
+                + ", ".join(sorted(ACKNOWLEDGEMENT_KINDS))
+                + ".",
+                field="evidence_kind",
+            )
+        if evidence is not None and len(evidence) > MAXIMUM_EVIDENCE_BYTES:
+            raise ValidationError(
+                "The evidence is larger than "
+                f"{MAXIMUM_EVIDENCE_BYTES // 1024} KB. A signature or a scan of a "
+                "signed sheet is well within that; a photograph may need reducing.",
+                field="evidence",
+            )
+
+        when = acknowledged_at or self._clock.now()
+        if when < issued.issued_at:
+            raise ValidationError(
+                "A document cannot be receipted before it was issued.",
+                field="acknowledged_at",
+            )
+
+        record = DocumentAcknowledgement(
+            business_id=issued.business_id,
+            document_fk=issued.id,
+            recipient_name=name,
+            recipient_role=(recipient_role or "").strip() or None,
+            acknowledged_at=when,
+            location=(location or "").strip() or None,
+            comments=(comments or "").strip() or None,
+            evidence_kind=evidence_kind,
+            media_type=media_type if evidence else None,
+            evidence=evidence,
+            evidence_hash=hashlib.sha256(evidence).hexdigest() if evidence else None,
+            recorded_by_id=actor.user_id,
+        )
+        self._db.add(record)
+        self._db.flush()
+
+        self._audit.record(
+            actor,
+            "document_acknowledged",
+            entity_type="issued_document",
+            entity_id=issued.id,
+            entity_label=f"{issued.number} received by {name}",
+            after={
+                "recipient": name,
+                "evidence_kind": evidence_kind,
+                "evidence_hash": record.evidence_hash,
+                "acknowledged_at": when.isoformat(),
+            },
+        )
+        return record
+
+    def acknowledgements(
+        self, actor: AnyActor, document_id: uuid.UUID
+    ) -> list[DocumentAcknowledgement]:
+        """Every receipt recorded against a document, oldest first.
+
+        More than one is ordinary: a part delivery is signed for as it arrives.
+        """
+        actor.require("document.view")
+        issued = self._db.get(IssuedDocument, document_id)
+        if issued is None or issued.business_id != _business_of(actor):
+            raise NotFoundError("Issued document not found.")
+        return list(
+            self._db.scalars(
+                select(DocumentAcknowledgement)
+                .where(DocumentAcknowledgement.document_fk == issued.id)
+                .order_by(DocumentAcknowledgement.acknowledged_at)
+            ).all()
+        )
+
     # --------------------------------------------------------------- sample data
 
     def sample_context(
@@ -556,6 +710,14 @@ class DocumentRecordService:
             banking=self._banking(business),
             watermark=watermark,
         )
+
+    def issuer_for(self, business_id: uuid.UUID) -> Issuer:
+        """The letterhead block, for a caller assembling a context of its own.
+
+        One issuer, built in one place: a second reading of the same columns would
+        drift, and the letterhead is the part of a document a customer recognises.
+        """
+        return self._issuer(self._db.get(Business, business_id))
 
     def _issuer(self, business: Business | None) -> Issuer:
         if business is None:

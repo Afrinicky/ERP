@@ -4,6 +4,8 @@
   "description": "Deep navy chrome with an amber action colour and a pale blue work surface.",
   "source": "the pharmacy terminal reference",
   "colour": {
+    "$signature-ink": "A signature is captured on screen but stored as an image for the printed page, so this ink stays near-black in every preset.",
+    "signature-ink": "#141414",
     "surface-canvas": "#F4F7FC",
     "surface-raised": "#FFFFFF",
     "surface-sunken": "#EDF2FA",

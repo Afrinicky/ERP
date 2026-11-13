@@ -53,7 +53,16 @@ class DocumentType(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin)
     """Internal templates may bind cost and margin; customer-facing ones may not."""
 
     sequence_kind: Mapped[str | None] = mapped_column(String(32))
-    """The numbering sequence this type draws its numbers from."""
+    """The numbering sequence this type draws its numbers from.
+
+    An administrator-defined type gets its own sequence, keyed on the type's code, so
+    a new kind of document is numbered independently of every other, per PRD §6.7."""
+
+    description: Mapped[str | None] = mapped_column(Text)
+    data_source: Mapped[str] = mapped_column(String(32), nullable=False, default="quotation")
+    """The transaction the template binds against. A template composed for one source
+    cannot be bound to another: the palette differs, and a binding that resolves on a
+    quotation may have nothing behind it on a payment voucher."""
 
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -66,7 +75,41 @@ class DocumentType(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin)
         order_by="DocumentTemplate.version",
     )
 
+    fields: Mapped[list[DocumentTypeField]] = relationship(
+        back_populates="document_type",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="DocumentTypeField.display_order",
+    )
+
     __table_args__ = (UniqueConstraint("business_id", "code", name=None),)
+
+
+class DocumentTypeField(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """A field an administrator defined on their own document type, per PRD §6.6.
+
+    AC-06 requires a wholly new document type with its own fields and its own
+    numbering sequence. These are those fields: they enter the palette for templates
+    of this type under the custom group, and they are captured when the document is
+    issued.
+    """
+
+    __tablename__ = "document_type_fields"
+
+    type_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("document_types.id", ondelete="CASCADE"), nullable=False
+    )
+    key: Mapped[str] = mapped_column(String(40), nullable=False)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    value_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="text")
+    per_line: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    help_text: Mapped[str | None] = mapped_column(String(200))
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    document_type: Mapped[DocumentType] = relationship(back_populates="fields")
+
+    __table_args__ = (UniqueConstraint("type_fk", "key", name=None),)
 
 
 class DocumentTemplate(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
@@ -141,3 +184,33 @@ class IssuedDocument(Base, IdentifiedMixin, BusinessScopedMixin, BranchScopedMix
         Index("ix_issued_documents_source", "business_id", "source_type", "source_id"),
         CheckConstraint("byte_count >= 0", name="byte_count_non_negative"),
     )
+
+
+class DocumentAcknowledgement(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """Proof that a document was received, per PRD §6.7.
+
+    The evidence is kept as the bytes that were handed over or scanned, with a content
+    hash, and is never altered. An acknowledgement that could be edited would be worth
+    nothing in the dispute it exists for.
+    """
+
+    __tablename__ = "document_acknowledgements"
+
+    document_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("issued_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    recipient_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    recipient_role: Mapped[str | None] = mapped_column(String(80))
+    acknowledged_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+    location: Mapped[str | None] = mapped_column(String(200))
+    comments: Mapped[str | None] = mapped_column(Text)
+
+    evidence_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="signature")
+    """``signature`` captured on screen, ``scan`` of a signed sheet, or ``photograph``."""
+    media_type: Mapped[str | None] = mapped_column(String(80))
+    evidence: Mapped[bytes | None] = mapped_column(LargeBinary)
+    evidence_hash: Mapped[str | None] = mapped_column(String(64))
+
+    recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+    __table_args__ = (Index("ix_document_acknowledgements_document", "business_id", "document_fk"),)

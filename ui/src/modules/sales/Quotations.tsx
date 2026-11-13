@@ -32,16 +32,21 @@ import { useCurrency } from "@/lib/session";
 import { CostBuildUp } from "./CostBuildUp";
 import { STATE_TONE } from "./SalesOverview";
 
+/** The states from which a quotation may be put on paper. */
+const ON_PAPER = ["issued", "accepted", "expired", "superseded"];
+
 export function Quotations({
   canSeeCosting,
   canManage,
   canIssue,
   canApprove,
+  canIssueDocument,
 }: {
   canSeeCosting: boolean;
   canManage: boolean;
   canIssue: boolean;
   canApprove: boolean;
+  canIssueDocument: boolean;
 }) {
   const currency = useCurrency();
   const client = useQueryClient();
@@ -50,6 +55,25 @@ export function Quotations({
   const [open, setOpen] = useState<Quotation | null>(null);
   const [deciding, setDeciding] = useState<Quotation | null>(null);
   const [revising, setRevising] = useState<Quotation | null>(null);
+
+  const proForma = useMutation({
+    mutationFn: async (quotation: Quotation) => {
+      const issued = await api.documents.issue({
+        type_code: "pro_forma",
+        source_type: "quotation",
+        source_id: quotation.id,
+      });
+      return api.documents.file(issued.id);
+    },
+    onSuccess: (url) => {
+      window.open(url, "_blank", "noreferrer");
+      // Revoked once the viewer holds it; a blob URL left behind keeps the whole
+      // document in memory for the life of the tab.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      void client.invalidateQueries({ queryKey: ["documents"] });
+    },
+    onError: (error) => toast.show("error", describe(error).message),
+  });
 
   const quotations = useQuery({
     queryKey: ["sales", "quotations", state],
@@ -204,6 +228,19 @@ export function Quotations({
                           }
                         >
                           Issue
+                        </Button>
+                      ) : null}
+                      {canIssueDocument && ON_PAPER.includes(item.state) ? (
+                        <Button
+                          tone="plain"
+                          size="compact"
+                          busy={
+                            proForma.isPending &&
+                            proForma.variables?.id === item.id
+                          }
+                          onClick={() => proForma.mutate(item)}
+                        >
+                          Pro forma
                         </Button>
                       ) : null}
                       {canManage && item.state === "issued" ? (

@@ -89,6 +89,17 @@ document_type                     pro forma, invoice, waybill, or administrator-
 A version is immutable once published. Editing a published version creates a new draft
 version.
 
+Every section is removable, the masthead included. A business printing on its own headed
+stationery already has the letterhead on the paper, and a designer that insisted on printing
+a second one over it would be refusing the ordinary case. An empty section renders nothing
+rather than a titled blank panel.
+
+A column added from the palette carries a generated identifier; the columns of the shipped
+defaults carry stable ones, so a template that has been amended can still be compared with
+the default it came from. The shipped widths add to the full printable width with every
+conditional column showing, so the table fits in the worst case rather than only in the
+common one.
+
 ## Field palette
 
 Grouped exactly as PRD §6.6 requires.
@@ -220,6 +231,28 @@ prefix, a pattern with date and counter components, and its next value. Allocati
 within the issuing transaction and is safe under concurrent issue in LAN mode, per PRD §9.5.
 A number is never reused, and a gap is never silently closed.
 
+The counter is claimed by a single statement that both reads and writes it, rather than by
+reading the row, adding one and writing it back. The read-then-write form is not safe on
+either engine: two tills reading the same row before either had written it are handed the
+same number. PostgreSQL additionally locks the row before reading, so a second transaction
+waits rather than racing. On SQLite, which has no row lock, the statement's own atomicity
+carries the guarantee and a transaction whose snapshot has moved is refused. The loser of a
+race is therefore told to try again, and is never handed a number already given out.
+
+## Issuing from a transaction
+
+Per PRD §6.6 a document is issued *from* a record, never typed afresh: the pro forma a
+customer receives carries the figures that were quoted. The figures reach the page through
+the source service's own customer-facing projection rather than off the stored rows, so the
+disclosure boundary of PRD §14 is applied in one place and a supplier cost is never handed
+to the renderer at all.
+
+A quotation may be put on paper once it has been issued to the customer, and thereafter in
+every later state — accepted, expired or superseded — because a customer may ask for a copy
+of what they already hold. A draft may be previewed and not issued: the document takes a
+number from the sequence and its bytes become the customer's copy, and handing one out
+before the offer has been approved would make the approval decorative.
+
 ## Version preservation
 
 Per PRD §6.6 and §14, an issued document must remain reproducible.
@@ -234,9 +267,19 @@ Per PRD §6.6 and §14, an issued document must remain reproducible.
 ## Customer acknowledgement
 
 Per PRD §6.7, acknowledgement is captured as a signed delivery document, or as a scanned
-signed PDF or image. The record holds the recipient, the signature or stamp, the date and
-time, the location and any comments. The original evidence is preserved without alteration
-and carries a content hash.
+signed PDF or image. The record holds the recipient, their capacity, the signature or stamp,
+the date and time, the location and any comments. The original evidence is preserved without
+alteration and carries a content hash, and the row is append-only at the session guard: a
+correction is a further acknowledgement, because evidence that can be rewritten is not
+evidence in the dispute it exists for.
+
+A signature is drawn on the screen, which is how it is taken at the door, and is stored as
+the image that was drawn. A delivery confirmed by telephone is admitted as an acknowledgement
+carrying no evidence, recorded as such. That is a departure from the letter of §6.7, which
+names only a signature or a scan, and it is deliberate: the alternative is the driver
+inventing a signature, which is worse than an honest record of a telephone call. A part
+delivery is signed for more than once, so a document carries as many acknowledgements as it
+needs. A cancelled document accepts none.
 
 ## Portability
 

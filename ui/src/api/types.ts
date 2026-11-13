@@ -848,6 +848,20 @@ export interface IssuedDocument {
   cancelled_at: string | null;
 }
 
+export interface Acknowledgement {
+  id: string;
+  document_fk: string;
+  recipient_name: string;
+  recipient_role: string | null;
+  acknowledged_at: string;
+  location: string | null;
+  comments: string | null;
+  evidence_kind: string;
+  media_type: string | null;
+  evidence_hash: string | null;
+  recorded_by_id: string | null;
+}
+
 export interface ThermalPreview {
   width: number;
   text: string;
@@ -1450,4 +1464,159 @@ export interface CommissionTotals {
   cancelled: string;
   settled: string;
   outstanding: string;
+}
+
+// -- The document designer (Phase 6) --------------------------------------------------
+
+export interface PaletteField {
+  key: string;
+  label: string;
+  group: string;
+  group_label: string;
+  kind: string;
+  per_line: boolean;
+  summable: boolean;
+  is_internal: boolean;
+}
+
+export interface Finding {
+  where: string;
+  message: string;
+  is_blocking: boolean;
+}
+
+export interface TemplateCondition {
+  field: string;
+  operator: string;
+  value: string | null;
+  values: string[];
+}
+
+export interface TemplateVisibility {
+  mode: 'always' | 'never' | 'conditional';
+  join: 'all' | 'any';
+  conditions: TemplateCondition[];
+}
+
+export interface TemplateFormat {
+  precision: number | null;
+  currency_symbol: boolean;
+  thousands_separator: boolean;
+  date_format: string;
+  text_case: string;
+  prefix: string;
+  suffix: string;
+}
+
+export interface TemplateColumn {
+  id: string;
+  label: string;
+  binding: string | null;
+  expression: string;
+  width_percent: number;
+  alignment: 'left' | 'centre' | 'right';
+  format: TemplateFormat;
+  visibility: TemplateVisibility;
+  subtotal: boolean;
+}
+
+export interface TemplateElement {
+  id: string;
+  kind: string;
+  label: string;
+  binding: string | null;
+  text: string;
+  expression: string;
+  format: TemplateFormat;
+  alignment: 'left' | 'centre' | 'right';
+  width_percent: number;
+  emphasis: boolean;
+  visibility: TemplateVisibility;
+}
+
+export interface TemplateSection {
+  id: string;
+  kind: string;
+  title: string;
+  visibility: TemplateVisibility;
+  elements: TemplateElement[];
+  columns: TemplateColumn[];
+  bordered: boolean;
+  keep_together: boolean;
+  page_break_before: boolean;
+}
+
+export interface TemplatePage {
+  page: string;
+  landscape: boolean;
+  margin_top_mm: number;
+  margin_right_mm: number;
+  margin_bottom_mm: number;
+  margin_left_mm: number;
+  base_font_size_pt: number;
+  heading_font_size_pt: number;
+  accent_colour: string | null;
+  show_page_numbers: boolean;
+  repeat_table_header: boolean;
+  carry_forward_totals: boolean;
+}
+
+export interface ComposedDefinition {
+  format: number;
+  page: TemplatePage;
+  sections: TemplateSection[];
+  footer_note: string;
+  options: Record<string, unknown>;
+}
+
+export interface Draft {
+  template_id: string;
+  type_id: string;
+  version: number;
+  name: string;
+  is_published: boolean;
+  definition: ComposedDefinition;
+  findings: Finding[];
+  is_publishable: boolean;
+}
+
+export interface SectionKindInfo {
+  code: string;
+  label: string;
+}
+
+export interface OperatorInfo {
+  code: string;
+  label: string;
+  takes_value: boolean;
+  takes_list: boolean;
+}
+
+export interface DocumentTypeField {
+  id: string;
+  key: string;
+  label: string;
+  value_kind: string;
+  per_line: boolean;
+  is_required: boolean;
+  help_text: string | null;
+  display_order: number;
+}
+
+export interface ExpressionCheck {
+  is_valid: boolean;
+  message: string | null;
+  references: string[];
+  sample: string | null;
+  nodes: number;
+  depth: number;
+}
+
+export interface ImportReport {
+  name: string;
+  kind: string;
+  classification: string;
+  unresolved: string[];
+  findings: Finding[];
+  is_acceptable: boolean;
 }

@@ -4,6 +4,8 @@
   "description": "Charcoal navigation with an orange accent and a warm beige support tone.",
   "source": "PRD 28.1",
   "colour": {
+    "$signature-ink": "A signature is captured on screen but stored as an image for the printed page, so this ink stays near-black in every preset.",
+    "signature-ink": "#141414",
     "surface-canvas": "#F7F5F3",
     "surface-raised": "#FFFFFF",
     "surface-sunken": "#F2EFEC",

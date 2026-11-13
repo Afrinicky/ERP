@@ -6,6 +6,8 @@
   "recommended": true,
   "$comment": "The accent ramp brightens rather than darkens. The logo's teal is a mid tone, so the label on it is the dark ink rather than white; darkening the button on hover would then move the two together and the label would fail WCAG AA at the moment the pointer is on it.",
   "colour": {
+    "$signature-ink": "A signature is captured on screen but stored as an image for the printed page, so this ink stays near-black in every preset.",
+    "signature-ink": "#141414",
     "surface-canvas": "#F4F7F8",
     "surface-raised": "#FFFFFF",
     "surface-sunken": "#EDF2F3",

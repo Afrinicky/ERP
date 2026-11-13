@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from decimal import Decimal
 
 import pytest
@@ -340,7 +341,7 @@ class TestUsersAndPermissions:
 
     def test_the_permission_registry_is_published(self, admin_client: TestClient) -> None:
         permissions = admin_client.get(f"{API}/permissions").json()
-        assert len(permissions) == 97
+        assert len(permissions) == 98
         assert any(item["sensitive"] for item in permissions)
         costing = next(item for item in permissions if item["code"] == "costing.view")
         assert costing["sensitive"] is True
@@ -737,3 +738,230 @@ class TestSalesOverHttp:
         assert schedule["final_due_on"] == "2027-05-01"
         assert Decimal(schedule["finance_charge"]) > ZERO
         assert len(schedule["instalments"]) == 7
+
+
+class TestDocumentsOverHttp:
+    """Phase 6 through the published API: the designer, issue, reprint and receipt."""
+
+    def _quotation(self, admin_client: TestClient) -> dict[str, object]:
+        customer = admin_client.post(
+            f"{API}/parties",
+            json={
+                "name": "Banhart Hospital",
+                "is_customer": True,
+                "telephone": "+233 30 222 3344",
+                "tax_identifier": "C0009988776",
+            },
+        ).json()
+        created = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": customer["id"],
+                "customer_reference": "BH/2026/114",
+                "lines": [
+                    {"description": "Reagent pack", "quantity": "40", "unit_cost": "172"},
+                    {"description": "Nitrile gloves, medium", "quantity": "12", "unit_cost": "85"},
+                ],
+            },
+        )
+        assert created.status_code == 200, created.text
+        quotation = created.json()
+        issued = admin_client.post(f"{API}/quotations/{quotation['id']}/issue", json={})
+        assert issued.status_code == 200, issued.text
+        return issued.json()
+
+    def test_a_quotation_becomes_a_pro_forma_that_reprints_identically(
+        self, admin_client: TestClient
+    ) -> None:
+        quotation = self._quotation(admin_client)
+
+        created = admin_client.post(
+            f"{API}/documents/issue",
+            json={
+                "type_code": "pro_forma",
+                "source_type": "quotation",
+                "source_id": quotation["id"],
+            },
+        )
+        assert created.status_code == 201, created.text
+        document = created.json()
+        assert document["number"].startswith("PFI-")
+        assert document["media_type"] == "application/pdf"
+        assert document["byte_count"] > 0
+        assert document["template_version"] == 1
+
+        listed = admin_client.get(f"{API}/documents/issued").json()
+        assert [item["id"] for item in listed] == [document["id"]]
+
+        first = admin_client.get(f"{API}/documents/issued/{document['id']}/file")
+        assert first.status_code == 200, first.text
+        assert first.headers["content-type"].startswith("application/pdf")
+        assert first.content.startswith(b"%PDF")
+        again = admin_client.get(f"{API}/documents/issued/{document['id']}/file")
+        assert again.content == first.content
+
+    def test_a_draft_quotation_cannot_be_put_on_paper(self, admin_client: TestClient) -> None:
+        customer = admin_client.post(
+            f"{API}/parties", json={"name": "Banhart Hospital", "is_customer": True}
+        ).json()
+        draft = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": customer["id"],
+                "lines": [{"description": "Reagent pack", "quantity": "1", "unit_cost": "100"}],
+            },
+        ).json()
+        refused = admin_client.post(
+            f"{API}/documents/issue",
+            json={
+                "type_code": "pro_forma",
+                "source_type": "quotation",
+                "source_id": draft["id"],
+            },
+        )
+        assert refused.status_code == 409, refused.text
+
+    def test_a_source_this_release_cannot_issue_from_is_refused(
+        self, admin_client: TestClient
+    ) -> None:
+        quotation = self._quotation(admin_client)
+        refused = admin_client.post(
+            f"{API}/documents/issue",
+            json={
+                "type_code": "pro_forma",
+                "source_type": "sales_order",
+                "source_id": quotation["id"],
+            },
+        )
+        assert refused.status_code == 422, refused.text
+
+    def test_proof_of_receipt_is_recorded_and_read_back(self, admin_client: TestClient) -> None:
+        quotation = self._quotation(admin_client)
+        document = admin_client.post(
+            f"{API}/documents/issue",
+            json={
+                "type_code": "delivery_note",
+                "source_type": "quotation",
+                "source_id": quotation["id"],
+            },
+        ).json()
+
+        recorded = admin_client.post(
+            f"{API}/documents/issued/{document['id']}/acknowledgements",
+            json={
+                "recipient_name": "A. Mensah",
+                "recipient_role": "Stores officer",
+                "location": "Korle Bu, Accra",
+                "comments": "Two cartons short; balance to follow.",
+                "evidence_kind": "signature",
+                "evidence_base64": base64.b64encode(b"-- a signature --").decode("ascii"),
+                "media_type": "image/png",
+            },
+        )
+        assert recorded.status_code == 201, recorded.text
+        receipt = recorded.json()
+        assert receipt["recipient_name"] == "A. Mensah"
+        assert receipt["evidence_hash"] is not None
+        assert "evidence_base64" not in receipt
+
+        read_back = admin_client.get(
+            f"{API}/documents/issued/{document['id']}/acknowledgements"
+        ).json()
+        assert [item["id"] for item in read_back] == [receipt["id"]]
+
+    def test_evidence_that_is_not_base64_is_refused(self, admin_client: TestClient) -> None:
+        quotation = self._quotation(admin_client)
+        document = admin_client.post(
+            f"{API}/documents/issue",
+            json={
+                "type_code": "delivery_note",
+                "source_type": "quotation",
+                "source_id": quotation["id"],
+            },
+        ).json()
+        refused = admin_client.post(
+            f"{API}/documents/issued/{document['id']}/acknowledgements",
+            json={"recipient_name": "A. Mensah", "evidence_base64": "not base64 at all"},
+        )
+        assert refused.status_code == 422, refused.text
+
+    def test_the_designer_drafts_amends_publishes_and_preserves(
+        self, admin_client: TestClient
+    ) -> None:
+        types = admin_client.get(f"{API}/documents/types").json()
+        pro_forma = next(item for item in types if item["code"] == "pro_forma")
+
+        draft = admin_client.get(f"{API}/designer/types/{pro_forma['id']}/draft")
+        assert draft.status_code == 200, draft.text
+        state = draft.json()
+        template_id = state["template_id"]
+        assert state["version"] == 2
+        items = next(
+            section for section in state["definition"]["sections"] if section["kind"] == "items"
+        )
+
+        amended = admin_client.put(
+            f"{API}/designer/templates/{template_id}/sections/{items['id']}"
+            f"/columns/line_description",
+            json={"changes": {"label": "Particulars of supply"}},
+        )
+        assert amended.status_code == 200, amended.text
+
+        preview = admin_client.get(f"{API}/documents/templates/{template_id}/preview")
+        assert preview.status_code == 200, preview.text
+        assert "Particulars of supply" in preview.text
+
+        published = admin_client.post(f"{API}/designer/templates/{template_id}/publish")
+        assert published.status_code == 200, published.text
+        assert published.json()["version"] == 2
+
+    def test_an_internal_binding_is_refused_over_http(self, admin_client: TestClient) -> None:
+        types = admin_client.get(f"{API}/documents/types").json()
+        pro_forma = next(item for item in types if item["code"] == "pro_forma")
+        state = admin_client.get(f"{API}/designer/types/{pro_forma['id']}/draft").json()
+        items = next(
+            section for section in state["definition"]["sections"] if section["kind"] == "items"
+        )
+        refused = admin_client.post(
+            f"{API}/designer/templates/{state['template_id']}/sections/{items['id']}/columns",
+            json={"binding": "internal.line_cost"},
+        )
+        assert refused.status_code == 422, refused.text
+
+    def test_a_sales_person_may_issue_and_receipt_but_not_design(
+        self, admin_client: TestClient, client: TestClient
+    ) -> None:
+        quotation = self._quotation(admin_client)
+        types = admin_client.get(f"{API}/documents/types").json()
+        pro_forma = next(item for item in types if item["code"] == "pro_forma")
+
+        admin_client.post(
+            f"{API}/users",
+            json={
+                "username": "seller",
+                "full_name": "A. Seller",
+                "password": STAFF_PASSWORD,
+                "role_codes": ["sales_person"],
+                "must_change_password": False,
+            },
+        )
+        token = client.post(
+            f"{API}/session", json={"username": "seller", "password": STAFF_PASSWORD}
+        ).json()["token"]
+        client.headers[SESSION_HEADER] = token
+
+        document = client.post(
+            f"{API}/documents/issue",
+            json={
+                "type_code": "delivery_note",
+                "source_type": "quotation",
+                "source_id": quotation["id"],
+            },
+        )
+        assert document.status_code == 201, document.text
+        receipt = client.post(
+            f"{API}/documents/issued/{document.json()['id']}/acknowledgements",
+            json={"recipient_name": "A. Mensah", "evidence_kind": "verbal"},
+        )
+        assert receipt.status_code == 201, receipt.text
+        assert client.get(f"{API}/designer/types/{pro_forma['id']}/draft").status_code == 403

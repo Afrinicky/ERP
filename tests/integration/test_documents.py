@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.orm import Session
 
 from nickland.application.context import Actor
-from nickland.application.services.documents import SEEDED_TYPES, DocumentRecordService
+from nickland.application.services.documents import (
+    MAXIMUM_EVIDENCE_BYTES,
+    SEEDED_TYPES,
+    DocumentRecordService,
+    options_of,
+)
 from nickland.documents.render import render_html, render_pdf, render_thermal_text
 from nickland.documents.service import DocumentRenderService
 from nickland.domain.documents import (
@@ -21,7 +27,13 @@ from nickland.domain.documents import (
     TemplateOptions,
     Totals,
 )
-from nickland.domain.errors import ConflictError, NotFoundError, PermissionDeniedError
+from nickland.domain.errors import (
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
+from nickland.persistence.document_models import IssuedDocument
 from nickland.platform.clock import FixedClock
 from tests.conftest import make_actor
 
@@ -299,7 +311,7 @@ class TestTemplateVersions:
         assert nxt.version == first.version + 1
         assert nxt.is_published
         assert not first.is_published
-        assert nxt.definition["show_banking"] is False
+        assert options_of(nxt.definition).show_banking is False
 
     def test_the_earlier_version_is_left_intact(
         self, db: Session, records: DocumentRecordService, admin: Actor
@@ -474,3 +486,203 @@ class TestSampleData:
             DocumentKind.INVOICE,
         )
         assert context.issued_on == date(2026, 11, 5)
+
+
+class TestProofOfReceipt:
+    """PRD §6.7: proof that a document was received, preserved unaltered."""
+
+    @pytest.fixture
+    def issued(
+        self,
+        records: DocumentRecordService,
+        documents: DocumentRenderService,
+        db: Session,
+        admin: Actor,
+    ) -> IssuedDocument:
+        context = records.sample_context(
+            admin.business_id,  # type: ignore[arg-type]
+            DocumentKind.DELIVERY_NOTE,
+        )
+        document = documents.issue(admin, "delivery_note", context)
+        db.flush()
+        return document
+
+    def test_a_signature_is_kept_with_its_hash(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        signature = b"\x89PNG\r\n\x1a\n-- a signature --"
+        receipt = records.acknowledge(
+            admin,
+            issued.id,
+            recipient_name="  A. Mensah  ",
+            recipient_role="Stores officer",
+            location="Korle Bu, Accra",
+            comments="Two cartons short; balance to follow.",
+            evidence=signature,
+            media_type="image/png",
+        )
+        db.flush()
+        assert receipt.recipient_name == "A. Mensah"
+        assert receipt.evidence == signature
+        assert receipt.evidence_hash == hashlib.sha256(signature).hexdigest()
+        assert receipt.acknowledged_at is not None
+        assert receipt.recorded_by_id == admin.user_id
+
+    def test_a_part_delivery_is_receipted_more_than_once(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        records.acknowledge(admin, issued.id, recipient_name="A. Mensah")
+        records.acknowledge(admin, issued.id, recipient_name="K. Owusu")
+        db.flush()
+        recorded = records.acknowledgements(admin, issued.id)
+        assert [item.recipient_name for item in recorded] == ["A. Mensah", "K. Owusu"]
+
+    def test_a_telephone_confirmation_carries_no_evidence(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        receipt = records.acknowledge(
+            admin,
+            issued.id,
+            recipient_name="A. Mensah",
+            evidence_kind="verbal",
+        )
+        db.flush()
+        assert receipt.evidence is None
+        assert receipt.evidence_hash is None
+        assert receipt.media_type is None
+
+    def test_an_unnamed_recipient_is_refused(
+        self, records: DocumentRecordService, admin: Actor, issued: IssuedDocument
+    ) -> None:
+        with pytest.raises(ValidationError):
+            records.acknowledge(admin, issued.id, recipient_name="   ")
+
+    def test_an_unknown_kind_of_evidence_is_refused(
+        self, records: DocumentRecordService, admin: Actor, issued: IssuedDocument
+    ) -> None:
+        with pytest.raises(ValidationError):
+            records.acknowledge(
+                admin, issued.id, recipient_name="A. Mensah", evidence_kind="hearsay"
+            )
+
+    def test_evidence_beyond_the_limit_is_refused(
+        self, records: DocumentRecordService, admin: Actor, issued: IssuedDocument
+    ) -> None:
+        with pytest.raises(ValidationError):
+            records.acknowledge(
+                admin,
+                issued.id,
+                recipient_name="A. Mensah",
+                evidence=b"0" * (MAXIMUM_EVIDENCE_BYTES + 1),
+                media_type="image/png",
+            )
+
+    def test_a_receipt_cannot_predate_the_document(
+        self,
+        records: DocumentRecordService,
+        clock: FixedClock,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        with pytest.raises(ValidationError):
+            records.acknowledge(
+                admin,
+                issued.id,
+                recipient_name="A. Mensah",
+                acknowledged_at=issued.issued_at - timedelta(days=1),
+            )
+
+    def test_a_receipt_cannot_be_amended(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        receipt = records.acknowledge(admin, issued.id, recipient_name="A. Mensah")
+        db.flush()
+        receipt.recipient_name = "Somebody else"
+        with pytest.raises(ConflictError):
+            db.flush()
+        db.rollback()
+
+    def test_a_receipt_cannot_be_deleted(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        receipt = records.acknowledge(admin, issued.id, recipient_name="A. Mensah")
+        db.flush()
+        db.delete(receipt)
+        with pytest.raises(ConflictError):
+            db.flush()
+        db.rollback()
+
+    def test_what_was_issued_cannot_be_rewritten(self, db: Session, issued: IssuedDocument) -> None:
+        issued.content = b"a different document"
+        with pytest.raises(ConflictError):
+            db.flush()
+        db.rollback()
+
+    def test_an_issued_document_may_still_be_cancelled(
+        self, db: Session, clock: FixedClock, issued: IssuedDocument
+    ) -> None:
+        issued.cancelled_at = clock.now()
+        issued.cancellation_reason = "Raised against the wrong customer."
+        db.flush()
+        assert issued.cancelled_at is not None
+
+    def test_a_cancelled_document_cannot_be_receipted(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        clock: FixedClock,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        issued.cancelled_at = clock.now()
+        db.flush()
+        with pytest.raises(ConflictError):
+            records.acknowledge(admin, issued.id, recipient_name="A. Mensah")
+
+    def test_a_salesperson_may_receipt_a_delivery(
+        self,
+        records: DocumentRecordService,
+        db: Session,
+        admin: Actor,
+        issued: IssuedDocument,
+    ) -> None:
+        driver = make_actor(
+            admin.business_id, permissions={"document.acknowledge", "document.view"}
+        )
+        records.acknowledge(driver, issued.id, recipient_name="A. Mensah")
+        db.flush()
+        assert len(records.acknowledgements(driver, issued.id)) == 1
+
+    def test_someone_without_the_permission_may_not(
+        self, records: DocumentRecordService, admin: Actor, issued: IssuedDocument
+    ) -> None:
+        nobody = make_actor(admin.business_id, permissions={"document.view"})
+        with pytest.raises(PermissionDeniedError):
+            records.acknowledge(nobody, issued.id, recipient_name="A. Mensah")
+
+    def test_another_business_s_document_is_not_found(
+        self, records: DocumentRecordService, issued: IssuedDocument
+    ) -> None:
+        stranger = make_actor(uuid.uuid4())
+        with pytest.raises(NotFoundError):
+            records.acknowledge(stranger, issued.id, recipient_name="A. Mensah")

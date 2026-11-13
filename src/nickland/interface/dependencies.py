@@ -20,6 +20,7 @@ from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.commissions import CommissionService
 from nickland.application.services.custom_fields import CustomFieldService
+from nickland.application.services.designer import DesignerService
 from nickland.application.services.documents import DocumentRecordService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
@@ -275,7 +276,12 @@ def get_document_service(
     return DocumentRenderService(session, clock=runtime.clock)
 
 
+def get_designer(session: SessionDependency, runtime: RuntimeDependency) -> DesignerService:
+    return DesignerService(session, clock=runtime.clock)
+
+
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
+DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
 DocumentDependency = Annotated[DocumentRenderService, Depends(get_document_service)]
 
 

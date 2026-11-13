@@ -96,6 +96,7 @@ export function Sales() {
             canManage={can("quotation.manage")}
             canIssue={can("quotation.issue")}
             canApprove={can("quotation.approve")}
+            canIssueDocument={can("document.issue")}
           />
         ) : null}
         {view === "policy" ? (

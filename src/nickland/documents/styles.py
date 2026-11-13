@@ -259,7 +259,10 @@ body {{ margin: 0; }}
 
 .block dl {{
   display: grid;
-  grid-template-columns: 42mm 1fr;
+  /* minmax(0, 1fr) rather than 1fr: inside a flex item with a zero basis the bare
+     fr track resolves to its own min-content, and a value column the width of its
+     longest word breaks "20 Dec 2026" across two lines. */
+  grid-template-columns: 34mm minmax(0, 1fr);
   gap: 0.8mm 4mm;
   margin: 0;
   font-size: 8.5pt;

@@ -6,11 +6,16 @@
  * roll, and as the plain text a thermal printer is fed directly.
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
-import type { DocumentType, PageFormatCode, TemplateDefinition } from '@/api/types';
+import type {
+  DocumentType,
+  IssuedDocument,
+  PageFormatCode,
+  TemplateDefinition,
+} from '@/api/types';
 import {
   Alert,
   Button,
@@ -28,9 +33,34 @@ import {
 import { ContextBar, PageHeading, WorkSurface } from '@/components/shell';
 import { describe } from '@/lib/errors';
 import { bytes, dateTime } from '@/lib/format';
+import { Designer } from '@/modules/designer/Designer';
+import { ReceiptDialog } from './ReceiptDialog';
 import { useSession } from '@/lib/session';
 
-type View = 'templates' | 'issued';
+type View = 'templates' | 'designer' | 'issued';
+
+/**
+ * Opens a PDF in a new tab, fetched with the session header rather than linked.
+ *
+ * A link cannot carry the header, and the token has no business in a URL. The blob
+ * is revoked afterwards: one left behind keeps the whole document in memory for as
+ * long as the tab lives.
+ */
+function useOpenDocument(): (fetcher: () => Promise<string>) => Promise<void> {
+  const toast = useToast();
+  return useCallback(
+    async (fetcher: () => Promise<string>) => {
+      try {
+        const url = await fetcher();
+        window.open(url, '_blank', 'noreferrer');
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (error) {
+        toast.show('error', describe(error).message);
+      }
+    },
+    [toast],
+  );
+}
 
 const ROLLS: PageFormatCode[] = ['roll_80', 'roll_58'];
 
@@ -80,24 +110,34 @@ export function Documents() {
   // tab that refuses them is a permission error dressed up as a page.
   const tabs = [
     ...(can('template.view') ? [{ id: 'templates' as View, label: 'Templates' }] : []),
+    ...(can('template.manage') ? [{ id: 'designer' as View, label: 'Designer' }] : []),
     ...(can('document.view') ? [{ id: 'issued' as View, label: 'Issued' }] : []),
   ];
   const [view, setView] = useState<View>(tabs[0]?.id ?? 'issued');
 
   return (
     <>
-      <ContextBar trail={['Documents', view === 'templates' ? 'Templates' : 'Issued']} />
+      <ContextBar
+        trail={[
+          'Documents',
+          view === 'templates' ? 'Templates' : view === 'designer' ? 'Designer' : 'Issued',
+        ]}
+      />
       <WorkSurface>
         <PageHeading
           title="Documents"
           detail={
             view === 'templates'
               ? 'Every document the business issues, and the layout each is rendered through.'
-              : 'Documents already issued, kept as the bytes that were sent.'
+              : view === 'designer'
+                ? 'Compose what a document shows, and in what order. Changes apply when you publish.'
+                : 'Documents already issued, kept as the bytes that were sent.'
           }
         />
         {tabs.length > 1 ? <Tabs items={tabs} active={view} onChange={setView} /> : null}
-        {view === 'templates' ? <Templates /> : <Issued />}
+        {view === 'templates' ? <Templates /> : null}
+        {view === 'designer' ? <Designer /> : null}
+        {view === 'issued' ? <Issued /> : null}
       </WorkSurface>
     </>
   );
@@ -105,6 +145,7 @@ export function Documents() {
 
 function Templates() {
   const { can } = useSession();
+  const openDocument = useOpenDocument();
   const [selected, setSelected] = useState<DocumentType | null>(null);
 
   const types = useQuery({ queryKey: ['documents', 'types'], queryFn: () => api.documents.types() });
@@ -146,14 +187,13 @@ function Templates() {
                     </td>
                     <td className="numeric">{item.published_version ?? '—'}</td>
                     <td className="table__actions">
-                      <a
-                        className="button button--plain button--compact"
-                        href={api.documents.previewUrl(item.id)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <Button
+                        tone="plain"
+                        size="compact"
+                        onClick={() => void openDocument(() => api.documents.preview(item.id))}
                       >
                         Preview
-                      </a>
+                      </Button>
                       {can('template.manage') ? (
                         <Button tone="plain" size="compact" onClick={() => setSelected(item)}>
                           Layout
@@ -197,6 +237,7 @@ function stockLabel(code: PageFormatCode): string {
 
 function LayoutPanel({ type, onClose }: { type: DocumentType; onClose: () => void }) {
   const client = useQueryClient();
+  const openDocument = useOpenDocument();
   const toast = useToast();
   const template = useQuery({
     queryKey: ['documents', 'template', type.id],
@@ -229,14 +270,13 @@ function LayoutPanel({ type, onClose }: { type: DocumentType; onClose: () => voi
       }
       actions={
         <>
-          <a
-            className="button button--secondary button--compact"
-            href={api.documents.previewUrl(type.id)}
-            target="_blank"
-            rel="noreferrer"
+          <Button
+            tone="secondary"
+            size="compact"
+            onClick={() => void openDocument(() => api.documents.preview(type.id))}
           >
             Preview
-          </a>
+          </Button>
           <Button tone="plain" size="compact" onClick={onClose}>
             Close
           </Button>
@@ -366,6 +406,7 @@ function LayoutPanel({ type, onClose }: { type: DocumentType; onClose: () => voi
 
 function ThermalPreview({ type }: { type: DocumentType }) {
   const [width, setWidth] = useState(42);
+  const openDocument = useOpenDocument();
   const [open, setOpen] = useState(false);
   const preview = useQuery({
     queryKey: ['documents', 'thermal', type.id, width],
@@ -397,15 +438,14 @@ function ThermalPreview({ type }: { type: DocumentType }) {
             </Button>
           ))}
           {ROLLS.map((roll) => (
-            <a
+            <Button
               key={roll}
-              className="button button--plain button--compact"
-              href={api.documents.previewUrl(type.id, roll)}
-              target="_blank"
-              rel="noreferrer"
+              tone="plain"
+              size="compact"
+              onClick={() => void openDocument(() => api.documents.preview(type.id, roll))}
             >
               {stockLabel(roll)} PDF
-            </a>
+            </Button>
           ))}
         </div>
         {preview.isPending ? (
@@ -419,6 +459,8 @@ function ThermalPreview({ type }: { type: DocumentType }) {
 }
 
 function Issued() {
+  const [receipting, setReceipting] = useState<IssuedDocument | null>(null);
+  const openDocument = useOpenDocument();
   const issued = useQuery({
     queryKey: ['documents', 'issued'],
     queryFn: () => api.documents.issued(),
@@ -471,14 +513,16 @@ function Issued() {
                   <td className="numeric">{item.template_version ?? '—'}</td>
                   <td className="numeric">{bytes(item.byte_count)}</td>
                   <td className="table__actions">
-                    <a
-                      className="button button--plain button--compact"
-                      href={api.documents.fileUrl(item.id)}
-                      target="_blank"
-                      rel="noreferrer"
+                    <Button tone="plain" size="compact" onClick={() => setReceipting(item)}>
+                      Receipt
+                    </Button>
+                    <Button
+                      tone="plain"
+                      size="compact"
+                      onClick={() => void openDocument(() => api.documents.file(item.id))}
                     >
                       Reprint
-                    </a>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -486,6 +530,9 @@ function Issued() {
           </table>
         </div>
       </Card>
+      {receipting ? (
+        <ReceiptDialog document={receipting} onClose={() => setReceipting(null)} />
+      ) : null}
     </div>
   );
 }

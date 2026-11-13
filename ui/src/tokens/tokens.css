@@ -87,6 +87,7 @@
 
 /* Nickland — Brand mark */
 [data-theme="nickland"] {
+  --colour-signature-ink: #141414;
   --colour-surface-canvas: #F4F7F8;
   --colour-surface-raised: #FFFFFF;
   --colour-surface-sunken: #EDF2F3;
@@ -134,6 +135,7 @@
 
 /* Charcoal — PRD 28.1 */
 [data-theme="charcoal"] {
+  --colour-signature-ink: #141414;
   --colour-surface-canvas: #F7F5F3;
   --colour-surface-raised: #FFFFFF;
   --colour-surface-sunken: #F2EFEC;
@@ -181,6 +183,7 @@
 
 /* Harbour — the pharmacy terminal reference */
 [data-theme="harbour"] {
+  --colour-signature-ink: #141414;
   --colour-surface-canvas: #F4F7FC;
   --colour-surface-raised: #FFFFFF;
   --colour-surface-sunken: #EDF2FA;
@@ -228,6 +231,7 @@
 
 /* Navy — PRD 7.1 */
 [data-theme="navy"] {
+  --colour-signature-ink: #141414;
   --colour-surface-canvas: #F6F8FA;
   --colour-surface-raised: #FFFFFF;
   --colour-surface-sunken: #EFF3F7;

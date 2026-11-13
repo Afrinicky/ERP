@@ -27,6 +27,7 @@ export const COLOUR_TOKENS = [
   "chart-axis",
   "chart-grid",
   "focus-ring",
+  "signature-ink",
   "surface-canvas",
   "surface-inverse",
   "surface-navigation",
@@ -75,7 +76,9 @@ export const PRESETS: Record<PresetCode, ThemePreset> =
     "name": "Nickland",
     "description": "The house palette: navy navigation, the logo's teal as the accent, on a cool off-white.",
     "source": "Brand mark",
+    "recommended": true,
     "colour": {
+      "signature-ink": "#141414",
       "surface-canvas": "#F4F7F8",
       "surface-raised": "#FFFFFF",
       "surface-sunken": "#EDF2F3",
@@ -126,7 +129,9 @@ export const PRESETS: Record<PresetCode, ThemePreset> =
     "name": "Charcoal",
     "description": "Charcoal navigation with an orange accent and a warm beige support tone.",
     "source": "PRD 28.1",
+    "recommended": false,
     "colour": {
+      "signature-ink": "#141414",
       "surface-canvas": "#F7F5F3",
       "surface-raised": "#FFFFFF",
       "surface-sunken": "#F2EFEC",
@@ -177,7 +182,9 @@ export const PRESETS: Record<PresetCode, ThemePreset> =
     "name": "Harbour",
     "description": "Deep navy chrome with an amber action colour and a pale blue work surface.",
     "source": "the pharmacy terminal reference",
+    "recommended": false,
     "colour": {
+      "signature-ink": "#141414",
       "surface-canvas": "#F4F7FC",
       "surface-raised": "#FFFFFF",
       "surface-sunken": "#EDF2FA",
@@ -228,7 +235,9 @@ export const PRESETS: Record<PresetCode, ThemePreset> =
     "name": "Navy",
     "description": "Bluish-black navigation with a blue accent and a cool slate support tone.",
     "source": "PRD 7.1",
+    "recommended": false,
     "colour": {
+      "signature-ink": "#141414",
       "surface-canvas": "#F6F8FA",
       "surface-raised": "#FFFFFF",
       "surface-sunken": "#EFF3F7",

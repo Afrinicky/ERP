@@ -19,6 +19,15 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from nickland.documents.styles import page_stylesheet, roll_stylesheet
+from nickland.domain.binding import (
+    alignment_class,
+    collections,
+    document_values,
+    format_value,
+    holds,
+    kind_of,
+    line_values,
+)
 from nickland.domain.documents import (
     BankAccount,
     DocumentContext,
@@ -27,6 +36,20 @@ from nickland.domain.documents import (
     PageFormat,
     Party,
     TemplateOptions,
+)
+from nickland.domain.errors import ValidationError
+from nickland.domain.expressions import EvaluationContext, Value, evaluate, parse
+from nickland.domain.money import ZERO, money
+from nickland.domain.templates import (
+    Column,
+    Element,
+    ElementKind,
+    Section,
+    SectionKind,
+    TemplateDefinition,
+    ValueFormat,
+    ValueKind,
+    Visibility,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - import cost is paid only when rendering a PDF
@@ -385,16 +408,24 @@ def render_html(
     *,
     page: PageFormat | None = None,
     options: TemplateOptions | None = None,
+    definition: TemplateDefinition | None = None,
 ) -> str:
     """Compose the document as a standalone HTML page.
 
     ``page`` overrides the template's own choice, which is how one template serves
     both an A4 reprint and an 80mm counter receipt.
+
+    Where a composed ``definition`` is given, its sections decide what appears and in
+    what order. Where it is not — a template stored before the designer existed, or a
+    receipt going to a roll, where the layout is dictated by 48 millimetres of paper
+    rather than by anybody's preference — the fixed composition is used.
     """
     chosen = options or TemplateOptions()
-    stock = page or chosen.page
+    stock = page or (definition.page.page if definition else chosen.page)
     if stock.is_roll:
         return _render_roll_html(context, stock, chosen)
+    if definition is not None and definition.sections:
+        return _compose(context, definition, chosen, stock)
 
     watermark = f'<div class="watermark">{_e(context.watermark)}</div>' if context.watermark else ""
     note = context.footer_note or chosen.footer_note
@@ -421,6 +452,293 @@ def render_html(
 {_signatures(context, chosen)}
 </body></html>
 """
+
+
+# --------------------------------------------------------------------------------------
+# Composition from a stored definition
+# --------------------------------------------------------------------------------------
+
+
+def _visible(visibility: Visibility, values: dict[str, Value]) -> bool:
+    return holds(visibility, values)
+
+
+def _table_from_columns(
+    context: DocumentContext, section: Section, values: dict[str, Value]
+) -> str:
+    """The items table as the template configures it.
+
+    A column is dropped when its own rule says so, and a conditional column is kept
+    when any line satisfies it: a manufacturer column that vanished because the first
+    line lacked one would silently lose the three below it that have one.
+    """
+    rows_values = [
+        line_values(line, index, context) for index, line in enumerate(context.lines, start=1)
+    ]
+    shown = [
+        column
+        for column in section.columns
+        if column.visibility.mode != "never"
+        and (
+            not column.visibility.is_conditional
+            or not rows_values
+            or any(holds(column.visibility, {**values, **row}) for row in rows_values)
+        )
+    ]
+    if not shown:
+        return ""
+
+    headings = "".join(
+        f'<th class="{alignment_class(column.alignment)}" '
+        f'style="width:{column.width_percent}%">{_e(column.label)}</th>'
+        for column in shown
+    )
+
+    body: list[str] = []
+    for row in rows_values:
+        cells = "".join(
+            f'<td class="{alignment_class(column.alignment)}">'
+            f"{_e(_cell(context, column, {**values, **row}))}</td>"
+            for column in shown
+        )
+        body.append(f"<tr>{cells}</tr>")
+
+    foot = ""
+    if any(column.subtotal for column in shown) and context.lines:
+        totals_row = "".join(
+            f'<td class="{alignment_class(column.alignment)}">'
+            + (
+                _e(
+                    format_value(
+                        money(
+                            sum(
+                                (
+                                    value
+                                    for row in rows_values
+                                    if isinstance(value := row.get(column.binding), Decimal)
+                                ),
+                                ZERO,
+                            )
+                        ),
+                        column.format,
+                        kind=kind_of(column.binding or ""),
+                        currency_symbol=context.currency_symbol,
+                        precision=context.currency_precision,
+                    )
+                )
+                if column.subtotal and column.binding
+                else ""
+            )
+            + "</td>"
+            for column in shown
+        )
+        foot = f"<tfoot><tr>{totals_row}</tr></tfoot>"
+
+    return f"""
+<table class="items">
+  <thead><tr>{headings}</tr></thead>
+  <tbody>{"".join(body)}</tbody>
+  {foot}
+</table>
+"""
+
+
+def _cell(context: DocumentContext, column: Column, values: dict[str, Value]) -> str:
+    if column.expression.strip():
+        return _calculated(context, column.expression, column.format, values)
+    if not column.binding:
+        return ""
+    return format_value(
+        values.get(column.binding),
+        column.format,
+        kind=kind_of(column.binding),
+        currency_symbol=context.currency_symbol,
+        precision=context.currency_precision,
+    )
+
+
+def _calculated(
+    context: DocumentContext,
+    source: str,
+    spec: ValueFormat,
+    values: dict[str, Value],
+) -> str:
+    """Evaluate a formula and write it out as the template asks.
+
+    Formatting applies to a computed figure exactly as it does to a bound one.
+    Without it a calculated total printed at the engine's six working decimal places
+    — 142.000000 beside a column reading 142 — and a reader could not tell which of
+    the two the document meant.
+    """
+    try:
+        value = evaluate(
+            parse(source), EvaluationContext(values=values, collections=collections(context))
+        )
+    except ValidationError:
+        return "\u2014"
+    if isinstance(value, Decimal):
+        kind = ValueKind.MONEY if spec.currency_symbol else ValueKind.QUANTITY
+    else:
+        kind = ValueKind.TEXT
+    return format_value(
+        value,
+        spec,
+        kind=kind,
+        currency_symbol=context.currency_symbol,
+        precision=context.currency_precision,
+    )
+
+
+def _custom_section(context: DocumentContext, section: Section, values: dict[str, Value]) -> str:
+    """A region of freely placed elements, for what the fixed kinds do not cover."""
+    blocks: list[str] = []
+    for element in section.elements:
+        if not _visible(element.visibility, values):
+            continue
+        body = _element_body(context, element, values)
+        if not body:
+            continue
+        if element.label:
+            blocks.append(f"<dt>{_e(element.label)}</dt><dd>{body}</dd>")
+        else:
+            blocks.append(f"<dt></dt><dd>{body}</dd>")
+    if not blocks:
+        return ""
+    title = f'<p class="block__heading">{_e(section.title)}</p>' if section.title else ""
+    return f'<div class="block">{title}<dl>{"".join(blocks)}</dl></div>'
+
+
+def _element_body(context: DocumentContext, element: Element, values: dict[str, Value]) -> str:
+    if element.kind is ElementKind.SPACER:
+        return '<div class="spacer"></div>'
+    if element.kind is ElementKind.TEXT:
+        return f"<p>{_e(element.text)}</p>"
+    if element.kind is ElementKind.CALCULATED:
+        return f"<p>{_e(_calculated(context, element.expression, element.format, values))}</p>"
+    if element.kind is ElementKind.IMAGE:
+        source = values.get(element.binding or "business.logo")
+        return f'<img class="mark" src="{_e(str(source))}" alt="" />' if source else ""
+    if element.kind is ElementKind.SIGNATURE:
+        return f'<div class="rule"></div><span class="caption">{_e(element.label)}</span>'
+    if element.kind is ElementKind.QR:
+        # A QR code is drawn by the interface, which has a canvas; the document keeps
+        # the value so the two cannot disagree about what was encoded.
+        encoded = _e(str(values.get(element.binding or "", "")))
+        return f'<span class="qr" data-value="{encoded}"></span>'
+    if not element.binding:
+        return ""
+    written = format_value(
+        values.get(element.binding),
+        element.format,
+        kind=kind_of(element.binding),
+        currency_symbol=context.currency_symbol,
+        precision=context.currency_precision,
+    )
+    return f"<p>{_e(written)}</p>"
+
+
+_FIXED_SECTIONS: dict[SectionKind, object] = {}
+
+
+def _compose(
+    context: DocumentContext,
+    definition: TemplateDefinition,
+    options: TemplateOptions,
+    stock: PageFormat,
+) -> str:
+    """Walk the sections in the order the template puts them in."""
+    values = document_values(context)
+    parts: list[str] = []
+    closing_left: list[str] = []
+    closing_right: list[str] = []
+    signatures = ""
+    """Held aside rather than appended in place: the signature blocks belong beneath
+    the closing columns whatever order the sections are listed in, because a page
+    whose signatures sit above its totals is not a page anybody signs."""
+
+    for section in definition.sections:
+        if not _visible(section.visibility, values):
+            continue
+        kind = section.kind
+        if kind is SectionKind.MASTHEAD:
+            parts.append(_masthead(context))
+        elif kind is SectionKind.TITLE:
+            parts.append(
+                f'<div class="title-row"><h2 class="title">'
+                f"{_e(section.title or context.kind.heading)}</h2>"
+                f"{_references(context, options)}</div>"
+            )
+        elif kind is SectionKind.PARTIES:
+            parts.append(_parties(context, options))
+        elif kind is SectionKind.ITEMS:
+            parts.append(_table_from_columns(context, section, values))
+        elif kind is SectionKind.TOTALS:
+            closing_right.append(_totals(context, options))
+        elif kind is SectionKind.TERMS:
+            closing_left.append(_terms(context, options))
+        elif kind is SectionKind.BANKING:
+            closing_left.append(_banking(context, options))
+        elif kind is SectionKind.NOTES:
+            closing_left.append(_notes(context, options))
+        elif kind is SectionKind.SIGNATURES:
+            signatures = _signatures(context, options)
+        elif kind is SectionKind.DELIVERY:
+            parts.append(_delivery_block(context))
+        elif kind is SectionKind.PAYMENT_PLAN:
+            closing_left.append(_plan_block(context, values))
+        elif kind is SectionKind.TAX_SUMMARY:
+            pass  # Printed as part of the totals block, where a reader expects it.
+        else:
+            parts.append(_custom_section(context, section, values))
+
+    closing = ""
+    if any(closing_left) or any(closing_right):
+        closing = (
+            f'<div class="closing"><div class="closing__left">{"".join(closing_left)}</div>'
+            f'<div class="closing__right">{"".join(closing_right)}</div></div>'
+        )
+
+    watermark = f'<div class="watermark">{_e(context.watermark)}</div>' if context.watermark else ""
+    note = context.footer_note or definition.footer_note or options.footer_note
+    footer = f'<div class="runningfoot">{_e(note)}</div>' if note else ""
+    return f"""<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8" />
+<title>{_e(context.kind.heading)} {_e(context.number)}</title>
+<style>{page_stylesheet(stock)}</style>
+</head><body>
+{watermark}
+{footer}
+{"".join(parts)}
+{closing}
+{signatures}
+</body></html>
+"""
+
+
+def _delivery_block(context: DocumentContext) -> str:
+    delivery = context.delivery
+    if delivery is None:
+        return ""
+    rows = [
+        ("Mode", delivery.mode),
+        ("Carrier", delivery.carrier),
+        ("Driver", delivery.driver),
+        ("Vehicle", delivery.vehicle),
+        ("Dispatched", _day(delivery.dispatched_on) if delivery.dispatched_on else None),
+        ("Packages", str(delivery.package_count) if delivery.package_count else None),
+        ("Tracking", delivery.tracking_reference),
+    ]
+    cells = "".join(f"<dt>{_e(label)}</dt><dd>{_e(value)}</dd>" for label, value in rows if value)
+    return f'<section class="parties"><dl class="terms">{cells}</dl></section>' if cells else ""
+
+
+def _plan_block(context: DocumentContext, values: dict[str, Value]) -> str:
+    """The instalment disclosure, shown only where the sale is on a plan."""
+    rows = [(label, value) for label, value in context.terms if "instal" in label.casefold()]
+    if not rows:
+        return ""
+    cells = "".join(f"<dt>{_e(label)}</dt><dd>{_e(value)}</dd>" for label, value in rows)
+    return f'<dl class="terms"><dt class="terms__head">Payment plan</dt><dd></dd>{cells}</dl>'
 
 
 # --------------------------------------------------------------------------------------
@@ -639,6 +957,7 @@ def render_pdf(
     *,
     page: PageFormat | None = None,
     options: TemplateOptions | None = None,
+    definition: TemplateDefinition | None = None,
 ) -> RenderedDocument:
     """Lay the document out as a PDF.
 
@@ -648,7 +967,7 @@ def render_pdf(
     """
     from weasyprint import HTML
 
-    markup = render_html(context, page=page, options=options)
+    markup = render_html(context, page=page, options=options, definition=definition)
     content = HTML(string=markup, base_url=None).write_pdf()
     assert content is not None
     safe = context.number.replace("/", "-")

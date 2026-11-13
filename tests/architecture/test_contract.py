@@ -28,6 +28,16 @@ CALL = re.compile(
 # instead of calling it: `template: (kind) => `${BASE}/imports/template/${kind}``.
 DOWNLOAD = re.compile(r"`\$\{BASE\}(/[^`]*)`")
 
+# requestText('/path') fetches markup rather than JSON — the designer's preview, which
+# is authenticated like every other call and so cannot be a bare iframe navigation.
+# It is a GET by construction, which is why it carries no method argument.
+TEXT_CALL = re.compile(r"requestText\(\s*([`'])([^`']+)\1")
+
+# requestFile('/path') fetches a PDF and opens it from memory, for the same reason: a
+# link cannot carry the session header, and the token has no business in a URL. Also a
+# GET by construction.
+FILE_CALL = re.compile(r"requestFile\(\s*([`'])([^`']+)\1")
+
 
 def client_calls() -> set[tuple[str, str]]:
     """Every endpoint the interface addresses, with path parameters normalised."""
@@ -38,6 +48,9 @@ def client_calls() -> set[tuple[str, str]]:
     for method, _quote, path in CALL.findall(source):
         # `${id}` in a template literal becomes a path parameter.
         found.add((method, re.sub(r"\$\{[^}]+\}", "{}", path)))
+    for pattern in (TEXT_CALL, FILE_CALL):
+        for _quote, path in pattern.findall(source):
+            found.add(("GET", re.sub(r"\$\{[^}]+\}", "{}", path)))
     for path in DOWNLOAD.findall(source):
         # A URL the interface builds for the browser to open is addressed by GET.
         found.add(("GET", re.sub(r"\$\{[^}]+\}", "{}", path)))

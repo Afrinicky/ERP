@@ -11,6 +11,7 @@ import type {
   AccountLedger,
   AccountingBasis,
   AccountingPeriod,
+  Acknowledgement,
   Actor,
   AffiliateProfile,
   ApiError,
@@ -28,6 +29,7 @@ import type {
   CommissionAccrual,
   CommissionTotals,
   Comparison,
+  ComposedDefinition,
   Contact,
   Costing,
   Credit,
@@ -35,7 +37,10 @@ import type {
   DiscountLimit,
   DocumentTemplate,
   DocumentType,
+  DocumentTypeField,
+  Draft,
   DraftLine,
+  ExpressionCheck,
   Health,
   ImportReport,
   ImportRun,
@@ -46,9 +51,11 @@ import type {
   JournalPage,
   LedgerSummary,
   MarginPolicy,
+  OperatorInfo,
   Page,
   PageFormatCode,
   PageFormatInfo,
+  PaletteField,
   Party,
   Permission,
   PostingOutcome,
@@ -67,6 +74,7 @@ import type {
   Role,
   SalesSummary,
   Schedule,
+  SectionKindInfo,
   Sequence,
   SetupPayload,
   SetupResult,
@@ -170,6 +178,92 @@ export function getSessionToken(): string | null {
 
 export function setUnauthenticatedHandler(handler: (() => void) | null): void {
   onUnauthenticated = handler;
+}
+
+/**
+ * Fetch markup rather than JSON, for the designer's preview.
+ *
+ * The session is carried in a header, so an `<iframe src>` navigation arrives
+ * unauthenticated. Putting the token in the URL instead would send it to the
+ * browser's history and to every log between here and the service, for a preview.
+ * The markup is fetched like any other call and handed to the frame as `srcdoc`.
+ */
+async function requestText(
+  path: string,
+  query?: Record<string, string | number | boolean | undefined>,
+): Promise<string> {
+  const headers: Record<string, string> = { Accept: 'text/html' };
+  if (sessionToken) headers[SESSION_HEADER] = sessionToken;
+  if (localToken) headers[LOCAL_HEADER] = localToken;
+
+  let url = `${BASE}${path}`;
+  if (query) {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined) search.set(key, String(value));
+    }
+    const encoded = search.toString();
+    if (encoded) url += `?${encoded}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, { method: 'GET', headers });
+  } catch (cause) {
+    throw new ServiceUnreachableError(cause);
+  }
+  if (!response.ok) {
+    const error = new ServiceError(response.status, {
+      code: 'preview_failed',
+      message: `The preview could not be rendered (status ${response.status}).`,
+    });
+    if (error.isUnauthenticated && onUnauthenticated) onUnauthenticated();
+    throw error;
+  }
+  return response.text();
+}
+
+/**
+ * A file, fetched with the session header and handed back as a blob URL.
+ *
+ * A plain link cannot carry the header, and putting the token in the query string
+ * would write it into the browser history and into any log in front of the service.
+ * So the bytes are fetched like any other request and opened from memory. The caller
+ * revokes the URL once the viewer has it.
+ */
+async function requestFile(
+  path: string,
+  query?: Record<string, string | number | boolean | undefined>,
+): Promise<string> {
+  const headers: Record<string, string> = { Accept: 'application/pdf' };
+  if (sessionToken) headers[SESSION_HEADER] = sessionToken;
+  if (localToken) headers[LOCAL_HEADER] = localToken;
+
+  let url = `${BASE}${path}`;
+  if (query) {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined) search.set(key, String(value));
+    }
+    const encoded = search.toString();
+    if (encoded) url += `?${encoded}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, { method: 'GET', headers });
+  } catch (cause) {
+    throw new ServiceUnreachableError(cause);
+  }
+  if (!response.ok) {
+    const error = new ServiceError(response.status, {
+      code: 'document_unavailable',
+      message: `The document could not be produced (status ${response.status}).`,
+    });
+    if (error.isUnauthenticated && onUnauthenticated) onUnauthenticated();
+    throw error;
+  }
+  return URL.createObjectURL(await response.blob());
 }
 
 async function request<T>(
@@ -574,9 +668,9 @@ export const api = {
       request<DocumentTemplate>('GET', `/documents/types/${typeId}/template`),
     amendTemplate: (typeId: string, changes: Partial<TemplateDefinition>) =>
       request<DocumentTemplate>('PATCH', `/documents/types/${typeId}/template`, changes),
-    /** A browser navigation, not a fetch: the PDF is rendered by the viewer. */
-    previewUrl: (typeId: string, page?: PageFormatCode) =>
-      `${BASE}/documents/types/${typeId}/preview` + (page ? `?page=${page}` : ''),
+    /** Fetched with the session header, then opened from memory. */
+    preview: (typeId: string, page?: PageFormatCode) =>
+      requestFile(`/documents/types/${typeId}/preview`, { page }),
     previewThermal: (typeId: string, width = 42) =>
       request<ThermalPreview>(
         'GET',
@@ -584,9 +678,132 @@ export const api = {
         undefined,
         { width },
       ),
+    issue: (payload: {
+      type_code: string;
+      source_type?: string;
+      source_id: string;
+      page?: string | null;
+    }) => request<IssuedDocument>('POST', '/documents/issue', payload),
     issued: (kind?: string, limit = 50) =>
       request<IssuedDocument[]>('GET', '/documents/issued', undefined, { kind, limit }),
-    fileUrl: (documentId: string) => `${BASE}/documents/issued/${documentId}/file`,
+    file: (documentId: string) => requestFile(`/documents/issued/${documentId}/file`),
+    acknowledgements: (documentId: string) =>
+      request<Acknowledgement[]>('GET', `/documents/issued/${documentId}/acknowledgements`),
+    acknowledge: (documentId: string, payload: Record<string, unknown>) =>
+      request<Acknowledgement>(
+        'POST',
+        `/documents/issued/${documentId}/acknowledgements`,
+        payload,
+      ),
+  },
+
+  designer: {
+    sections: () => request<SectionKindInfo[]>('GET', '/designer/sections'),
+    operators: () => request<OperatorInfo[]>('GET', '/designer/operators'),
+    palette: (typeId: string) =>
+      request<PaletteField[]>('GET', `/designer/types/${typeId}/palette`),
+
+    createType: (payload: Record<string, unknown>) =>
+      request<Draft>('POST', '/designer/types', payload),
+    typeFields: (typeId: string) =>
+      request<DocumentTypeField[]>('GET', `/designer/types/${typeId}/fields`),
+    addField: (typeId: string, payload: Record<string, unknown>) =>
+      request<DocumentTypeField[]>('POST', `/designer/types/${typeId}/fields`, payload),
+    setClassification: (typeId: string, classification: string) =>
+      request<Draft>('PUT', `/designer/types/${typeId}/classification`, { classification }),
+
+    openDraft: (typeId: string) => request<Draft>('GET', `/designer/types/${typeId}/draft`),
+    readVersion: (templateId: string) =>
+      request<Draft>('GET', `/designer/templates/${templateId}`),
+    save: (templateId: string, definition: ComposedDefinition) =>
+      request<Draft>('PUT', `/designer/templates/${templateId}`, { definition }),
+    publish: (templateId: string) =>
+      request<Draft>('POST', `/designer/templates/${templateId}/publish`),
+    revert: (templateId: string) =>
+      request<void>('DELETE', `/designer/templates/${templateId}`),
+    duplicate: (templateId: string, name: string) =>
+      request<Draft>('POST', `/designer/templates/${templateId}/duplicate`, { name }),
+
+    addSection: (templateId: string, kind: string, title = '') =>
+      request<Draft>('POST', `/designer/templates/${templateId}/sections`, { kind, title }),
+    moveSection: (templateId: string, sectionId: string, offset: number) =>
+      request<Draft>(
+        'POST',
+        `/designer/templates/${templateId}/sections/${sectionId}/move`,
+        { offset },
+      ),
+    removeSection: (templateId: string, sectionId: string) =>
+      request<Draft>('DELETE', `/designer/templates/${templateId}/sections/${sectionId}`),
+
+    addColumn: (templateId: string, sectionId: string, binding: string) =>
+      request<Draft>(
+        'POST',
+        `/designer/templates/${templateId}/sections/${sectionId}/columns`,
+        { binding },
+      ),
+    moveColumn: (templateId: string, sectionId: string, columnId: string, offset: number) =>
+      request<Draft>(
+        'POST',
+        `/designer/templates/${templateId}/sections/${sectionId}/columns/${columnId}/move`,
+        { offset },
+      ),
+    amendColumn: (
+      templateId: string,
+      sectionId: string,
+      columnId: string,
+      changes: Record<string, unknown>,
+    ) =>
+      request<Draft>(
+        'PUT',
+        `/designer/templates/${templateId}/sections/${sectionId}/columns/${columnId}`,
+        { changes },
+      ),
+    removeColumn: (templateId: string, sectionId: string, columnId: string) =>
+      request<Draft>(
+        'DELETE',
+        `/designer/templates/${templateId}/sections/${sectionId}/columns/${columnId}`,
+      ),
+
+    addElement: (templateId: string, sectionId: string, element: Record<string, unknown>) =>
+      request<Draft>(
+        'POST',
+        `/designer/templates/${templateId}/sections/${sectionId}/elements`,
+        { element },
+      ),
+    amendElement: (
+      templateId: string,
+      sectionId: string,
+      elementId: string,
+      changes: Record<string, unknown>,
+    ) =>
+      request<Draft>(
+        'PUT',
+        `/designer/templates/${templateId}/sections/${sectionId}/elements/${elementId}`,
+        { changes },
+      ),
+    removeElement: (templateId: string, sectionId: string, elementId: string) =>
+      request<Draft>(
+        'DELETE',
+        `/designer/templates/${templateId}/sections/${sectionId}/elements/${elementId}`,
+      ),
+
+    setPage: (templateId: string, page: Record<string, unknown>) =>
+      request<Draft>('PUT', `/designer/templates/${templateId}/page`, { page }),
+
+    checkExpression: (expression: string, classification: string) =>
+      request<ExpressionCheck>('POST', '/designer/expression', {
+        expression,
+        classification,
+      }),
+
+    exportUrl: (templateId: string) => `${BASE}/designer/templates/${templateId}/export`,
+    inspectImport: (typeId: string, payload: Record<string, unknown>) =>
+      request<ImportReport>('POST', `/designer/types/${typeId}/import/inspect`, { payload }),
+    acceptImport: (typeId: string, payload: Record<string, unknown>) =>
+      request<Draft>('POST', `/designer/types/${typeId}/import`, { payload }),
+
+    previewHtml: (templateId: string, page?: PageFormatCode) =>
+      requestText(`/documents/templates/${templateId}/preview`, { page }),
   },
 
   taxation: {

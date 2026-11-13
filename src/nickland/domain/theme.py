@@ -118,7 +118,13 @@ def load_presets() -> dict[str, Preset]:
                 name=data["name"],
                 description=data["description"],
                 source=data["source"],
-                colour={str(key): str(value) for key, value in data["colour"].items()},
+                colour={
+                    str(key): str(value)
+                    for key, value in data["colour"].items()
+                    # A key beginning with "$" annotates the palette rather than
+                    # naming a colour, in the same way as the preset's own $comment.
+                    if not str(key).startswith("$")
+                },
                 recommended=bool(data.get("recommended", False)),
             )
         )

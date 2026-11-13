@@ -504,8 +504,10 @@ from nickland.persistence.catalogue_models import (  # noqa: E402
     UnitOfMeasure,
 )
 from nickland.persistence.document_models import (  # noqa: E402
+    DocumentAcknowledgement,
     DocumentTemplate,
     DocumentType,
+    DocumentTypeField,
     IssuedDocument,
 )
 from nickland.persistence.ledger_models import (  # noqa: E402
@@ -566,8 +568,10 @@ __all__ = [
     "CustomFieldValue",
     "CustomerPrice",
     "DiscountLimitRow",
+    "DocumentAcknowledgement",
     "DocumentTemplate",
     "DocumentType",
+    "DocumentTypeField",
     "ImportRun",
     "InstalmentBand",
     "InstalmentPlan",
