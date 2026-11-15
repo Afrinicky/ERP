@@ -11,8 +11,10 @@ import type {
   AccountLedger,
   AccountingBasis,
   AccountingPeriod,
+  Acceptance,
   Acknowledgement,
   Actor,
+  Attachment,
   AffiliateProfile,
   ApiError,
   ApprovalThreshold,
@@ -32,6 +34,20 @@ import type {
   ComposedDefinition,
   Contact,
   Costing,
+  CreditNote,
+  GoodsReceipt,
+  InvoiceInput,
+  OrderVariance,
+  PayablesRegister,
+  PaymentInput,
+  PurchaseOrder,
+  PurchaseOrderInput,
+  ReceiptInput,
+  SalesOrder,
+  SuggestedOrder,
+  SupplierInvoice,
+  SupplierPayment,
+  Tolerance,
   Credit,
   CustomField,
   DiscountLimit,
@@ -51,6 +67,7 @@ import type {
   JournalPage,
   LedgerSummary,
   MarginPolicy,
+  MatchVariance,
   OperatorInfo,
   Page,
   PageFormatCode,
@@ -695,6 +712,105 @@ export const api = {
         `/documents/issued/${documentId}/acknowledgements`,
         payload,
       ),
+  },
+
+  attachments: {
+    store: (payload: {
+      filename: string;
+      media_type: string;
+      content_base64: string;
+      owner_type?: string | null;
+      owner_id?: string | null;
+      purpose?: string | null;
+      immutable?: boolean;
+    }) => request<Attachment>('POST', '/attachments', payload),
+    forOwner: (ownerType: string, ownerId: string) =>
+      request<Attachment[]>('GET', '/attachments', undefined, {
+        owner_type: ownerType,
+        owner_id: ownerId,
+      }),
+    file: (attachmentId: string) => requestFile(`/attachments/${attachmentId}/file`),
+    remove: (attachmentId: string) => request<void>('DELETE', `/attachments/${attachmentId}`),
+  },
+
+  orders: {
+    recordAcceptance: (
+      quotationId: string,
+      payload: {
+        method: string;
+        reference?: string | null;
+        accepted_on?: string | null;
+        evidence_attachment_id?: string | null;
+        notes?: string | null;
+      },
+    ) => request<Acceptance>('POST', `/orders/quotations/${quotationId}/acceptance`, payload),
+    acceptances: (quotationId: string) =>
+      request<Acceptance[]>('GET', `/orders/quotations/${quotationId}/acceptance`),
+    convert: (quotationId: string, payload: { required_by?: string | null; notes?: string | null }) =>
+      request<SalesOrder>('POST', `/orders/quotations/${quotationId}/convert`, payload),
+    list: (state?: string, limit = 50) =>
+      request<SalesOrder[]>('GET', '/orders', undefined, { state, limit }),
+    read: (orderId: string) => request<SalesOrder>('GET', `/orders/${orderId}`),
+    cancelLine: (orderId: string, lineId: string, payload: { quantity: string; reason: string }) =>
+      request<SalesOrder>('POST', `/orders/${orderId}/lines/${lineId}/cancel`, payload),
+    cancel: (orderId: string, reason: string) =>
+      request<SalesOrder>('POST', `/orders/${orderId}/cancel`, { reason }),
+    substitute: (orderId: string, lineId: string, payload: { product_id: string; reason: string }) =>
+      request<SalesOrder>('POST', `/orders/${orderId}/lines/${lineId}/substitute`, payload),
+    costVariance: (orderId: string) =>
+      request<OrderVariance>('GET', `/orders/${orderId}/cost-variance`),
+  },
+
+  purchases: {
+    suggest: (salesOrderId: string) =>
+      request<SuggestedOrder[]>('GET', `/purchases/orders/suggest/${salesOrderId}`),
+    raise: (payload: PurchaseOrderInput) =>
+      request<PurchaseOrder>('POST', '/purchases/orders', payload),
+    orders: (query: { state?: string; supplier_id?: string; limit?: number } = {}) =>
+      request<PurchaseOrder[]>('GET', '/purchases/orders', undefined, query),
+    order: (orderId: string) => request<PurchaseOrder>('GET', `/purchases/orders/${orderId}`),
+    approve: (orderId: string) =>
+      request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/approve`),
+    issue: (orderId: string) => request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/issue`),
+    cancelOrder: (orderId: string, reason: string) =>
+      request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/cancel`, { reason }),
+    close: (orderId: string) => request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/close`),
+
+    receive: (payload: ReceiptInput) =>
+      request<GoodsReceipt>('POST', '/purchases/receipts', payload),
+    receipts: (query: { order_id?: string; limit?: number } = {}) =>
+      request<GoodsReceipt[]>('GET', '/purchases/receipts', undefined, query),
+
+    tolerance: () => request<Tolerance>('GET', '/purchases/tolerance'),
+    setTolerance: (payload: Tolerance) => request<Tolerance>('PUT', '/purchases/tolerance', payload),
+    recordInvoice: (payload: InvoiceInput) =>
+      request<SupplierInvoice>('POST', '/purchases/invoices', payload),
+    invoices: (query: { state?: string; supplier_id?: string; limit?: number } = {}) =>
+      request<SupplierInvoice[]>('GET', '/purchases/invoices', undefined, query),
+    invoice: (invoiceId: string) =>
+      request<SupplierInvoice>('GET', `/purchases/invoices/${invoiceId}`),
+    amendInvoice: (invoiceId: string, payload: InvoiceInput) =>
+      request<SupplierInvoice>('PUT', `/purchases/invoices/${invoiceId}`, payload),
+    postInvoice: (invoiceId: string) =>
+      request<SupplierInvoice>('POST', `/purchases/invoices/${invoiceId}/post`),
+    cancelInvoice: (invoiceId: string, reason: string) =>
+      request<SupplierInvoice>('POST', `/purchases/invoices/${invoiceId}/cancel`, { reason }),
+    pendingVariances: () => request<MatchVariance[]>('GET', '/purchases/variances'),
+    decideVariance: (varianceId: string, payload: { approve: boolean; reason: string }) =>
+      request<SupplierInvoice>('POST', `/purchases/variances/${varianceId}/decide`, payload),
+    creditNote: (payload: {
+      invoice_id: string;
+      supplier_reference: string;
+      amount: string;
+      reason: string;
+      credited_on?: string | null;
+    }) => request<CreditNote>('POST', '/purchases/credit-notes', payload),
+
+    payables: (query: { as_at?: string; supplier_id?: string } = {}) =>
+      request<PayablesRegister>('GET', '/purchases/payables', undefined, query),
+    pay: (payload: PaymentInput) => request<SupplierPayment>('POST', '/purchases/payments', payload),
+    payments: (query: { supplier_id?: string; limit?: number } = {}) =>
+      request<SupplierPayment[]>('GET', '/purchases/payments', undefined, query),
   },
 
   designer: {

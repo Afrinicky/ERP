@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
 from nickland.application.services.accounts import AccountService
+from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.commissions import CommissionService
@@ -27,14 +28,18 @@ from nickland.application.services.identity import IdentityService
 from nickland.application.services.importing import ImportService
 from nickland.application.services.journals import JournalService
 from nickland.application.services.ledger_reports import LedgerReportService
+from nickland.application.services.orders import SalesOrderService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.parties import PartyService
+from nickland.application.services.payables import PayablesService
 from nickland.application.services.periods import PeriodService
 from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.pricing_policy import PricingPolicyService
+from nickland.application.services.procurement import ProcurementService
 from nickland.application.services.quotations import QuotationService
 from nickland.application.services.setup import SetupService
 from nickland.application.services.sourcing import SourcingService
+from nickland.application.services.supplier_billing import SupplierBillingService
 from nickland.application.services.taxation import TaxService
 from nickland.application.services.theme import ThemeService
 from nickland.application.services.units import UnitService
@@ -280,8 +285,35 @@ def get_designer(session: SessionDependency, runtime: RuntimeDependency) -> Desi
     return DesignerService(session, clock=runtime.clock)
 
 
+def get_sales_orders(session: SessionDependency, runtime: RuntimeDependency) -> SalesOrderService:
+    return SalesOrderService(session, clock=runtime.clock)
+
+
+def get_procurement(session: SessionDependency, runtime: RuntimeDependency) -> ProcurementService:
+    return ProcurementService(session, clock=runtime.clock)
+
+
+def get_supplier_billing(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> SupplierBillingService:
+    return SupplierBillingService(session, clock=runtime.clock)
+
+
+def get_payables(session: SessionDependency, runtime: RuntimeDependency) -> PayablesService:
+    return PayablesService(session, clock=runtime.clock)
+
+
+def get_attachments(session: SessionDependency, runtime: RuntimeDependency) -> AttachmentService:
+    return AttachmentService(session, settings=runtime.settings, clock=runtime.clock)
+
+
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
 DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
+SalesOrderDependency = Annotated[SalesOrderService, Depends(get_sales_orders)]
+ProcurementDependency = Annotated[ProcurementService, Depends(get_procurement)]
+SupplierBillingDependency = Annotated[SupplierBillingService, Depends(get_supplier_billing)]
+PayablesDependency = Annotated[PayablesService, Depends(get_payables)]
+AttachmentDependency = Annotated[AttachmentService, Depends(get_attachments)]
 DocumentDependency = Annotated[DocumentRenderService, Depends(get_document_service)]
 
 

@@ -17,6 +17,7 @@ import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Affiliates } from '@/modules/affiliates/Affiliates';
 import { Parties } from '@/modules/parties/Parties';
 import { Sales } from '@/modules/sales/Sales';
+import { Purchases } from '@/modules/purchases/Purchases';
 import { Placeholder } from '@/modules/Placeholder';
 import { SetupWizard } from '@/modules/setup/SetupWizard';
 import { SignIn } from '@/modules/session/SignIn';
@@ -94,25 +95,7 @@ function Entry() {
           }
         />
 
-        <Route
-          path="/purchases/*"
-          element={
-            <Placeholder
-              title="Purchases"
-              phase="Phase 7"
-              stage="Commercial Core"
-              purpose="Supplier requests, comparisons, purchase orders, invoices and payments."
-              depends="The quotation and costing engine, from which procurement need arises."
-              contents={[
-                'Raise supplier purchase orders from an accepted sales order',
-                'Fulfil one customer order from several suppliers',
-                'Match supplier invoice against purchase order and goods received note',
-                'Approve quantity and price variance',
-                'Report cost variance between quoted and actual procurement cost',
-              ]}
-            />
-          }
-        />
+        <Route path="/purchases/*" element={<Purchases />} />
 
         <Route
           path="/inventory/*"

@@ -145,6 +145,9 @@ REGISTRY: Final[tuple[Permission, ...]] = (
         _S,
         "Approve a discount beyond the actor's own limit.",
     ),
+    _permission(
+        "sales_order.view", "View sales orders", _S, "Read sales orders and their position."
+    ),
     _permission("sales_order.manage", "Manage sales orders", _S, "Create and amend sales orders."),
     _permission("sales_invoice.issue", "Issue sales invoices", _S, "Issue a sales invoice."),
     _permission(
@@ -194,7 +197,13 @@ REGISTRY: Final[tuple[Permission, ...]] = (
         "purchase_order.manage", "Manage purchase orders", _U, "Create and amend purchase orders."
     ),
     _permission(
+        "purchase_order.view", "View purchase orders", _U, "Read purchase orders and receipts."
+    ),
+    _permission(
         "purchase_order.approve", "Approve purchase orders", _U, "Approve a purchase order."
+    ),
+    _permission(
+        "supplier_invoice.view", "View supplier invoices", _U, "Read supplier invoices and matches."
     ),
     _permission(
         "supplier_invoice.manage",
@@ -471,6 +480,7 @@ SEEDED_ROLES: Final[tuple[RoleDefinition, ...]] = (
                 "rfq.view",
                 "rfq.manage",
                 "quotation.view",
+                "sales_order.view",
                 "quotation.manage",
                 "quotation.issue",
                 "sales_order.manage",

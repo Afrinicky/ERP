@@ -1620,3 +1620,392 @@ export interface ImportReport {
   findings: Finding[];
   is_acceptable: boolean;
 }
+
+// ---------------------------------------------------------------- Phase 7: orders
+
+export interface Attachment {
+  id: string;
+  owner_type: string | null;
+  owner_id: string | null;
+  original_filename: string;
+  media_type: string;
+  size_bytes: number;
+  content_hash: string;
+  purpose: string | null;
+  is_immutable: boolean;
+  created_at: string;
+}
+
+export interface Acceptance {
+  id: string;
+  quotation_fk: string;
+  method: string;
+  reference: string | null;
+  accepted_on: string;
+  evidence_attachment_fk: string | null;
+  notes: string | null;
+  recorded_by_id: string | null;
+}
+
+export type SalesOrderState = 'open' | 'partially_fulfilled' | 'fulfilled' | 'cancelled';
+
+export interface SalesOrderLine {
+  id: string;
+  position: number;
+  product_fk: string | null;
+  description: string;
+  specification: string | null;
+  source_kind: 'stock' | 'supplier';
+  quantity_ordered: string;
+  quantity_cancelled: string;
+  quantity_procured: string;
+  quantity_received: string;
+  state: 'open' | 'backordered' | 'fulfilled' | 'cancelled';
+  unit_price: string;
+  line_total: string;
+  tax_amount: string;
+  substituted_from_product_fk: string | null;
+  substitution_reason: string | null;
+}
+
+export interface SalesOrder {
+  id: string;
+  number: string;
+  quotation_fk: string;
+  acceptance_fk: string | null;
+  customer_fk: string;
+  customer_name: string | null;
+  customer_reference: string | null;
+  state: SalesOrderState;
+  ordered_on: string;
+  required_by: string | null;
+  currency_code: string;
+  precision: number;
+  payment_plan: string;
+  net_total: string;
+  tax_total: string;
+  total_payable: string;
+  notes: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  lines: SalesOrderLine[];
+  purchase_order_numbers: string[];
+}
+
+export interface LineVariance {
+  line_id: string;
+  position: number;
+  description: string;
+  quantity: string;
+  expected_unit_cost: string;
+  actual_unit_cost: string | null;
+  per_unit: string | null;
+  total: string | null;
+}
+
+export interface OrderVariance {
+  order_id: string;
+  number: string;
+  lines: LineVariance[];
+  expected_total: string;
+  actual_total: string | null;
+  variance_total: string | null;
+  lines_known: number;
+}
+
+export type PurchaseOrderState =
+  | 'draft'
+  | 'approved'
+  | 'issued'
+  | 'partially_received'
+  | 'received'
+  | 'closed'
+  | 'cancelled';
+
+export interface PurchaseLineInput {
+  description: string;
+  quantity: string;
+  unit_cost: string;
+  product_id?: string | null;
+  sales_order_line_id?: string | null;
+  supplier_quotation_line_id?: string | null;
+  discount_rate?: string;
+  unit_id?: string | null;
+  expected_on?: string | null;
+  notes?: string | null;
+}
+
+export interface PurchaseOrderInput {
+  supplier_id: string;
+  lines: PurchaseLineInput[];
+  sales_order_id?: string | null;
+  supplier_quotation_id?: string | null;
+  warehouse_id?: string | null;
+  purpose?: 'order' | 'replenishment';
+  currency_code?: string | null;
+  exchange_rate?: string;
+  expected_on?: string | null;
+  supplier_reference?: string | null;
+  notes?: string | null;
+}
+
+export interface SuggestedOrder {
+  supplier_id: string;
+  supplier_name: string;
+  currency_code: string | null;
+  exchange_rate: string;
+  expected_on: string | null;
+  supplier_quotation_id: string | null;
+  lines: PurchaseLineInput[];
+}
+
+export interface PurchaseOrderLine {
+  id: string;
+  position: number;
+  sales_order_line_fk: string | null;
+  product_fk: string | null;
+  description: string;
+  quantity_ordered: string;
+  quantity_received: string;
+  quantity_accepted: string;
+  quantity_rejected: string;
+  quantity_invoiced: string;
+  unit_cost: string;
+  discount_rate: string;
+  net_unit_cost: string;
+  line_total: string;
+  expected_on: string | null;
+  notes: string | null;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  number: string | null;
+  supplier_fk: string;
+  supplier_name: string | null;
+  sales_order_fk: string | null;
+  sales_order_number: string | null;
+  supplier_quotation_fk: string | null;
+  warehouse_fk: string | null;
+  purpose: 'order' | 'replenishment';
+  state: PurchaseOrderState;
+  ordered_on: string;
+  expected_on: string | null;
+  supplier_reference: string | null;
+  currency_code: string;
+  exchange_rate: string;
+  net_total: string;
+  tax_total: string;
+  total: string;
+  notes: string | null;
+  approved_at: string | null;
+  issued_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  lines: PurchaseOrderLine[];
+}
+
+export interface ReceiptLineInput {
+  purchase_order_line_id: string;
+  quantity_received: string;
+  quantity_rejected?: string;
+  rejection_reason?: string | null;
+  batch?: string | null;
+  expiry?: string | null;
+  serials?: string | null;
+  manufacturer?: string | null;
+}
+
+export interface ReceiptInput {
+  purchase_order_id: string;
+  lines: ReceiptLineInput[];
+  received_on?: string | null;
+  warehouse_id?: string | null;
+  delivery_reference?: string | null;
+  inspection_pending?: boolean;
+  notes?: string | null;
+}
+
+export interface ReceiptLine {
+  id: string;
+  position: number;
+  purchase_order_line_fk: string;
+  quantity_received: string;
+  quantity_accepted: string;
+  quantity_rejected: string;
+  rejection_reason: string | null;
+  unit_cost: string;
+  batch: string | null;
+  expiry: string | null;
+  serials: string | null;
+  manufacturer: string | null;
+}
+
+export interface GoodsReceipt {
+  id: string;
+  number: string | null;
+  purchase_order_fk: string;
+  purchase_order_number: string | null;
+  supplier_fk: string;
+  supplier_name: string | null;
+  warehouse_fk: string | null;
+  state: 'draft' | 'posted';
+  received_on: string;
+  delivery_reference: string | null;
+  inspection_pending: boolean;
+  accepted_value: string;
+  journal_entry_fk: string | null;
+  notes: string | null;
+  lines: ReceiptLine[];
+}
+
+export type SupplierInvoiceState =
+  | 'draft'
+  | 'variance'
+  | 'matched'
+  | 'posted'
+  | 'partially_paid'
+  | 'paid'
+  | 'cancelled';
+
+export interface InvoiceLineInput {
+  purchase_order_line_id: string;
+  quantity: string;
+  unit_cost: string;
+  recoverable_tax?: string;
+  non_recoverable_tax?: string;
+  description?: string | null;
+}
+
+export interface InvoiceInput {
+  purchase_order_id: string;
+  supplier_reference: string;
+  invoiced_on: string;
+  lines: InvoiceLineInput[];
+  due_on?: string | null;
+  evidence_attachment_id?: string | null;
+  notes?: string | null;
+}
+
+export interface InvoiceLine {
+  id: string;
+  position: number;
+  purchase_order_line_fk: string;
+  description: string;
+  quantity: string;
+  unit_cost: string;
+  line_total: string;
+  recoverable_tax: string;
+  non_recoverable_tax: string;
+}
+
+export interface MatchVariance {
+  id: string;
+  invoice_fk: string;
+  invoice_line_fk: string;
+  kind: 'quantity' | 'price';
+  expected: string;
+  actual: string;
+  amount_at_stake: string;
+  state: 'pending' | 'approved' | 'rejected';
+  decided_at: string | null;
+  reason: string | null;
+}
+
+export interface SupplierInvoice {
+  id: string;
+  number: string | null;
+  supplier_reference: string;
+  supplier_fk: string;
+  supplier_name: string | null;
+  purchase_order_fk: string;
+  purchase_order_number: string | null;
+  state: SupplierInvoiceState;
+  invoiced_on: string;
+  due_on: string;
+  currency_code: string;
+  exchange_rate: string;
+  net_total: string;
+  recoverable_tax_total: string;
+  non_recoverable_tax_total: string;
+  total: string;
+  base_total: string;
+  amount_paid: string;
+  amount_credited: string;
+  evidence_attachment_fk: string | null;
+  journal_entry_fk: string | null;
+  notes: string | null;
+  posted_at: string | null;
+  lines: InvoiceLine[];
+  variances: MatchVariance[];
+}
+
+export interface Tolerance {
+  absolute: string;
+  rate: string;
+}
+
+export interface CreditNote {
+  id: string;
+  supplier_reference: string;
+  supplier_fk: string;
+  invoice_fk: string;
+  credited_on: string;
+  reason: string;
+  amount: string;
+  base_amount: string;
+  journal_entry_fk: string | null;
+}
+
+export interface PaymentInput {
+  supplier_id: string;
+  amount: string;
+  method?: 'cash' | 'bank' | 'mobile_money';
+  withheld?: string;
+  paid_on?: string | null;
+  reference?: string | null;
+  evidence_attachment_id?: string | null;
+  invoice_ids?: string[];
+  notes?: string | null;
+}
+
+export interface SupplierPayment {
+  id: string;
+  number: string | null;
+  supplier_fk: string;
+  supplier_name: string | null;
+  paid_on: string;
+  method: string;
+  reference: string | null;
+  amount: string;
+  withheld: string;
+  evidence_attachment_fk: string | null;
+  journal_entry_fk: string | null;
+  notes: string | null;
+  allocations: { invoice_fk: string; amount: string }[];
+}
+
+export interface PayableRow {
+  invoice_id: string;
+  number: string | null;
+  supplier_id: string;
+  supplier_name: string;
+  supplier_reference: string;
+  invoiced_on: string;
+  due_on: string;
+  total: string;
+  paid: string;
+  credited: string;
+  outstanding: string;
+  bucket: 'current' | '1_30' | '31_60' | '61_90' | 'over_90';
+  days_overdue: number;
+}
+
+export interface PayablesRegister {
+  as_at: string;
+  rows: PayableRow[];
+  total_outstanding: string;
+  by_bucket: Record<string, string>;
+  by_supplier: Record<string, string>;
+  suggested_amounts: { amount: string; exact: boolean }[];
+}

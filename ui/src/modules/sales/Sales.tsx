@@ -14,12 +14,13 @@ import { ContextBar, PageHeading, WorkSurface } from "@/components/shell";
 import { useSession } from "@/lib/session";
 
 import { PricingPolicy } from "./PricingPolicy";
+import { Orders } from "./Orders";
 import { Quotations } from "./Quotations";
 import { Requests } from "./Requests";
 import { SalesOverview } from "./SalesOverview";
 import { Sourcing } from "./Sourcing";
 
-type View = "overview" | "requests" | "sourcing" | "quotations" | "policy";
+type View = "overview" | "requests" | "sourcing" | "quotations" | "orders" | "policy";
 
 const VIEWS: { id: View; label: string; detail: string }[] = [
   {
@@ -44,6 +45,12 @@ const VIEWS: { id: View; label: string; detail: string }[] = [
     label: "Quotations",
     detail:
       "Offers made, their cost build-up, and the terms the customer was given.",
+  },
+  {
+    id: "orders",
+    label: "Orders",
+    detail:
+      "What each customer has agreed to, where every line stands, and the purchase orders serving it.",
   },
   {
     id: "policy",
@@ -97,6 +104,15 @@ export function Sales() {
             canIssue={can("quotation.issue")}
             canApprove={can("quotation.approve")}
             canIssueDocument={can("document.issue")}
+            canOrder={can("sales_order.manage")}
+            onConverted={(order) => open("orders", order.id)}
+          />
+        ) : null}
+        {view === "orders" ? (
+          <Orders
+            canManage={can("sales_order.manage")}
+            canSeeCosting={can("costing.view")}
+            focusId={focused}
           />
         ) : null}
         {view === "policy" ? (

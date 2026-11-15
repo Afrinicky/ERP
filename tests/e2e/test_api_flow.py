@@ -341,7 +341,7 @@ class TestUsersAndPermissions:
 
     def test_the_permission_registry_is_published(self, admin_client: TestClient) -> None:
         permissions = admin_client.get(f"{API}/permissions").json()
-        assert len(permissions) == 98
+        assert len(permissions) == 101
         assert any(item["sensitive"] for item in permissions)
         costing = next(item for item in permissions if item["code"] == "costing.view")
         assert costing["sensitive"] is True
@@ -978,3 +978,203 @@ class TestDocumentsOverHttp:
         )
         assert receipt.status_code == 201, receipt.text
         assert client.get(f"{API}/designer/types/{pro_forma['id']}/draft").status_code == 403
+
+
+class TestProcurementOverHttp:
+    """Phase 7 through the published API: acceptance, conversion, purchase, receipt,
+    invoice with a variance, payment and the register."""
+
+    def _issued_quotation(self, admin_client: TestClient) -> dict[str, str]:
+        customer = admin_client.post(
+            f"{API}/parties", json={"name": "Banhart Hospital", "is_customer": True}
+        ).json()
+        supplier = admin_client.post(
+            f"{API}/parties", json={"name": "Gamma Laboratories", "is_supplier": True}
+        ).json()
+        unit = admin_client.get(f"{API}/units").json()[0]
+        product = admin_client.post(
+            f"{API}/products",
+            json={"sku": "RGT-002", "name": "Reagent pack", "stock_unit_id": unit["id"]},
+        ).json()
+        quotation = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": customer["id"],
+                "lines": [
+                    {
+                        "description": "Reagent pack",
+                        "quantity": "40",
+                        "unit_cost": "172",
+                        "product_id": product["id"],
+                        "sources": [
+                            {
+                                "kind": "supplier",
+                                "quantity": "40",
+                                "supplier_id": supplier["id"],
+                                "unit_cost": "172",
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+        assert quotation.status_code == 200, quotation.text
+        issued = admin_client.post(f"{API}/quotations/{quotation.json()['id']}/issue", json={})
+        assert issued.status_code == 200, issued.text
+        return {
+            "quotation": issued.json()["id"],
+            "customer": customer["id"],
+            "supplier": supplier["id"],
+            "product": product["id"],
+        }
+
+    def test_the_whole_procurement_cycle(self, admin_client: TestClient) -> None:
+        world = self._issued_quotation(admin_client)
+
+        refused = admin_client.post(
+            f"{API}/orders/quotations/{world['quotation']}/convert", json={}
+        )
+        assert refused.status_code == 409, refused.text
+
+        evidence = admin_client.post(
+            f"{API}/attachments",
+            json={
+                "filename": "BH-PO-2026-0441.pdf",
+                "media_type": "application/pdf",
+                "content_base64": base64.b64encode(b"%PDF-1.4 purchase order").decode("ascii"),
+                "owner_type": "quotation",
+                "owner_id": world["quotation"],
+                "purpose": "acceptance",
+                "immutable": True,
+            },
+        )
+        assert evidence.status_code == 201, evidence.text
+        accepted = admin_client.post(
+            f"{API}/orders/quotations/{world['quotation']}/acceptance",
+            json={"reference": "BH-PO-2026-0441", "evidence_attachment_id": evidence.json()["id"]},
+        )
+        assert accepted.status_code == 201, accepted.text
+        converted = admin_client.post(
+            f"{API}/orders/quotations/{world['quotation']}/convert", json={}
+        )
+        assert converted.status_code == 201, converted.text
+        order = converted.json()
+        assert order["number"].startswith("SO-")
+        assert order["customer_name"] == "Banhart Hospital"
+
+        suggested = admin_client.get(f"{API}/purchases/orders/suggest/{order['id']}").json()
+        assert len(suggested) == 1 and suggested[0]["supplier_name"] == "Gamma Laboratories"
+        raised = admin_client.post(
+            f"{API}/purchases/orders",
+            json={
+                "supplier_id": suggested[0]["supplier_id"],
+                "sales_order_id": order["id"],
+                "lines": suggested[0]["lines"],
+            },
+        )
+        assert raised.status_code == 201, raised.text
+        purchase = raised.json()
+        assert purchase["number"] is None
+        assert (
+            admin_client.post(f"{API}/purchases/orders/{purchase['id']}/approve").status_code == 200
+        )
+        purchase = admin_client.post(f"{API}/purchases/orders/{purchase['id']}/issue").json()
+        assert purchase["number"].startswith("PO-")
+        assert admin_client.get(f"{API}/orders/{order['id']}").json()["purchase_order_numbers"] == [
+            purchase["number"]
+        ]
+
+        received = admin_client.post(
+            f"{API}/purchases/receipts",
+            json={
+                "purchase_order_id": purchase["id"],
+                "lines": [
+                    {
+                        "purchase_order_line_id": purchase["lines"][0]["id"],
+                        "quantity_received": "40",
+                        "batch": "B24-0417",
+                    }
+                ],
+            },
+        )
+        assert received.status_code == 201, received.text
+        assert received.json()["number"].startswith("GRN-")
+        assert received.json()["journal_entry_fk"] is not None
+
+        invoice = admin_client.post(
+            f"{API}/purchases/invoices",
+            json={
+                "purchase_order_id": purchase["id"],
+                "supplier_reference": "GL-7731",
+                "invoiced_on": "2026-11-20",
+                "lines": [
+                    {
+                        "purchase_order_line_id": purchase["lines"][0]["id"],
+                        "quantity": "40",
+                        "unit_cost": "175",
+                    }
+                ],
+            },
+        )
+        assert invoice.status_code == 201, invoice.text
+        body = invoice.json()
+        assert body["state"] == "variance"
+        assert body["variances"][0]["kind"] == "price"
+        assert admin_client.post(f"{API}/purchases/invoices/{body['id']}/post").status_code == 409
+        decided = admin_client.post(
+            f"{API}/purchases/variances/{body['variances'][0]['id']}/decide",
+            json={"approve": True, "reason": "Rise agreed on 18 Nov"},
+        )
+        assert decided.status_code == 200, decided.text
+        assert decided.json()["state"] == "matched"
+        posted = admin_client.post(f"{API}/purchases/invoices/{body['id']}/post")
+        assert posted.status_code == 200, posted.text
+        assert posted.json()["state"] == "posted"
+        assert posted.json()["journal_entry_fk"] is not None
+
+        register = admin_client.get(f"{API}/purchases/payables").json()
+        assert Decimal(register["total_outstanding"]) == Decimal("7000")
+        assert register["suggested_amounts"][0]["exact"] is True
+
+        paid = admin_client.post(
+            f"{API}/purchases/payments",
+            json={"supplier_id": world["supplier"], "amount": "7000", "method": "bank"},
+        )
+        assert paid.status_code == 201, paid.text
+        assert paid.json()["number"].startswith("PV-")
+        after = admin_client.get(f"{API}/purchases/payables").json()
+        assert Decimal(after["total_outstanding"]) == ZERO
+
+        variance = admin_client.get(f"{API}/orders/{order['id']}/cost-variance")
+        assert variance.status_code == 200, variance.text
+        assert variance.json()["lines_known"] == 1
+
+    def test_a_sales_person_sees_orders_and_not_purchases(
+        self, admin_client: TestClient, client: TestClient
+    ) -> None:
+        world = self._issued_quotation(admin_client)
+        admin_client.post(
+            f"{API}/orders/quotations/{world['quotation']}/acceptance",
+            json={"reference": "BH-PO-2026-0441"},
+        )
+        order = admin_client.post(
+            f"{API}/orders/quotations/{world['quotation']}/convert", json={}
+        ).json()
+        admin_client.post(
+            f"{API}/users",
+            json={
+                "username": "seller",
+                "full_name": "A. Seller",
+                "password": STAFF_PASSWORD,
+                "role_codes": ["sales_person"],
+                "must_change_password": False,
+            },
+        )
+        token = client.post(
+            f"{API}/session", json={"username": "seller", "password": STAFF_PASSWORD}
+        ).json()["token"]
+        client.headers[SESSION_HEADER] = token
+        assert client.get(f"{API}/orders/{order['id']}").status_code == 200
+        assert client.get(f"{API}/orders/{order['id']}/cost-variance").status_code == 403
+        assert client.get(f"{API}/purchases/orders").status_code == 403
+        assert client.get(f"{API}/purchases/payables").status_code == 403

@@ -32,3 +32,4 @@ The following are already specified in full and require no further module docume
 - Pricing — [pricing engine](../04-pricing-engine.md)
 - Ledger posting rules — [accounting model](../05-accounting-model.md)
 - Documents — [document designer](../06-document-designer.md)
+- Sales orders and procurement — [module specification](sales-orders-and-procurement.md), written at the commencement of Phase 7

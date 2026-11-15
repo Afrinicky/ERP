@@ -121,6 +121,16 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
         manual=False,
     ),
     SeededAccount("20100", "Other payables", "CL", CashFlowCategory.OPERATING),
+    # The accrual between a goods receipt and the supplier's invoice. Inventory is
+    # recognised when goods arrive, per PRD §30; the supplier's own figure replaces
+    # this when the invoice is recorded, and the three-way match proves they agree.
+    SeededAccount(
+        "20150",
+        "Goods received not invoiced",
+        "CL",
+        CashFlowCategory.OPERATING,
+        manual=False,
+    ),
     SeededAccount("20200", "Accrued expenses", "CL", CashFlowCategory.OPERATING),
     SeededAccount(
         "20300",

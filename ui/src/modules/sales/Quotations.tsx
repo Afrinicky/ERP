@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/client";
-import type { Quotation } from "@/api/types";
+import type { Quotation, SalesOrder } from "@/api/types";
 import {
   Alert,
   Button,
@@ -29,6 +29,7 @@ import { describe } from "@/lib/errors";
 import { date as formatDate, humanise, money, quantity } from "@/lib/format";
 import { useCurrency } from "@/lib/session";
 
+import { AcceptanceDialog } from "./AcceptanceDialog";
 import { CostBuildUp } from "./CostBuildUp";
 import { STATE_TONE } from "./SalesOverview";
 
@@ -41,12 +42,16 @@ export function Quotations({
   canIssue,
   canApprove,
   canIssueDocument,
+  canOrder,
+  onConverted,
 }: {
   canSeeCosting: boolean;
   canManage: boolean;
   canIssue: boolean;
   canApprove: boolean;
   canIssueDocument: boolean;
+  canOrder: boolean;
+  onConverted: (order: SalesOrder) => void;
 }) {
   const currency = useCurrency();
   const client = useQueryClient();
@@ -55,6 +60,17 @@ export function Quotations({
   const [open, setOpen] = useState<Quotation | null>(null);
   const [deciding, setDeciding] = useState<Quotation | null>(null);
   const [revising, setRevising] = useState<Quotation | null>(null);
+  const [accepting, setAccepting] = useState<Quotation | null>(null);
+
+  const convert = useMutation({
+    mutationFn: (quotation: Quotation) => api.orders.convert(quotation.id, {}),
+    onSuccess: (order) => {
+      toast.show("success", `Converted to ${order.number}.`);
+      void client.invalidateQueries({ queryKey: ["sales"] });
+      onConverted(order);
+    },
+    onError: (error) => toast.show("error", describe(error).message),
+  });
 
   const proForma = useMutation({
     mutationFn: async (quotation: Quotation) => {
@@ -243,6 +259,25 @@ export function Quotations({
                           Pro forma
                         </Button>
                       ) : null}
+                      {canOrder && item.state === "issued" ? (
+                        <Button
+                          tone="plain"
+                          size="compact"
+                          onClick={() => setAccepting(item)}
+                        >
+                          Accept
+                        </Button>
+                      ) : null}
+                      {canOrder && item.state === "accepted" ? (
+                        <Button
+                          tone="plain"
+                          size="compact"
+                          busy={convert.isPending && convert.variables?.id === item.id}
+                          onClick={() => convert.mutate(item)}
+                        >
+                          Convert
+                        </Button>
+                      ) : null}
                       {canManage && item.state === "issued" ? (
                         <Button
                           tone="plain"
@@ -282,6 +317,13 @@ export function Quotations({
       ) : null}
       {deciding ? (
         <DecideDialog quotation={deciding} onClose={() => setDeciding(null)} />
+      ) : null}
+      {accepting ? (
+        <AcceptanceDialog
+          quotation={accepting}
+          onClose={() => setAccepting(null)}
+          onConverted={onConverted}
+        />
       ) : null}
       {revising ? (
         <ReviseDialog quotation={revising} onClose={() => setRevising(null)} />
