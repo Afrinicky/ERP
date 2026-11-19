@@ -174,6 +174,8 @@ class PosSaleLine(Base, IdentifiedMixin, BusinessScopedMixin):
     discount: Mapped[Decimal] = mapped_column(Money, nullable=False, default=Decimal("0"))
     net: Mapped[Decimal] = mapped_column(Money, nullable=False, default=Decimal("0"))
     tax: Mapped[Decimal] = mapped_column(Money, nullable=False, default=Decimal("0"))
+    tax_breakdown: Mapped[dict[str, Any] | None] = mapped_column(SA_JSON)
+    """Tax by rule code, so a refund reverses each rule's share and no other."""
     total: Mapped[Decimal] = mapped_column(Money, nullable=False, default=Decimal("0"))
     batch_fk: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("batches.id", ondelete="RESTRICT")

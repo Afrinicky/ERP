@@ -284,6 +284,7 @@ def upgrade() -> None:
         sa.Column("discount", nickland.persistence.types.Money(), nullable=False),
         sa.Column("net", nickland.persistence.types.Money(), nullable=False),
         sa.Column("tax", nickland.persistence.types.Money(), nullable=False),
+        sa.Column("tax_breakdown", sa.JSON(), nullable=True),
         sa.Column("total", nickland.persistence.types.Money(), nullable=False),
         sa.Column("batch_fk", nickland.persistence.types.Uuid(), nullable=True),
         sa.Column("serials", sa.Text(), nullable=True),
