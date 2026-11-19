@@ -233,9 +233,16 @@ REGISTRY: Final[tuple[Permission, ...]] = (
         "stock.adjust",
         "Adjust stock",
         _I,
-        "Record an adjustment, write-off or transfer.",
+        "Record opening stock, an adjustment or a write-off.",
         sensitive=True,
     ),
+    _permission(
+        "stock.transfer",
+        "Transfer stock",
+        _I,
+        "Move stock between warehouses, locations and bins.",
+    ),
+    _permission("location.manage", "Manage locations", _I, "Maintain stock locations and bins."),
     _permission("stock_count.manage", "Manage stock counts", _I, "Conduct a stock count."),
     _permission(
         "stock_count.approve",

@@ -118,6 +118,7 @@ def _refuse_line_change(obj: Any, changed: set[str]) -> None:
 def _guard(session: Session, _context: Any, _instances: Any) -> None:
     """Refuse the flush where it would rewrite a settled record."""
     from nickland.persistence.document_models import DocumentAcknowledgement, IssuedDocument
+    from nickland.persistence.inventory_models import LayerConsumption, StockMovement
     from nickland.persistence.ledger_models import JournalEntry, JournalLine
     from nickland.persistence.models import AuditEvent
     from nickland.persistence.pricing_models import QuotationSnapshot
@@ -125,6 +126,12 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
     for obj in session.dirty:
         if not session.is_modified(obj, include_collections=False):
             continue
+        if isinstance(obj, StockMovement | LayerConsumption):
+            raise ConflictError(
+                "A stock movement cannot be altered. The stock ledger is append-only, so "
+                "a correction is recorded as a reversing movement.",
+                record_id=str(obj.id),
+            )
         if isinstance(obj, DocumentAcknowledgement):
             raise ConflictError(
                 "A proof of receipt cannot be altered. It is the evidence that a "
@@ -166,6 +173,11 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
                 _refuse_line_change(obj, changed)
 
     for obj in session.deleted:
+        if isinstance(obj, StockMovement | LayerConsumption):
+            raise ConflictError(
+                "A stock movement cannot be deleted. Reverse the operation it belongs to.",
+                record_id=str(obj.id),
+            )
         if isinstance(obj, DocumentAcknowledgement):
             raise ConflictError(
                 "A proof of receipt cannot be deleted. It is the evidence that a "

@@ -341,7 +341,7 @@ class TestUsersAndPermissions:
 
     def test_the_permission_registry_is_published(self, admin_client: TestClient) -> None:
         permissions = admin_client.get(f"{API}/permissions").json()
-        assert len(permissions) == 101
+        assert len(permissions) == 103
         assert any(item["sensitive"] for item in permissions)
         costing = next(item for item in permissions if item["code"] == "costing.view")
         assert costing["sensitive"] is True

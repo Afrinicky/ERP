@@ -97,9 +97,11 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
         SubledgerKind.AUTHORITY,
         manual=False,
     ),
-    SeededAccount("12000", "Inventory", "CA", CashFlowCategory.OPERATING),
-    SeededAccount("12100", "Goods in quarantine", "CA", CashFlowCategory.OPERATING),
-    SeededAccount("12200", "Goods in transit", "CA", CashFlowCategory.OPERATING),
+    # Inventory is carried in cost layers. A figure posted here by hand would have no
+    # layer behind it, and the valuation could no longer agree with the account.
+    SeededAccount("12000", "Inventory", "CA", CashFlowCategory.OPERATING, manual=False),
+    SeededAccount("12100", "Goods in quarantine", "CA", CashFlowCategory.OPERATING, manual=False),
+    SeededAccount("12200", "Goods in transit", "CA", CashFlowCategory.OPERATING, manual=False),
     SeededAccount(
         "13000",
         "Recoverable input tax",
