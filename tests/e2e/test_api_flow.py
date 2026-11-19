@@ -1296,3 +1296,136 @@ class TestInventoryOverHttp:
         assert reconciliation["agrees"], reconciliation["discrepancies"]
         movements = admin_client.get(f"{API}/inventory/movements").json()
         assert any(item["override_reason"] for item in movements)
+
+
+class TestDispatchOverHttp:
+    """Phase 9 through the published API: prepare, pack, dispatch with a waybill, a
+    partial delivery signed for, the residual outstanding, and the reprint."""
+
+    def test_a_partial_delivery_signed_for_on_the_waybill(self, admin_client: TestClient) -> None:
+        warehouse = admin_client.get(f"{API}/inventory/warehouses").json()[0]
+        customer = admin_client.post(
+            f"{API}/parties", json={"name": "Ridge Hospital", "is_customer": True}
+        ).json()
+        unit = admin_client.get(f"{API}/units").json()[0]
+        product = admin_client.post(
+            f"{API}/products",
+            json={"sku": "GLV-900", "name": "Nitrile gloves", "stock_unit_id": unit["id"]},
+        ).json()
+        opened = admin_client.post(
+            f"{API}/inventory/opening",
+            json={
+                "warehouse_id": warehouse["id"],
+                "lines": [{"product_id": product["id"], "quantity": "20", "unit_cost": "15"}],
+            },
+        )
+        assert opened.status_code == 201, opened.text
+        quotation = admin_client.post(
+            f"{API}/quotations",
+            json={
+                "customer_id": customer["id"],
+                "lines": [
+                    {
+                        "description": "Nitrile gloves",
+                        "quantity": "20",
+                        "product_id": product["id"],
+                        "sources": [
+                            {
+                                "kind": "stock",
+                                "quantity": "20",
+                                "unit_cost": "15",
+                                "warehouse_id": warehouse["id"],
+                            }
+                        ],
+                    }
+                ],
+            },
+        ).json()
+        admin_client.post(f"{API}/quotations/{quotation['id']}/issue", json={})
+        admin_client.post(
+            f"{API}/orders/quotations/{quotation['id']}/acceptance",
+            json={"reference": "RH-PO-77"},
+        )
+        order = admin_client.post(
+            f"{API}/orders/quotations/{quotation['id']}/convert", json={}
+        ).json()
+
+        lines = admin_client.get(f"{API}/dispatch/orders/{order['id']}/lines").json()
+        assert lines[0]["shippable"] == "20.000000"
+        shipment = admin_client.post(
+            f"{API}/dispatch/shipments",
+            json={
+                "sales_order_id": order["id"],
+                "destination": "Stores, Ridge Hospital, Accra",
+                "lines": [{"sales_order_line_id": lines[0]["line_id"], "quantity": "12"}],
+            },
+        )
+        assert shipment.status_code == 201, shipment.text
+        shipment_id = shipment.json()["id"]
+        pick = admin_client.post(f"{API}/dispatch/shipments/{shipment_id}/documents/pick_list")
+        assert pick.status_code == 200, pick.text
+        early = admin_client.post(f"{API}/dispatch/shipments/{shipment_id}/documents/waybill")
+        assert early.status_code == 409, "no waybill before the goods leave"
+        assert (
+            admin_client.post(
+                f"{API}/dispatch/shipments/{shipment_id}/pack", json={"package_count": 2}
+            ).status_code
+            == 200
+        )
+        refused = admin_client.post(
+            f"{API}/dispatch/shipments/{shipment_id}/dispatch",
+            json={"mode": "carrier", "package_count": 2, "destination": "Ridge"},
+        )
+        assert refused.status_code == 422, "a carrier is named"
+        sent = admin_client.post(
+            f"{API}/dispatch/shipments/{shipment_id}/dispatch",
+            json={
+                "mode": "carrier",
+                "package_count": 2,
+                "carrier": "Speedline Logistics",
+                "tracking_reference": "SPL-1",
+            },
+        )
+        assert sent.status_code == 200, sent.text
+        assert sent.json()["state"] == "dispatched"
+
+        signature = base64.b64encode(b"\x89PNG signature").decode()
+        delivered = admin_client.post(
+            f"{API}/dispatch/shipments/{shipment_id}/deliver",
+            json={
+                "outcomes": [
+                    {
+                        "shipment_line_id": sent.json()["lines"][0]["id"],
+                        "delivered": "9",
+                        "remainder_as": "returned",
+                        "reason": "Three boxes refused",
+                    }
+                ],
+                "recipient_name": "E. Quaye",
+                "evidence_base64": signature,
+                "media_type": "image/png",
+            },
+        )
+        assert delivered.status_code == 200, delivered.text
+        record = delivered.json()
+        assert record["state"] == "partially_delivered"
+        assert record["proof"]["recipient_name"] == "E. Quaye"
+        assert record["exceptions"][0]["kind"] == "returned"
+        waybill = record["waybill"]
+        assert waybill is not None
+
+        after = admin_client.get(f"{API}/dispatch/orders/{order['id']}/lines").json()[0]
+        assert (after["delivered"], after["outstanding"], after["shippable"]) == (
+            "9.000000",
+            "11.000000",
+            "11.000000",
+        )
+        proofs = admin_client.get(f"{API}/documents/issued/{waybill['id']}/acknowledgements")
+        assert [item["recipient_name"] for item in proofs.json()] == ["E. Quaye"]
+        first = admin_client.get(f"{API}/documents/issued/{waybill['id']}/file").content
+        second = admin_client.get(f"{API}/documents/issued/{waybill['id']}/file").content
+        assert first == second and first.startswith(b"%PDF")
+        listed = admin_client.get(f"{API}/dispatch/shipments", params={"order_id": order["id"]})
+        assert [item["id"] for item in listed.json()] == [shipment_id]
+        valuation = admin_client.get(f"{API}/inventory/valuation").json()
+        assert valuation["agrees"], valuation["accounts"]

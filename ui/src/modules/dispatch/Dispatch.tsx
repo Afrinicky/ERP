@@ -160,8 +160,8 @@ function ShipmentTable({ rows, onOpen }: { rows: Shipment[]; onOpen: (id: string
         <tbody>
           {rows.map((item) => (
             <tr key={item.id}>
-              <td className="numeric">
-                {item.number}
+              <td>
+                <span className="cell-strong">{item.number}</span>
                 {item.waybill ? (
                   <span className="cell-note">Waybill {item.waybill.number}</span>
                 ) : null}

@@ -34,3 +34,4 @@ The following are already specified in full and require no further module docume
 - Documents — [document designer](../06-document-designer.md)
 - Sales orders and procurement — [module specification](sales-orders-and-procurement.md), written at the commencement of Phase 7
 - Inventory, receiving and assembly — [module specification](inventory.md), written at the commencement of Phase 8
+- Dispatch and proof of delivery — [module specification](dispatch.md), written at the commencement of Phase 9

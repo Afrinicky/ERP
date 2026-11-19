@@ -139,3 +139,13 @@ export function percent(
   const scaled = (Number(rate) * 100).toFixed(places);
   return `${scaled.replace(/\.?0+$/, "")}%`;
 }
+
+/**
+ * A quantity as an input starts from it: the service's working precision stripped of
+ * trailing zeros, ungrouped, so "30.000000" begins as "30".
+ */
+export function editable(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '0';
+  const text = String(value);
+  return text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
+}

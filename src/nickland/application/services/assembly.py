@@ -27,7 +27,7 @@ from nickland.domain.inventory import (
     MovementType,
     StockState,
 )
-from nickland.domain.money import ZERO, money
+from nickland.domain.money import ZERO, money, plain
 from nickland.domain.orders import RECEIVABLE_STATES
 from nickland.persistence.catalogue_models import Product
 from nickland.persistence.inventory_models import Batch, StockBalance
@@ -156,8 +156,8 @@ class AssemblyService:
         quantity = _quantity(quantity)
         if quantity > view.to_reserve:
             raise ConflictError(
-                f"Line {view.position} needs {view.to_reserve.normalize()} more; "
-                f"{quantity.normalize()} was asked for."
+                f"Line {view.position} needs {plain(view.to_reserve)} more; "
+                f"{plain(quantity)} was asked for."
             )
         operation = self._inventory.engine.begin(
             actor,
@@ -183,7 +183,7 @@ class AssemblyService:
         free = money(view.reserved - view.staged)
         if quantity > free:
             raise ConflictError(
-                f"Line {view.position}: {max(free, ZERO).normalize()} can be released; what is "
+                f"Line {view.position}: {plain(max(free, ZERO))} can be released; what is "
                 "staged for dispatch is returned to storage first."
             )
         remaining = quantity
@@ -214,7 +214,7 @@ class AssemblyService:
         stageable = money(view.reserved - view.staged)
         if quantity > stageable:
             raise ConflictError(
-                f"Line {view.position}: {max(stageable, ZERO).normalize()} is reserved and not "
+                f"Line {view.position}: {plain(max(stageable, ZERO))} is reserved and not "
                 "yet staged. Reserve it first."
             )
         bay = self._inventory.engine.location_of_kind(space.warehouse.id, LocationKind.ASSEMBLY)

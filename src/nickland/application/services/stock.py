@@ -41,7 +41,7 @@ from nickland.domain.inventory import (
     split_revaluation,
 )
 from nickland.domain.ledger import EntryLine, JournalSource, Side, SubledgerKind
-from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, money
+from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, money, plain
 from nickland.persistence.catalogue_models import Product
 from nickland.persistence.inventory_models import (
     Batch,
@@ -815,8 +815,8 @@ class Operation:
             free = min(free, in_batch)
         if quantity > free:
             raise ConflictError(
-                f"{product.sku}: {max(free, ZERO).normalize()} is available to reserve; "
-                f"{quantity.normalize()} was asked for.",
+                f"{product.sku}: {plain(max(free, ZERO))} is available to reserve; "
+                f"{plain(quantity)} was asked for.",
                 available=str(max(free, ZERO)),
             )
         return self._put(
@@ -1344,8 +1344,8 @@ class Operation:
             held = money(quantity - remaining)
             where = "there" if location_id or bin_id or batch_id else "in that warehouse"
             raise ConflictError(
-                f"{product.sku}: {held.normalize()} {state.value.replace('_', ' ')} is held "
-                f"{where}; {quantity.normalize()} was asked for. Stock is never allowed "
+                f"{product.sku}: {plain(held)} {state.value.replace('_', ' ')} is held "
+                f"{where}; {plain(quantity)} was asked for. Stock is never allowed "
                 "below zero.",
                 held=str(held),
             )
@@ -1363,7 +1363,7 @@ class Operation:
         if Decimal(len(numbers)) != quantity:
             raise ValidationError(
                 f"{product.sku} is serial-tracked; name one serial number per unit "
-                f"({quantity.normalize()} needed, {len(numbers)} given).",
+                f"({plain(quantity)} needed, {len(numbers)} given).",
                 field="serials",
             )
         portions: list[Portion] = []
@@ -1414,7 +1414,7 @@ class Operation:
         if Decimal(len(numbers)) != quantity:
             raise ValidationError(
                 f"{product.sku} is serial-tracked; record one serial number per unit "
-                f"({quantity.normalize()} received, {len(numbers)} given).",
+                f"({plain(quantity)} received, {len(numbers)} given).",
                 field="serials",
             )
         if len(set(numbers)) != len(numbers):

@@ -50,7 +50,7 @@ from nickland.domain.inventory import (
     ReservationState,
     StockState,
 )
-from nickland.domain.money import ZERO, money
+from nickland.domain.money import ZERO, money, plain
 from nickland.persistence.catalogue_models import Product, UnitOfMeasure
 from nickland.persistence.dispatch_models import DeliveryException, Shipment, ShipmentLine
 from nickland.persistence.document_models import DocumentAcknowledgement, IssuedDocument
@@ -75,9 +75,24 @@ DOCUMENT_FIELD = {
 
 ISSUABLE_FROM = {
     DocumentKind.PICK_LIST: frozenset(
-        {ShipmentState.PREPARED, ShipmentState.PACKED, ShipmentState.DISPATCHED}
+        {
+            ShipmentState.PREPARED,
+            ShipmentState.PACKED,
+            ShipmentState.DISPATCHED,
+            ShipmentState.DELIVERED,
+            ShipmentState.PARTIALLY_DELIVERED,
+            ShipmentState.FAILED,
+        }
     ),
-    DocumentKind.PACKING_LIST: frozenset({ShipmentState.PACKED, ShipmentState.DISPATCHED}),
+    DocumentKind.PACKING_LIST: frozenset(
+        {
+            ShipmentState.PACKED,
+            ShipmentState.DISPATCHED,
+            ShipmentState.DELIVERED,
+            ShipmentState.PARTIALLY_DELIVERED,
+            ShipmentState.FAILED,
+        }
+    ),
 }
 """A waybill and a delivery note describe goods that have left, so they follow dispatch."""
 
@@ -196,8 +211,8 @@ class DispatchService:
             quantity = money(item.quantity)
             if quantity > free:
                 raise ConflictError(
-                    f"Line {line.position}: {free.normalize()} is reserved and not already on "
-                    f"another shipment; {quantity.normalize()} was asked for.",
+                    f"Line {line.position}: {plain(free)} is reserved and not already on "
+                    f"another shipment; {plain(quantity)} was asked for.",
                     shippable=str(free),
                 )
             serials = [value.strip() for value in item.serials if value.strip()]
@@ -620,7 +635,7 @@ class DispatchService:
         returnable = money(line.quantity_delivered - line.quantity_customer_returned)
         if quantity <= ZERO or quantity > returnable:
             raise ConflictError(
-                f"Line {line.position}: {returnable.normalize()} delivered remains returnable."
+                f"Line {line.position}: {plain(returnable)} delivered remains returnable."
             )
         cleaned = _clean(reason)
         if not cleaned:

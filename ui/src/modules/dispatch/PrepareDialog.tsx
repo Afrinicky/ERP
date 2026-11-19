@@ -20,7 +20,7 @@ import {
   useToast,
 } from "@/components/primitives";
 import { describe } from "@/lib/errors";
-import { quantity } from "@/lib/format";
+import { editable, quantity } from "@/lib/format";
 
 interface Entry {
   quantity: string;
@@ -65,7 +65,7 @@ export function PrepareDialog({
       Object.fromEntries(
         lines.data
           .filter((line) => line.holds_stock)
-          .map((line) => [line.line_id, { quantity: line.shippable, serials: "" }]),
+          .map((line) => [line.line_id, { quantity: editable(line.shippable), serials: "" }]),
       ),
     );
   }, [lines.data]);
@@ -163,23 +163,27 @@ export function PrepareDialog({
                   to ship
                 </span>
               </div>
-              <Field label="On this shipment">
-                {(id) => (
-                  <Stepper
-                    id={id}
-                    min={0}
-                    max={limit}
-                    value={entry.quantity}
-                    disabled={limit === 0}
-                    onChange={(value) =>
-                      setEntries((rows) => ({
-                        ...rows,
-                        [line.line_id]: { ...entry, quantity: value },
-                      }))
-                    }
-                  />
-                )}
-              </Field>
+              {limit > 0 ? (
+                <Field label="On this shipment">
+                  {(id) => (
+                    <Stepper
+                      id={id}
+                      min={0}
+                      max={limit}
+                      value={entry.quantity}
+                      disabled={limit === 0}
+                      onChange={(value) =>
+                        setEntries((rows) => ({
+                          ...rows,
+                          [line.line_id]: { ...entry, quantity: value },
+                        }))
+                      }
+                    />
+                  )}
+                </Field>
+              ) : (
+                <span className="caption">Nothing reserved and free to ship.</span>
+              )}
               {line.tracking === "serial" && Number(entry.quantity) > 0 ? (
                 <Field label="Serial numbers" required hint="One per line">
                   {(id) => (

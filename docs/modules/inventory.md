@@ -129,7 +129,8 @@ used it would change figures already posted.
 Per sales order line: required (ordered less cancelled), available (in the warehouse, not
 reserved), reserved for this line, incoming (on purchase orders for this line, not yet
 received), assembled (staged at the warehouse's assembly location for this line), and
-dispatched (issued). Goods received against a purchase order raised for an order line are
+dispatched (on a shipment, per the [dispatch module](dispatch.md), which takes staged stock
+from the bay into transit and closes it on the customer's signature). Goods received against a purchase order raised for an order line are
 reserved for that line automatically; quarantined goods are reserved when they pass inspection.
 
 ## Permissions

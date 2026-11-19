@@ -36,7 +36,7 @@ from nickland.domain.inventory import (
     unit_cost,
 )
 from nickland.domain.ledger import JournalSource
-from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, money
+from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, money, plain
 from nickland.persistence.catalogue_models import Product
 from nickland.persistence.inventory_models import (
     Batch,
@@ -814,7 +814,7 @@ class InventoryService:
         quantity = _quantity(quantity)
         if quantity + returned_before > out_quantity:
             raise ConflictError(
-                f"Only {money(out_quantity - returned_before).normalize()} of that issue "
+                f"Only {plain(money(out_quantity - returned_before))} of that issue "
                 "remains to be returned."
             )
         value = (
@@ -1079,8 +1079,8 @@ class InventoryService:
                 raise ValidationError("That reservation is for other stock.")
             if quantity > open_quantity(reservation):
                 raise ConflictError(
-                    f"The reservation holds {open_quantity(reservation).normalize()}; "
-                    f"{quantity.normalize()} was to be issued."
+                    f"The reservation holds {plain(open_quantity(reservation))}; "
+                    f"{plain(quantity)} was to be issued."
                 )
             operation.release(
                 product,

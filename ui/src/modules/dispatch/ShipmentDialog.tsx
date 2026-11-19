@@ -30,10 +30,26 @@ import { DeliveryDialog, DispatchDetailsDialog, ReturnDialog } from "./Steps";
 type DocumentKindName = "pick_list" | "packing_list" | "waybill" | "delivery_note";
 
 const DOCUMENTS: { kind: DocumentKindName; label: string; after: Shipment["state"][] }[] = [
-  { kind: "pick_list", label: "Pick list", after: ["prepared", "packed", "dispatched"] },
-  { kind: "packing_list", label: "Packing list", after: ["packed", "dispatched"] },
-  { kind: "waybill", label: "Waybill", after: ["dispatched"] },
-  { kind: "delivery_note", label: "Delivery note", after: ["dispatched"] },
+  {
+    kind: "pick_list",
+    label: "Pick list",
+    after: ["prepared", "packed", "dispatched", "delivered", "partially_delivered", "failed"],
+  },
+  {
+    kind: "packing_list",
+    label: "Packing list",
+    after: ["packed", "dispatched", "delivered", "partially_delivered", "failed"],
+  },
+  {
+    kind: "waybill",
+    label: "Waybill",
+    after: ["dispatched", "delivered", "partially_delivered", "failed"],
+  },
+  {
+    kind: "delivery_note",
+    label: "Delivery note",
+    after: ["dispatched", "delivered", "partially_delivered", "failed"],
+  },
 ];
 
 const JOURNEY: { label: string; reached: (shipment: Shipment) => boolean }[] = [
@@ -132,7 +148,7 @@ export function ShipmentDialog({
 
             <Details
               rows={[
-                ["Deliver to", data.destination],
+                ["Deliver to", data.destination ? data.destination.split("\n").join(", ") : null],
                 [
                   "Carriage",
                   data.dispatched_on
@@ -253,7 +269,10 @@ export function ShipmentDialog({
                       `${data.proof.recipient_name}${data.proof.recipient_role ? `, ${data.proof.recipient_role}` : ""}`,
                     ],
                     ["Received", dateTime(data.proof.acknowledged_at)],
-                    ["Place", data.proof.location],
+                    [
+                      "Place",
+                      data.proof.location ? data.proof.location.split("\n").join(", ") : null,
+                    ],
                     [
                       "Evidence",
                       data.proof.has_evidence

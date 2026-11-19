@@ -13,7 +13,7 @@ from enum import StrEnum
 from typing import Final
 
 from nickland.domain.errors import StateTransitionError, ValidationError
-from nickland.domain.money import ZERO, money
+from nickland.domain.money import ZERO, money, plain
 
 
 class ShipmentState(StrEnum):
@@ -150,8 +150,8 @@ class LineOutcome:
         accounted = money(self.delivered + self.returned + self.damaged + self.lost)
         if accounted != money(self.shipped):
             raise ValidationError(
-                f"Line {position}: {money(self.shipped).normalize()} was shipped, and "
-                f"{accounted.normalize()} is accounted for. Every unit is delivered, "
+                f"Line {position}: {plain(money(self.shipped))} was shipped, and "
+                f"{plain(accounted)} is accounted for. Every unit is delivered, "
                 "returned, returned damaged, or lost.",
                 field="lines",
             )

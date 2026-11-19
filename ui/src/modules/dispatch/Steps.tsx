@@ -22,7 +22,7 @@ import {
   useToast,
 } from "@/components/primitives";
 import { describe } from "@/lib/errors";
-import { quantity } from "@/lib/format";
+import { editable, quantity } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { SignaturePad, type SignaturePadHandle } from "@/modules/documents/ReceiptDialog";
 
@@ -241,7 +241,7 @@ export function DeliveryDialog({
     Object.fromEntries(
       shipment.lines.map((line) => [
         line.id,
-        { delivered: line.quantity, remainder: "returned", reason: "", serials: "" },
+        { delivered: editable(line.quantity), remainder: "returned", reason: "", serials: "" },
       ]),
     ),
   );

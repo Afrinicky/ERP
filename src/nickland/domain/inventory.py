@@ -21,7 +21,7 @@ from enum import StrEnum
 from typing import Final
 
 from nickland.domain.errors import ConflictError, ValidationError
-from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, divide, money, multiply
+from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, divide, money, multiply, plain
 
 # --------------------------------------------------------------------------------------
 # States and where each is valued
@@ -285,8 +285,7 @@ def consume(layers: list[LayerView], quantity: Decimal) -> list[Take]:
     if remaining > ZERO:
         held = money(sum((item.quantity for item in layers), ZERO))
         raise ConflictError(
-            f"Only {held.normalize()} is held at cost; "
-            f"{money(quantity).normalize()} was asked for.",
+            f"Only {plain(held)} is held at cost; {plain(money(quantity))} was asked for.",
             held=str(held),
         )
     return taken

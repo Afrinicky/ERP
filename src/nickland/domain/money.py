@@ -124,6 +124,12 @@ def quantity(value: Decimal | int | str) -> Decimal:
     return money(value)
 
 
+def plain(value: Decimal) -> str:
+    """A quantity as a person reads it in a sentence: 10, not 10.000000 or 1E+1."""
+    text = format(money(value), "f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
 def is_zero(value: Decimal) -> bool:
     return value == ZERO
 
