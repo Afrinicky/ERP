@@ -31,7 +31,10 @@ os.environ["NICKLAND_LOG_LEVEL"] = "ERROR"
 from sqlalchemy import select, text  # noqa: E402
 
 from nickland.application.context import Actor  # noqa: E402
-from nickland.application.services.documents import DocumentRecordService  # noqa: E402
+from nickland.application.services.documents import (  # noqa: E402
+    SEEDED_TYPES,
+    DocumentRecordService,
+)
 from nickland.application.services.identity import IdentityService  # noqa: E402
 from nickland.application.services.setup import SetupRequest, SetupService  # noqa: E402
 from nickland.documents.render import render_html, render_thermal_text  # noqa: E402
@@ -110,7 +113,7 @@ def verify(keep: Path | None) -> list[Outcome]:
             failed.append(f"{document_type.code}: {error}")
     record(
         "Every default type renders to a PDF",
-        len(types) == 12 and not failed,
+        len(types) == len(SEEDED_TYPES) and not failed,
         f"{len(rendered)} of {len(types)} rendered" + (f"; {failed}" if failed else ""),
     )
 
