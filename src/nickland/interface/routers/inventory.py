@@ -90,8 +90,12 @@ def _operation(operation: Operation) -> OperationReply:
     )
 
 
-def _position(row: PositionRow) -> PositionReply:
-    return PositionReply.model_validate(row, from_attributes=True)
+def _position(row: PositionRow, *, costs: bool) -> PositionReply:
+    reply = PositionReply.model_validate(row, from_attributes=True)
+    if not costs:
+        reply.value = None
+        reply.unit_cost = None
+    return reply
 
 
 def _batch(row: ExpiryRow) -> BatchReply:
@@ -109,7 +113,9 @@ def _batch(row: ExpiryRow) -> BatchReply:
     )
 
 
-def _movement(reports: InventoryReportDependency, movement: StockMovement) -> MovementReply:
+def _movement(
+    reports: InventoryReportDependency, movement: StockMovement, *, costs: bool
+) -> MovementReply:
     product = reports.product(movement.product_fk)
     return MovementReply(
         id=movement.id,
@@ -123,7 +129,7 @@ def _movement(reports: InventoryReportDependency, movement: StockMovement) -> Mo
         batch=reports.batch_code(movement.batch_fk),
         serial=reports.serial_number(movement.serial_fk),
         quantity=movement.quantity,
-        value=movement.value,
+        value=movement.value if costs else None,
         reference=movement.reference,
         reason=movement.reason,
         override_reason=movement.override_reason,
@@ -241,7 +247,7 @@ def _workspace(reports: InventoryReportDependency, space: Workspace) -> Assembly
         order_id=space.order.id,
         order_number=space.order.number,
         customer=reports.party_name(space.order.customer_fk),
-        warehouse=space.warehouse.code,
+        warehouse=space.warehouse.name,
         ready=space.ready,
         lines=[
             AssemblyLineReply(
@@ -261,6 +267,7 @@ def _workspace(reports: InventoryReportDependency, space: Workspace) -> Assembly
                 dispatched=line.dispatched,
                 outstanding=line.outstanding,
                 to_reserve=line.to_reserve,
+                stageable=line.stageable,
             )
             for line in space.lines
         ],
@@ -364,12 +371,15 @@ def positions(
     warehouse_id: uuid.UUID | None = None,
     q: str | None = None,
 ) -> list[PositionReply]:
-    return [_position(row) for row in reports.positions(actor, warehouse_id=warehouse_id, query=q)]
+    costs = actor.has("costing.view")
+    found = reports.positions(actor, warehouse_id=warehouse_id, query=q)
+    return [_position(row, costs=costs) for row in found]
 
 
 @router.get("/low-stock", response_model=list[PositionReply], summary="At or below reorder")
 def low_stock(actor: ActorDependency, reports: InventoryReportDependency) -> list[PositionReply]:
-    return [_position(row) for row in reports.low_stock(actor)]
+    costs = actor.has("costing.view")
+    return [_position(row, costs=costs) for row in reports.low_stock(actor)]
 
 
 @router.get("/expiry", response_model=list[BatchReply], summary="Batches near expiry")
@@ -404,7 +414,8 @@ def movements(
         operation_id=operation_id,
         limit=limit,
     )
-    return [_movement(reports, movement) for movement in found]
+    costs = actor.has("costing.view")
+    return [_movement(reports, movement, costs=costs) for movement in found]
 
 
 @router.get("/valuation", response_model=ValuationReply, summary="Valuation and agreement")
@@ -419,6 +430,7 @@ def valuation(actor: ActorDependency, reports: InventoryReportDependency) -> Val
                 layers=account.layers,
                 ledger=account.ledger,
                 difference=account.difference,
+                agrees=account.difference == 0,
             )
             for account in result.accounts
         ],

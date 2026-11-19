@@ -17,6 +17,7 @@ import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Affiliates } from '@/modules/affiliates/Affiliates';
 import { Parties } from '@/modules/parties/Parties';
 import { Sales } from '@/modules/sales/Sales';
+import { Inventory } from '@/modules/inventory/Inventory';
 import { Purchases } from '@/modules/purchases/Purchases';
 import { Placeholder } from '@/modules/Placeholder';
 import { SetupWizard } from '@/modules/setup/SetupWizard';
@@ -97,25 +98,7 @@ function Entry() {
 
         <Route path="/purchases/*" element={<Purchases />} />
 
-        <Route
-          path="/inventory/*"
-          element={
-            <Placeholder
-              title="Inventory"
-              phase="Phase 8"
-              stage="Operations"
-              purpose="Stock, receiving, inspection, assembly, batches, expiry, transfers and counts."
-              depends="The catalogue and procurement, which supply what is received."
-              contents={[
-                'Append-only stock ledger with reversals rather than amendments',
-                'On hand, available, reserved, quarantined, incoming and in transit',
-                'Goods receipt, inspection and quarantine of rejected stock',
-                'Moving weighted average valuation over a layer-capable ledger',
-                'Assembly workspace and stock counts with variance approval',
-              ]}
-            />
-          }
-        />
+        <Route path="/inventory/*" element={<Inventory />} />
 
         <Route
           path="/dispatch/*"

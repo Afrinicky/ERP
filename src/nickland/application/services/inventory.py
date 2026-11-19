@@ -644,7 +644,9 @@ class InventoryService:
             raise ValidationError("A failure records the findings.", field="findings")
         on = draft.inspected_on or self.today(actor)
         receipt_line = (
-            self._db.get(GoodsReceiptLine, draft.receipt_line_id) if draft.receipt_line_id else None
+            self._db.get(GoodsReceiptLine, draft.receipt_line_id)
+            if draft.receipt_line_id
+            else self._quarantined_receipt_line(product.id, warehouse.id, draft.batch_id)
         )
         operation = self.engine.begin(
             actor,
@@ -1421,6 +1423,24 @@ class InventoryService:
         if not candidates:
             raise ConflictError("No warehouse is set up.")
         return candidates[0]
+
+    def _quarantined_receipt_line(
+        self, product_id: uuid.UUID, warehouse_id: uuid.UUID, batch_id: uuid.UUID | None
+    ) -> GoodsReceiptLine | None:
+        """The receipt the oldest quarantined stock came in on, where none is named."""
+        query = select(CostLayer).where(
+            CostLayer.product_fk == product_id,
+            CostLayer.warehouse_fk == warehouse_id,
+            CostLayer.state == StockState.QUARANTINE.value,
+            CostLayer.quantity_remaining > 0,
+            CostLayer.source_type == "goods_receipt",
+        )
+        if batch_id is not None:
+            query = query.where(CostLayer.batch_fk == batch_id)
+        layer = self._db.scalar(query.order_by(CostLayer.aged_on, CostLayer.id))
+        if layer is None or layer.source_line_id is None:
+            return None
+        return self._db.get(GoodsReceiptLine, layer.source_line_id)
 
     def _sales_line_of(self, receipt_line: GoodsReceiptLine | None) -> SalesOrderLine | None:
         if receipt_line is None:

@@ -69,6 +69,11 @@ class AssemblyLine:
         return money(max(ZERO, self.assembled - self.dispatched))
 
     @property
+    def stageable(self) -> Decimal:
+        """Reserved and still on the shelf: what may be staged, or released."""
+        return money(max(ZERO, self.reserved - self.staged))
+
+    @property
     def to_reserve(self) -> Decimal:
         return money(max(ZERO, self.outstanding - self.reserved))
 

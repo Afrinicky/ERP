@@ -194,7 +194,7 @@ class InventoryReportService:
                     sku=product.sku,
                     name=product.name,
                     warehouse_id=warehouse.id,
-                    warehouse=warehouse.code,
+                    warehouse=warehouse.name,
                     usable=position.usable,
                     quarantine=position.quarantine,
                     rejected=position.rejected,
@@ -327,6 +327,7 @@ class InventoryReportService:
     def valuation(self, actor: AnyActor) -> Valuation:
         """The layers summed by product, warehouse and state, against the accounts."""
         actor.require("stock.view")
+        actor.require("costing.view")
         business_id = _business_of(actor)
         statement = (
             select(
@@ -366,7 +367,7 @@ class InventoryReportService:
                     product_id=product_id,
                     sku=product.sku,
                     name=product.name,
-                    warehouse=warehouses[warehouse_id].code,
+                    warehouse=warehouses[warehouse_id].name,
                     state=state,
                     account=account,
                     quantity=held,
@@ -477,8 +478,9 @@ class InventoryReportService:
         return found
 
     def warehouse_code(self, warehouse_id: uuid.UUID | None) -> str:
+        """The warehouse as people name it."""
         found = self._db.get(Warehouse, warehouse_id) if warehouse_id else None
-        return found.code if found else "—"
+        return found.name if found else "—"
 
     def location_code(self, location_id: uuid.UUID | None) -> str | None:
         found = self._db.get(StockLocation, location_id) if location_id else None
@@ -559,7 +561,7 @@ class InventoryReportService:
                     product_id=product.id,
                     sku=product.sku,
                     name=product.name,
-                    warehouse=warehouse.code,
+                    warehouse=warehouse.name,
                     expires_on=batch.expires_on,
                     quantity=held,
                     status=expiry_status(batch.expires_on, today, warning),

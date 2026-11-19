@@ -93,8 +93,9 @@ class PositionReply(Reply):
     reserved: Decimal
     available: Decimal
     incoming: Decimal
-    value: Decimal
-    unit_cost: Decimal
+    value: Decimal | None
+    """Cost figures appear only to those who hold ``costing.view``."""
+    unit_cost: Decimal | None
     reorder_level: Decimal | None
     tracking: str
 
@@ -124,7 +125,7 @@ class MovementReply(Reply):
     batch: str | None
     serial: str | None
     quantity: Decimal
-    value: Decimal
+    value: Decimal | None
     reference: str | None
     reason: str | None
     override_reason: str | None
@@ -151,6 +152,7 @@ class AccountAgreementReply(Reply):
     layers: Decimal
     ledger: Decimal
     difference: Decimal
+    agrees: bool
 
 
 class ValuationReply(Reply):
@@ -442,6 +444,7 @@ class AssemblyLineReply(Reply):
     dispatched: Decimal
     outstanding: Decimal
     to_reserve: Decimal
+    stageable: Decimal
 
 
 class AssemblyReply(Reply):

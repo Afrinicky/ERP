@@ -2057,8 +2057,9 @@ export interface StockPosition {
   reserved: string;
   available: string;
   incoming: string;
-  value: string;
-  unit_cost: string;
+  /** Null for anyone without the costing permission. */
+  value: string | null;
+  unit_cost: string | null;
   reorder_level: string | null;
   tracking: 'none' | 'batch' | 'serial';
 }
@@ -2088,7 +2089,7 @@ export interface StockMovementRow {
   batch: string | null;
   serial: string | null;
   quantity: string;
-  value: string;
+  value: string | null;
   reference: string | null;
   reason: string | null;
   override_reason: string | null;
@@ -2109,7 +2110,14 @@ export interface StockValuation {
     value: string;
     unit_cost: string;
   }[];
-  accounts: { account: string; name: string; layers: string; ledger: string; difference: string }[];
+  accounts: {
+    account: string;
+    name: string;
+    layers: string;
+    ledger: string;
+    difference: string;
+    agrees: boolean;
+  }[];
   total: string;
   agrees: boolean;
 }
@@ -2256,6 +2264,8 @@ export interface AssemblyLine {
   dispatched: string;
   outstanding: string;
   to_reserve: string;
+  /** Reserved and still on the shelf: what may be staged or released. */
+  stageable: string;
 }
 
 export interface AssemblyWorkspace {
