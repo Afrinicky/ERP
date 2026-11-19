@@ -558,6 +558,15 @@ from nickland.persistence.order_models import (  # noqa: E402
     SupplierPayment,
     SupplierPaymentAllocation,
 )
+from nickland.persistence.pos_models import (  # noqa: E402
+    PosCashMovement,
+    PosRefund,
+    PosRefundLine,
+    PosSale,
+    PosSaleLine,
+    PosShift,
+    PosTender,
+)
 from nickland.persistence.pricing_models import (  # noqa: E402
     CommissionAccrual,
     DiscountLimitRow,
@@ -637,6 +646,13 @@ __all__ = [
     "Party",
     "PasswordHistory",
     "PeriodCloseCheck",
+    "PosCashMovement",
+    "PosRefund",
+    "PosRefundLine",
+    "PosSale",
+    "PosSaleLine",
+    "PosShift",
+    "PosTender",
     "PriceList",
     "PriceListLine",
     "Product",

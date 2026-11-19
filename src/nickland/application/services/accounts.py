@@ -213,6 +213,9 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
     SeededAccount("60600", "Professional fees", "OPEX", CashFlowCategory.OPERATING),
     SeededAccount("60700", "Insurance", "OPEX", CashFlowCategory.OPERATING),
     SeededAccount("60800", "Office and administration", "OPEX", CashFlowCategory.OPERATING),
+    # Till shortages are debited here and overages credited, so a drawer's variance is
+    # visible in its own line rather than lost in cash.
+    SeededAccount("60900", "Cash over and short", "OPEX", CashFlowCategory.OPERATING),
     # Other income and expense
     SeededAccount("70000", "Interest income", "OTH", CashFlowCategory.OPERATING),
     SeededAccount("70100", "Other income", "OTH", CashFlowCategory.OPERATING),
