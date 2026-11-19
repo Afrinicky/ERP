@@ -753,17 +753,9 @@ class Operation:
             balance = portion.balance
             if balance.location_fk == to_location and balance.bin_fk == to_bin:
                 raise ValidationError("Stock is relocated to a different place.")
-            self._put(
-                product,
-                warehouse_id,
-                state,
-                -portion.quantity,
-                ZERO,
-                location_id=balance.location_fk,
-                bin_id=balance.bin_fk,
-                batch_id=balance.batch_fk,
-                serial=portion.serial,
-            )
+            # Arrival first: the stock never leaves the state, so what is reserved is
+            # covered throughout.
+            source = (balance.location_fk, balance.bin_fk)
             self._put(
                 product,
                 warehouse_id,
@@ -772,6 +764,17 @@ class Operation:
                 ZERO,
                 location_id=to_location,
                 bin_id=to_bin,
+                batch_id=balance.batch_fk,
+                serial=portion.serial,
+            )
+            self._put(
+                product,
+                warehouse_id,
+                state,
+                -portion.quantity,
+                ZERO,
+                location_id=source[0],
+                bin_id=source[1],
                 batch_id=balance.batch_fk,
                 serial=portion.serial,
             )

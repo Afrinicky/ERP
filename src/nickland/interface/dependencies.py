@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
 from nickland.application.services.accounts import AccountService
+from nickland.application.services.assembly import AssemblyService
 from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
@@ -26,6 +27,8 @@ from nickland.application.services.documents import DocumentRecordService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
 from nickland.application.services.importing import ImportService
+from nickland.application.services.inventory import InventoryService
+from nickland.application.services.inventory_reports import InventoryReportService
 from nickland.application.services.journals import JournalService
 from nickland.application.services.ledger_reports import LedgerReportService
 from nickland.application.services.orders import SalesOrderService
@@ -307,6 +310,23 @@ def get_attachments(session: SessionDependency, runtime: RuntimeDependency) -> A
     return AttachmentService(session, settings=runtime.settings, clock=runtime.clock)
 
 
+def get_inventory(session: SessionDependency, runtime: RuntimeDependency) -> InventoryService:
+    return InventoryService(session, clock=runtime.clock)
+
+
+def get_inventory_reports(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> InventoryReportService:
+    return InventoryReportService(session, clock=runtime.clock)
+
+
+def get_assembly(session: SessionDependency, runtime: RuntimeDependency) -> AssemblyService:
+    return AssemblyService(session, clock=runtime.clock)
+
+
+InventoryDependency = Annotated[InventoryService, Depends(get_inventory)]
+InventoryReportDependency = Annotated[InventoryReportService, Depends(get_inventory_reports)]
+AssemblyDependency = Annotated[AssemblyService, Depends(get_assembly)]
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
 DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
 SalesOrderDependency = Annotated[SalesOrderService, Depends(get_sales_orders)]

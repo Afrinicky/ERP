@@ -287,7 +287,7 @@ class InventoryService:
         warehouse = self._warehouse(actor, draft.warehouse_id)
         if not draft.lines:
             raise ValidationError("Opening stock carries at least one line.", field="lines")
-        on = draft.occurred_on or self._today(actor)
+        on = draft.occurred_on or self.today(actor)
         operation = self.engine.begin(
             actor,
             MovementType.OPENING,
@@ -343,7 +343,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             movement_type,
-            occurred_on=draft.occurred_on or self._today(actor),
+            occurred_on=draft.occurred_on or self.today(actor),
             source_type="adjustment",
             reference=self._number(actor, "stock_adjustment"),
             reason=reason,
@@ -427,7 +427,7 @@ class InventoryService:
 
     def reverse(self, actor: AnyActor, operation_id: uuid.UUID, *, reason: str) -> Operation:
         actor.require("stock.adjust")
-        operation = self.engine.reverse(actor, operation_id, reason=reason, on=self._today(actor))
+        operation = self.engine.reverse(actor, operation_id, reason=reason, on=self.today(actor))
         self._audit.record(
             actor,
             "stock_operation_reversed",
@@ -461,7 +461,7 @@ class InventoryService:
         if target is None or target.warehouse_fk != warehouse.id:
             raise ValidationError("Relocate within the same warehouse.", field="to_location_id")
         operation = self.engine.begin(
-            actor, MovementType.RELOCATION, occurred_on=self._today(actor), source_type="relocation"
+            actor, MovementType.RELOCATION, occurred_on=self.today(actor), source_type="relocation"
         )
         operation.relocate(
             product,
@@ -491,7 +491,7 @@ class InventoryService:
             from_warehouse_fk=source.id,
             to_warehouse_fk=destination.id,
             state=TransferState.DRAFT.value,
-            requested_on=self._today(actor),
+            requested_on=self.today(actor),
             notes=(draft.notes or "").strip() or None,
             created_by_id=actor.user_id,
         )
@@ -527,7 +527,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.TRANSFER_OUT,
-            occurred_on=self._today(actor),
+            occurred_on=self.today(actor),
             source_type="stock_transfer",
             source_id=transfer.id,
             reference=transfer.number,
@@ -569,7 +569,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.TRANSFER_IN,
-            occurred_on=self._today(actor),
+            occurred_on=self.today(actor),
             source_type="stock_transfer",
             source_id=transfer.id,
             reference=transfer.number,
@@ -642,7 +642,7 @@ class InventoryService:
             raise ValidationError("An inspection passes or fails something.", field="passed")
         if failed > ZERO and not (draft.findings or "").strip():
             raise ValidationError("A failure records the findings.", field="findings")
-        on = draft.inspected_on or self._today(actor)
+        on = draft.inspected_on or self.today(actor)
         receipt_line = (
             self._db.get(GoodsReceiptLine, draft.receipt_line_id) if draft.receipt_line_id else None
         )
@@ -739,7 +739,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.RETURN_TO_SUPPLIER,
-            occurred_on=self._today(actor),
+            occurred_on=self.today(actor),
             source_type="supplier_return",
             source_id=receipt_line_id,
             reason=_required(reason, "reason"),
@@ -823,7 +823,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.CUSTOMER_RETURN,
-            occurred_on=self._today(actor),
+            occurred_on=self.today(actor),
             source_type="customer_return",
             source_id=issue_operation_id,
             reference=issued[0].reference,
@@ -870,21 +870,21 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.RESERVATION,
-            occurred_on=self._today(actor),
+            occurred_on=self.today(actor),
             source_type="reservation",
             source_id=sales_order_line_id,
         )
         sales_line = (
             self._db.get(SalesOrderLine, sales_order_line_id) if sales_order_line_id else None
         )
-        reservation = self._reserve(
+        reservation = self.hold(
             operation, product, warehouse.id, quantity, sales_line, batch_id=batch_id
         )
         reservation.notes = (notes or "").strip() or None
         operation.finish(f"Reservation of {product.sku}")
         return reservation
 
-    def _reserve(
+    def hold(
         self,
         operation: Operation,
         product: Product,
@@ -929,7 +929,7 @@ class InventoryService:
         portion = min(quantity, needed)
         if portion <= ZERO:
             return None
-        return self._reserve(operation, product, warehouse_id, portion, sales_line)
+        return self.hold(operation, product, warehouse_id, portion, sales_line)
 
     def reserved_for(self, sales_line_id: uuid.UUID) -> Decimal:
         return money(
@@ -965,15 +965,15 @@ class InventoryService:
     ) -> StockReservation:
         actor.require("assembly.manage")
         reservation = self.require_reservation(actor, reservation_id)
-        open_quantity = _open(reservation)
-        quantity = open_quantity if quantity is None else _quantity(quantity)
-        if quantity > open_quantity:
+        holding = open_quantity(reservation)
+        quantity = holding if quantity is None else _quantity(quantity)
+        if quantity > holding:
             raise ConflictError("More cannot be released than the reservation holds.")
         product = self._product(actor, reservation.product_fk)
         operation = self.engine.begin(
             actor,
             MovementType.RELEASE,
-            occurred_on=self._today(actor),
+            occurred_on=self.today(actor),
             source_type="reservation",
             source_id=reservation.id,
         )
@@ -1026,7 +1026,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.ISSUE,
-            occurred_on=draft.occurred_on or self._today(actor),
+            occurred_on=draft.occurred_on or self.today(actor),
             source_type="issue",
             source_id=draft.reservation_id,
             reference=(draft.reference or "").strip() or None,
@@ -1075,9 +1075,9 @@ class InventoryService:
         if reservation is not None:
             if reservation.product_fk != product.id or reservation.warehouse_fk != warehouse_id:
                 raise ValidationError("That reservation is for other stock.")
-            if quantity > _open(reservation):
+            if quantity > open_quantity(reservation):
                 raise ConflictError(
-                    f"The reservation holds {_open(reservation).normalize()}; "
+                    f"The reservation holds {open_quantity(reservation).normalize()}; "
                     f"{quantity.normalize()} was to be issued."
                 )
             operation.release(
@@ -1124,7 +1124,7 @@ class InventoryService:
             warehouse_fk=warehouse.id,
             location_fk=location_id,
             state=CountState.OPEN.value,
-            counted_on=self._today(actor),
+            counted_on=self.today(actor),
             notes=(notes or "").strip() or None,
             opened_by_id=actor.user_id,
         )
@@ -1349,7 +1349,7 @@ class InventoryService:
         operation = self.engine.begin(
             actor,
             MovementType.REVALUATION,
-            occurred_on=draft.occurred_on or self._today(actor),
+            occurred_on=draft.occurred_on or self.today(actor),
             source_type="landed_charge",
             source_id=receipt.id,
             reference=receipt.number,
@@ -1449,20 +1449,20 @@ class InventoryService:
             .number
         )
 
-    def _today(self, actor: AnyActor) -> date:
+    def today(self, actor: AnyActor) -> date:
         business = self._db.get(Business, actor.business_id)
         timezone = business.timezone if business is not None else "UTC"
         return business_date(self._clock.now(), timezone)
 
 
-def _open(reservation: StockReservation) -> Decimal:
+def open_quantity(reservation: StockReservation) -> Decimal:
     return money(
         reservation.quantity - reservation.quantity_consumed - reservation.quantity_released
     )
 
 
 def _settle(reservation: StockReservation) -> None:
-    if _open(reservation) > ZERO:
+    if open_quantity(reservation) > ZERO:
         return
     reservation.state = (
         ReservationState.CONSUMED.value

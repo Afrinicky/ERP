@@ -18,12 +18,13 @@ from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.context import AnyActor
 from nickland.application.services.ledger_reports import LedgerReportService
-from nickland.application.services.stock import POSITION_FIELD, StockEngine
+from nickland.application.services.stock import POSITION_FIELD, REVERSIBLE, StockEngine
 from nickland.domain.errors import ConflictError
 from nickland.domain.inventory import (
     INVENTORY_ACCOUNTS,
     STATE_ACCOUNT,
     ExpiryStatus,
+    MovementType,
     StockState,
     expiry_status,
     unit_cost,
@@ -35,12 +36,14 @@ from nickland.persistence.inventory_models import (
     Batch,
     CostLayer,
     StockBalance,
+    StockLocation,
     StockMovement,
     StockPosition,
+    StockSerial,
 )
 from nickland.persistence.ledger_models import Account
-from nickland.persistence.models import Business, Warehouse
-from nickland.persistence.order_models import PurchaseOrder, PurchaseOrderLine
+from nickland.persistence.models import Business, Party, User, Warehouse
+from nickland.persistence.order_models import PurchaseOrder, PurchaseOrderLine, SalesOrderLine
 from nickland.platform.clock import Clock, SystemClock, business_date
 
 
@@ -464,6 +467,54 @@ class InventoryReportService:
         _compare(result, "layer value", value_sum, found_values)
         _compare(result, "layer quantity", layer_quantity_sum, found_layer_quantity)
         return result
+
+    # -- labels for replies -----------------------------------------------------------
+
+    def product(self, product_id: uuid.UUID) -> Product:
+        found = self._db.get(Product, product_id)
+        if found is None:
+            raise ConflictError("A movement refers to a product that does not exist.")
+        return found
+
+    def warehouse_code(self, warehouse_id: uuid.UUID | None) -> str:
+        found = self._db.get(Warehouse, warehouse_id) if warehouse_id else None
+        return found.code if found else "—"
+
+    def location_code(self, location_id: uuid.UUID | None) -> str | None:
+        found = self._db.get(StockLocation, location_id) if location_id else None
+        return found.code if found else None
+
+    def batch_code(self, batch_id: uuid.UUID | None) -> str | None:
+        found = self._db.get(Batch, batch_id) if batch_id else None
+        return found.code if found else None
+
+    def serial_number(self, serial_id: uuid.UUID | None) -> str | None:
+        found = self._db.get(StockSerial, serial_id) if serial_id else None
+        return found.serial_number if found else None
+
+    def person(self, user_id: uuid.UUID | None) -> str | None:
+        found = self._db.get(User, user_id) if user_id else None
+        return found.full_name if found else None
+
+    def party_name(self, party_id: uuid.UUID | None) -> str | None:
+        found = self._db.get(Party, party_id) if party_id else None
+        return found.name if found else None
+
+    def order_number_of_line(self, line_id: uuid.UUID | None) -> str | None:
+        line = self._db.get(SalesOrderLine, line_id) if line_id else None
+        return line.order.number if line is not None else None
+
+    def reversible(self, movement: StockMovement) -> bool:
+        """Whether the operation could still be reversed: a kind a person reverses, not
+        already reversed, and still the latest in its pool."""
+        if MovementType(movement.movement_type) not in REVERSIBLE:
+            return False
+        if movement.reverses_operation_id is not None:
+            return False
+        position = self._engine.position(
+            movement.business_id, movement.product_fk, movement.warehouse_fk
+        )
+        return position is not None and position.sequence == movement.sequence
 
     # -- helpers ----------------------------------------------------------------------
 

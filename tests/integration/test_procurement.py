@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from nickland.application.context import Actor
+from nickland.application.services.assembly import AssemblyService
 from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.catalogue import CatalogueService, ProductDraft
 from nickland.application.services.inventory import (
@@ -1138,6 +1139,46 @@ class TestPayables:
         )
         assert balance(db, clock, admin.business_id, "12000") == ON_THE_SHELF + D("7000")
         assert balance(db, clock, admin.business_id, "20100") == D("120")
+        stock_agrees(db, clock, admin)
+
+
+# --------------------------------------------------------------------------------------
+# Assembly: reserve, stage, dispatch
+# --------------------------------------------------------------------------------------
+
+
+class TestAssembly:
+    def test_an_order_is_assembled_from_stock_and_receipts_and_dispatched(
+        self, db: Session, clock: FixedClock, orders, procurement, admin: Actor, world: dict
+    ) -> None:
+        order, _ = received_gamma(db, orders, procurement, admin, world)
+        assembly = AssemblyService(db, clock=clock)
+        space = assembly.workspace(admin, order.id)
+        analyser, reagent = space.lines
+        # The analyser: one held from stock at conversion, one still on Beta's order.
+        assert (analyser.required, analyser.reserved, analyser.incoming) == (D("2"), D("1"), D("1"))
+        # The reagent arrived against its purchase order and was held as it came in.
+        assert (reagent.reserved, reagent.incoming) == (D("40"), D("0"))
+        assert not space.ready
+
+        with pytest.raises(ConflictError):
+            assembly.assemble(admin, order.id, reagent.line_id, D("41"))
+        space = assembly.assemble(admin, order.id, reagent.line_id, D("40"))
+        reagent = space.lines[1]
+        assert (reagent.assembled, reagent.staged) == (D("40"), D("40"))
+
+        with pytest.raises(ConflictError):
+            assembly.release(admin, order.id, reagent.line_id, D("1"))
+        space = assembly.dispatch(admin, order.id, reagent.line_id, D("40"))
+        reagent = space.lines[1]
+        assert (reagent.dispatched, reagent.reserved, reagent.outstanding) == (
+            D("40"),
+            D("0"),
+            D("0"),
+        )
+        # 40 packs at 172 went to cost of sales.
+        assert balance(db, clock, admin.business_id, "50000") == D("6880")
+        assert balance(db, clock, admin.business_id, "12000") == ON_THE_SHELF
         stock_agrees(db, clock, admin)
 
 

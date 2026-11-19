@@ -7,6 +7,25 @@
 
 import type {
   Account,
+  AssemblyStepInput,
+  AssemblyWorkspace,
+  InspectionInput,
+  InventorySettings,
+  LandedCharge,
+  StockBatch,
+  StockCountSheet,
+  StockInspection,
+  StockLineInput,
+  StockMovementRow,
+  StockOperation,
+  StockPosition,
+  StockReconciliation,
+  StockReservation,
+  StockTransfer,
+  StockValuation,
+  StockWarehouse,
+  StockLocation,
+  StockBin,
   AccountGroup,
   AccountLedger,
   AccountingBasis,
@@ -811,6 +830,142 @@ export const api = {
     pay: (payload: PaymentInput) => request<SupplierPayment>('POST', '/purchases/payments', payload),
     payments: (query: { supplier_id?: string; limit?: number } = {}) =>
       request<SupplierPayment[]>('GET', '/purchases/payments', undefined, query),
+  },
+
+  inventory: {
+    settings: () => request<InventorySettings>('GET', '/inventory/settings'),
+    setSettings: (payload: InventorySettings) =>
+      request<InventorySettings>('PUT', '/inventory/settings', payload),
+    warehouses: () => request<StockWarehouse[]>('GET', '/inventory/warehouses'),
+    addLocation: (warehouseId: string, payload: { code: string; name: string }) =>
+      request<StockLocation>('POST', `/inventory/warehouses/${warehouseId}/locations`, payload),
+    addBin: (locationId: string, payload: { code: string; name?: string | null }) =>
+      request<StockBin>('POST', `/inventory/locations/${locationId}/bins`, payload),
+
+    positions: (query: { warehouse_id?: string; q?: string } = {}) =>
+      request<StockPosition[]>('GET', '/inventory/positions', undefined, query),
+    lowStock: () => request<StockPosition[]>('GET', '/inventory/low-stock'),
+    expiry: (withinDays?: number) =>
+      request<StockBatch[]>('GET', '/inventory/expiry', undefined, { within_days: withinDays }),
+    batches: (productId: string) =>
+      request<StockBatch[]>('GET', `/inventory/products/${productId}/batches`),
+    movements: (
+      query: { product_id?: string; warehouse_id?: string; operation_id?: string; limit?: number } = {},
+    ) => request<StockMovementRow[]>('GET', '/inventory/movements', undefined, query),
+    valuation: () => request<StockValuation>('GET', '/inventory/valuation'),
+    reconciliation: () => request<StockReconciliation>('GET', '/inventory/reconciliation'),
+
+    opening: (payload: { warehouse_id: string; lines: StockLineInput[]; reference?: string | null }) =>
+      request<StockOperation>('POST', '/inventory/opening', payload),
+    adjust: (payload: {
+      warehouse_id: string;
+      kind: 'gain' | 'loss' | 'damage' | 'expiry';
+      reason: string;
+      lines: StockLineInput[];
+    }) => request<StockOperation>('POST', '/inventory/adjustments', payload),
+    relocate: (payload: {
+      product_id: string;
+      warehouse_id: string;
+      quantity: string;
+      to_location_id: string;
+      to_bin_id?: string | null;
+      from_location_id?: string | null;
+      batch_id?: string | null;
+    }) => request<StockOperation>('POST', '/inventory/relocations', payload),
+    reverse: (operationId: string, reason: string) =>
+      request<StockOperation>('POST', `/inventory/operations/${operationId}/reverse`, { reason }),
+    issue: (payload: {
+      product_id: string;
+      warehouse_id: string;
+      quantity: string;
+      batch_id?: string | null;
+      serials?: string[];
+      reservation_id?: string | null;
+      override_reason?: string | null;
+      reference?: string | null;
+    }) => request<StockOperation>('POST', '/inventory/issues', payload),
+
+    transfers: () => request<StockTransfer[]>('GET', '/inventory/transfers'),
+    raiseTransfer: (payload: {
+      from_warehouse_id: string;
+      to_warehouse_id: string;
+      lines: { product_id: string; quantity: string; batch_id?: string | null }[];
+      notes?: string | null;
+    }) => request<StockTransfer>('POST', '/inventory/transfers', payload),
+    dispatchTransfer: (transferId: string) =>
+      request<StockTransfer>('POST', `/inventory/transfers/${transferId}/dispatch`),
+    receiveTransfer: (transferId: string) =>
+      request<StockTransfer>('POST', `/inventory/transfers/${transferId}/receive`),
+    cancelTransfer: (transferId: string) =>
+      request<StockTransfer>('POST', `/inventory/transfers/${transferId}/cancel`),
+
+    inspections: () => request<StockInspection[]>('GET', '/inventory/inspections'),
+    inspect: (payload: InspectionInput) =>
+      request<StockInspection>('POST', '/inventory/inspections', payload),
+    returnToSupplier: (payload: {
+      product_id: string;
+      warehouse_id: string;
+      quantity: string;
+      reason: string;
+      batch_id?: string | null;
+      receipt_line_id?: string | null;
+    }) => request<StockOperation>('POST', '/inventory/returns/supplier', payload),
+    customerReturn: (payload: {
+      issue_operation_id: string;
+      product_id: string;
+      quantity: string;
+      reason: string;
+    }) => request<StockOperation>('POST', '/inventory/returns/customer', payload),
+
+    reservations: () => request<StockReservation[]>('GET', '/inventory/reservations'),
+    reserve: (payload: {
+      product_id: string;
+      warehouse_id: string;
+      quantity: string;
+      sales_order_line_id?: string | null;
+      batch_id?: string | null;
+      notes?: string | null;
+    }) => request<StockReservation>('POST', '/inventory/reservations', payload),
+    release: (reservationId: string, quantity?: string | null) =>
+      request<StockReservation>('POST', `/inventory/reservations/${reservationId}/release`, {
+        quantity: quantity ?? null,
+      }),
+
+    counts: () => request<StockCountSheet[]>('GET', '/inventory/counts'),
+    openCount: (payload: { warehouse_id: string; location_id?: string | null; notes?: string | null }) =>
+      request<StockCountSheet>('POST', '/inventory/counts', payload),
+    count: (countId: string) => request<StockCountSheet>('GET', `/inventory/counts/${countId}`),
+    recordCount: (
+      countId: string,
+      lines: { line_id: string; counted_quantity: string | null; reason?: string | null }[],
+    ) => request<StockCountSheet>('PUT', `/inventory/counts/${countId}/lines`, { lines }),
+    submitCount: (countId: string) =>
+      request<StockCountSheet>('POST', `/inventory/counts/${countId}/submit`),
+    approveCount: (countId: string) =>
+      request<StockCountSheet>('POST', `/inventory/counts/${countId}/approve`),
+    cancelCount: (countId: string) =>
+      request<StockCountSheet>('POST', `/inventory/counts/${countId}/cancel`),
+
+    landedCharge: (payload: {
+      receipt_id: string;
+      category: string;
+      amount: string;
+      method?: 'by_value' | 'by_quantity';
+      reference?: string | null;
+    }) => request<LandedCharge>('POST', '/inventory/landed-charges', payload),
+    landedCharges: (receiptId: string) =>
+      request<LandedCharge[]>('GET', `/inventory/receipts/${receiptId}/landed-charges`),
+
+    assembly: (orderId: string) =>
+      request<AssemblyWorkspace>('GET', `/inventory/assembly/${orderId}`),
+    assemblyReserve: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
+      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/reserve`, payload),
+    assemblyRelease: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
+      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/release`, payload),
+    assemble: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
+      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/assemble`, payload),
+    assemblyDispatch: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
+      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/dispatch`, payload),
   },
 
   designer: {

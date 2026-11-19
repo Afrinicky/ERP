@@ -2009,3 +2009,266 @@ export interface PayablesRegister {
   by_supplier: Record<string, string>;
   suggested_amounts: { amount: string; exact: boolean }[];
 }
+
+// -- Inventory --------------------------------------------------------------------------
+
+export type StockStateName = 'usable' | 'quarantine' | 'rejected' | 'in_transit' | 'reserved';
+export type ExpiryStatusName = 'none' | 'good' | 'near' | 'expired';
+
+export interface InventorySettings {
+  valuation_policy: 'weighted_average' | 'fifo';
+  expiry_warning_days: number;
+}
+
+export interface StockBin {
+  id: string;
+  code: string;
+  name: string | null;
+  is_active: boolean;
+}
+
+export interface StockLocation {
+  id: string;
+  code: string;
+  name: string;
+  kind: 'storage' | 'quarantine' | 'assembly';
+  is_active: boolean;
+  bins: StockBin[];
+}
+
+export interface StockWarehouse {
+  id: string;
+  code: string;
+  name: string;
+  is_default: boolean;
+  locations: StockLocation[];
+}
+
+export interface StockPosition {
+  product_id: string;
+  sku: string;
+  name: string;
+  warehouse_id: string;
+  warehouse: string;
+  usable: string;
+  quarantine: string;
+  rejected: string;
+  in_transit: string;
+  reserved: string;
+  available: string;
+  incoming: string;
+  value: string;
+  unit_cost: string;
+  reorder_level: string | null;
+  tracking: 'none' | 'batch' | 'serial';
+}
+
+export interface StockBatch {
+  batch_id: string;
+  batch: string;
+  product_id: string;
+  sku: string;
+  name: string;
+  warehouse: string;
+  expires_on: string | null;
+  quantity: string;
+  status: ExpiryStatusName;
+  days: number | null;
+}
+
+export interface StockMovementRow {
+  id: string;
+  operation_id: string;
+  movement_type: string;
+  state: StockStateName;
+  product_id: string;
+  sku: string;
+  warehouse: string;
+  location: string | null;
+  batch: string | null;
+  serial: string | null;
+  quantity: string;
+  value: string;
+  reference: string | null;
+  reason: string | null;
+  override_reason: string | null;
+  occurred_on: string;
+  created_at: string;
+  reversible: boolean;
+}
+
+export interface StockValuation {
+  rows: {
+    product_id: string;
+    sku: string;
+    name: string;
+    warehouse: string;
+    state: StockStateName;
+    account: string;
+    quantity: string;
+    value: string;
+    unit_cost: string;
+  }[];
+  accounts: { account: string; name: string; layers: string; ledger: string; difference: string }[];
+  total: string;
+  agrees: boolean;
+}
+
+export interface StockReconciliation {
+  movements: number;
+  agrees: boolean;
+  discrepancies: { record: string; key: string; expected: string; found: string }[];
+}
+
+export interface StockLineInput {
+  product_id: string;
+  quantity: string;
+  unit_cost?: string | null;
+  batch?: string | null;
+  batch_id?: string | null;
+  expiry?: string | null;
+  manufacturer?: string | null;
+  serials?: string[];
+  location_id?: string | null;
+  bin_id?: string | null;
+}
+
+export interface StockOperation {
+  operation_id: string;
+  movements: number;
+  journal_entry_id: string | null;
+}
+
+export interface StockTransfer {
+  id: string;
+  number: string | null;
+  from_warehouse: string;
+  to_warehouse: string;
+  state: 'draft' | 'dispatched' | 'received' | 'cancelled';
+  requested_on: string;
+  dispatched_on: string | null;
+  received_on: string | null;
+  notes: string | null;
+  lines: {
+    id: string;
+    position: number;
+    product_id: string;
+    sku: string;
+    name: string;
+    batch: string | null;
+    quantity: string;
+  }[];
+}
+
+export interface StockInspection {
+  id: string;
+  product_id: string;
+  sku: string;
+  name: string;
+  warehouse: string;
+  batch: string | null;
+  quantity_passed: string;
+  quantity_failed: string;
+  criteria: string | null;
+  findings: string | null;
+  inspected_on: string;
+  inspector: string | null;
+}
+
+export interface InspectionInput {
+  product_id: string;
+  warehouse_id: string;
+  passed: string;
+  failed?: string;
+  batch_id?: string | null;
+  receipt_line_id?: string | null;
+  serials_passed?: string[];
+  serials_failed?: string[];
+  criteria?: string | null;
+  findings?: string | null;
+  evidence_attachment_id?: string | null;
+}
+
+export interface StockReservation {
+  id: string;
+  product_id: string;
+  sku: string;
+  name: string;
+  warehouse: string;
+  batch: string | null;
+  sales_order_line_id: string | null;
+  order_number: string | null;
+  quantity: string;
+  quantity_consumed: string;
+  quantity_released: string;
+  state: 'active' | 'consumed' | 'released';
+  created_at: string;
+}
+
+export interface StockCountSheet {
+  id: string;
+  number: string | null;
+  warehouse: string;
+  location: string | null;
+  state: 'open' | 'submitted' | 'posted' | 'cancelled';
+  counted_on: string;
+  notes: string | null;
+  lines: {
+    id: string;
+    position: number;
+    product_id: string;
+    sku: string;
+    name: string;
+    location: string | null;
+    batch: string | null;
+    system_quantity: string;
+    counted_quantity: string | null;
+    difference: string | null;
+    reason: string | null;
+  }[];
+}
+
+export interface LandedCharge {
+  id: string;
+  category: string;
+  method: 'by_value' | 'by_quantity';
+  reference: string | null;
+  amount: string;
+  to_inventory: string;
+  to_cost_of_sales: string;
+  created_at: string;
+}
+
+export interface AssemblyLine {
+  line_id: string;
+  position: number;
+  description: string;
+  product_id: string | null;
+  sku: string | null;
+  tracking: 'none' | 'batch' | 'serial';
+  holds_stock: boolean;
+  required: string;
+  available: string;
+  reserved: string;
+  incoming: string;
+  assembled: string;
+  staged: string;
+  dispatched: string;
+  outstanding: string;
+  to_reserve: string;
+}
+
+export interface AssemblyWorkspace {
+  order_id: string;
+  order_number: string | null;
+  customer: string | null;
+  warehouse: string;
+  ready: boolean;
+  lines: AssemblyLine[];
+}
+
+export interface AssemblyStepInput {
+  quantity: string;
+  serials?: string[];
+  override_reason?: string | null;
+}

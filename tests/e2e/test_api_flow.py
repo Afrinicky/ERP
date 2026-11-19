@@ -1178,3 +1178,121 @@ class TestProcurementOverHttp:
         assert client.get(f"{API}/orders/{order['id']}/cost-variance").status_code == 403
         assert client.get(f"{API}/purchases/orders").status_code == 403
         assert client.get(f"{API}/purchases/payables").status_code == 403
+
+
+class TestInventoryOverHttp:
+    """Phase 8 through the published API: opening stock, issue with expiry override,
+    a transfer through transit, a count, reversal, and the two reconciliations."""
+
+    def _product(self, admin_client: TestClient, sku: str, **extra: object) -> dict:
+        unit = admin_client.get(f"{API}/units").json()[0]
+        created = admin_client.post(
+            f"{API}/products",
+            json={"sku": sku, "name": f"Item {sku}", "stock_unit_id": unit["id"], **extra},
+        )
+        assert created.status_code in (200, 201), created.text
+        return created.json()
+
+    def test_stock_moves_and_the_records_agree(self, admin_client: TestClient) -> None:
+        warehouses = admin_client.get(f"{API}/inventory/warehouses").json()
+        main = warehouses[0]
+        assert {location["code"] for location in main["locations"]} >= {"MAIN", "QUAR", "ASSY"}
+        gloves = self._product(admin_client, "GLV-100")
+        reagent = self._product(
+            admin_client, "RGT-200", tracking_policy="batch", requires_expiry=True
+        )
+
+        refused = admin_client.post(
+            f"{API}/inventory/opening",
+            json={
+                "warehouse_id": main["id"],
+                "lines": [{"product_id": gloves["id"], "quantity": 10.5, "unit_cost": "2"}],
+            },
+        )
+        assert refused.status_code == 422, "a JSON number is refused"
+        opened = admin_client.post(
+            f"{API}/inventory/opening",
+            json={
+                "warehouse_id": main["id"],
+                "lines": [
+                    {"product_id": gloves["id"], "quantity": "10", "unit_cost": "2"},
+                    {
+                        "product_id": reagent["id"],
+                        "quantity": "4",
+                        "unit_cost": "15",
+                        "batch": "LOT-1",
+                        "expiry": "2026-01-31",
+                    },
+                ],
+            },
+        )
+        assert opened.status_code == 201, opened.text
+        batches = admin_client.get(f"{API}/inventory/products/{reagent['id']}/batches").json()
+        assert batches[0]["status"] == "expired"
+
+        blocked = admin_client.post(
+            f"{API}/inventory/issues",
+            json={
+                "product_id": reagent["id"],
+                "warehouse_id": main["id"],
+                "quantity": "1",
+                "batch_id": batches[0]["batch_id"],
+            },
+        )
+        assert blocked.status_code == 409, blocked.text
+        overridden = admin_client.post(
+            f"{API}/inventory/issues",
+            json={
+                "product_id": reagent["id"],
+                "warehouse_id": main["id"],
+                "quantity": "1",
+                "batch_id": batches[0]["batch_id"],
+                "override_reason": "Customer accepts for training",
+            },
+        )
+        assert overridden.status_code == 201, overridden.text
+
+        damage = admin_client.post(
+            f"{API}/inventory/adjustments",
+            json={
+                "warehouse_id": main["id"],
+                "kind": "damage",
+                "reason": "Water damage",
+                "lines": [{"product_id": gloves["id"], "quantity": "2"}],
+            },
+        ).json()
+        reversed_ = admin_client.post(
+            f"{API}/inventory/operations/{damage['operation_id']}/reverse",
+            json={"reason": "Wrong product"},
+        )
+        assert reversed_.status_code == 200, reversed_.text
+
+        count = admin_client.post(
+            f"{API}/inventory/counts", json={"warehouse_id": main["id"]}
+        ).json()
+        line = next(item for item in count["lines"] if item["sku"] == "GLV-100")
+        admin_client.put(
+            f"{API}/inventory/counts/{count['id']}/lines",
+            json={
+                "lines": [
+                    {"line_id": item["id"], "counted_quantity": item["system_quantity"]}
+                    for item in count["lines"]
+                    if item["id"] != line["id"]
+                ]
+                + [{"line_id": line["id"], "counted_quantity": "9", "reason": "One missing"}]
+            },
+        )
+        assert admin_client.post(f"{API}/inventory/counts/{count['id']}/submit").status_code == 200
+        approved = admin_client.post(f"{API}/inventory/counts/{count['id']}/approve")
+        assert approved.json()["state"] == "posted", approved.text
+
+        positions = admin_client.get(f"{API}/inventory/positions").json()
+        row = next(item for item in positions if item["sku"] == "GLV-100")
+        assert (row["usable"], row["value"]) == ("9.000000", "18.000000")
+
+        valuation = admin_client.get(f"{API}/inventory/valuation").json()
+        assert valuation["agrees"], valuation["accounts"]
+        reconciliation = admin_client.get(f"{API}/inventory/reconciliation").json()
+        assert reconciliation["agrees"], reconciliation["discrepancies"]
+        movements = admin_client.get(f"{API}/inventory/movements").json()
+        assert any(item["override_reason"] for item in movements)
