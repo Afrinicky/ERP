@@ -70,6 +70,11 @@ the copy the customer holds is worse than no reprint at all.
 """
 
 
+MOVEMENT_FIELDS_LINKED = frozenset({"journal_entry_fk"})
+"""What may be written to a stock movement after it is recorded: the journal that posted
+it, once, from nothing."""
+
+
 def _original_state(obj: Any) -> str | None:
     """The state the row held when it was last read or written.
 
@@ -126,6 +131,11 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
     for obj in session.dirty:
         if not session.is_modified(obj, include_collections=False):
             continue
+        if isinstance(obj, StockMovement) and _changed_fields(obj) <= MOVEMENT_FIELDS_LINKED:
+            # The journal is posted once every movement of the operation is valued,
+            # so the link is written once, after the rows themselves.
+            if all(old is None for old in inspect(obj).attrs.journal_entry_fk.history.deleted):
+                continue
         if isinstance(obj, StockMovement | LayerConsumption):
             raise ConflictError(
                 "A stock movement cannot be altered. The stock ledger is append-only, so "
