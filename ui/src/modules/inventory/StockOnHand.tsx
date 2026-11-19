@@ -152,6 +152,13 @@ export function StockOnHand({
             detail={
               term ? undefined : "Record opening stock, or receive goods against a purchase order."
             }
+            action={
+              !term && canAdjust ? (
+                <Button tone="primary" onClick={() => setDialogue("opening")}>
+                  Record opening stock
+                </Button>
+              ) : undefined
+            }
           />
         ) : (
           <div className="table-frame">

@@ -70,6 +70,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell" data-rail={collapsed ? 'collapsed' : 'expanded'}>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <nav className="rail" id="main-navigation" aria-label="Main navigation">
         <div className="rail__brand">
           <span className="rail__mark">
@@ -129,16 +132,6 @@ export function Shell({ children }: { children: ReactNode }) {
 
         <div className="grow" />
 
-        <div className="header__search">
-          <Icons.search />
-          <input
-            type="search"
-            placeholder="Search records"
-            aria-label="Search records"
-            disabled
-          />
-        </div>
-
         <button type="button" className="header__identity" aria-label="Account">
           <span className="header__initials" aria-hidden="true">
             {initials(actor?.full_name ?? '')}
@@ -156,7 +149,9 @@ export function Shell({ children }: { children: ReactNode }) {
         </Button>
       </header>
 
-      <main className="main">{children}</main>
+      <main className="main" id="main-content" tabIndex={-1}>
+        {children}
+      </main>
 
       <StatusStrip />
     </div>

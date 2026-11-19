@@ -75,7 +75,16 @@ export function Transfers({ canTransfer }: { canTransfer: boolean }) {
             <Skeleton rows={3} />
           </div>
         ) : (transfers.data ?? []).length === 0 ? (
-          <EmptyState title="No transfer has been prepared." />
+          <EmptyState
+            title="No transfer has been prepared."
+            action={
+              canTransfer ? (
+                <Button tone="primary" onClick={() => setRaising(true)}>
+                  Prepare a transfer
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="table-frame">
             <table className="table">

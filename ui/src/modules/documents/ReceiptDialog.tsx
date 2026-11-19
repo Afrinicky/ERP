@@ -137,7 +137,7 @@ export function ReceiptDialog({
         {existing.isPending ? <Skeleton rows={2} /> : null}
         {(existing.data ?? []).length > 0 ? (
           <div className="stack gap-2">
-            <h4 className="caption caption--strong">Already recorded</h4>
+            <h3 className="caption caption--strong">Already recorded</h3>
             <ul className="receipt-list">
               {(existing.data ?? []).map((item) => (
                 <li key={item.id}>

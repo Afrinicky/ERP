@@ -176,7 +176,7 @@ function Progress({ order }: { order: SalesOrder }) {
   return (
     <div className="progress" title={`${received} of ${ordered} units received`}>
       <div className="progress__track">
-        <div className="progress__bar" style={{ width: `${share}%` }} />
+        <div className="progress__bar" style={{ transform: `scaleX(${share / 100})` }} />
       </div>
       <span className="caption">{share}%</span>
     </div>

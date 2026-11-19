@@ -35,7 +35,19 @@
       "label": "Tertiary text on card",
       "foreground": "text-tertiary",
       "background": "surface-raised",
-      "required": 3.0
+      "required": 4.5
+    },
+    {
+      "label": "Tertiary text on canvas",
+      "foreground": "text-tertiary",
+      "background": "surface-canvas",
+      "required": 4.5
+    },
+    {
+      "label": "Tertiary text on sunken surface",
+      "foreground": "text-tertiary",
+      "background": "surface-sunken",
+      "required": 4.5
     },
     {
       "label": "Navigation text",

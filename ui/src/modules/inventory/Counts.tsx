@@ -59,7 +59,16 @@ export function Counts({ canCount, canApprove }: { canCount: boolean; canApprove
             <Skeleton rows={3} />
           </div>
         ) : (counts.data ?? []).length === 0 ? (
-          <EmptyState title="No count has been taken." />
+          <EmptyState
+            title="No count has been taken."
+            action={
+              canCount ? (
+                <Button tone="primary" onClick={() => setOpening(true)}>
+                  Begin a count
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="table-frame">
             <table className="table">

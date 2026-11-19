@@ -116,6 +116,24 @@ export function ShipmentDialog({
   const data = shipment.data;
   const failure = pack.error ?? cancel.error;
 
+  // One modal at a time: a step replaces the shipment record, and returns to it.
+  if (data && step === "dispatch") {
+    return <DispatchDetailsDialog shipment={data} onClose={() => setStep(null)} onDone={refresh} />;
+  }
+  if (data && step === "deliver") {
+    return <DeliveryDialog shipment={data} onClose={() => setStep(null)} onDone={refresh} />;
+  }
+  if (data && returning) {
+    return (
+      <ReturnDialog
+        shipment={data}
+        lineId={returning}
+        onClose={() => setReturning(null)}
+        onDone={refresh}
+      />
+    );
+  }
+
   return (
     <>
       <Dialog
@@ -236,7 +254,7 @@ export function ShipmentDialog({
             ) : null}
 
             <section className="stack gap-3">
-              <h4 className="section-label">Documents</h4>
+              <h3 className="section-label">Documents</h3>
               <div className="row gap-3 wrap">
                 {DOCUMENTS.map((entry) => {
                   const issued = data[entry.kind] as DocumentLink | null;
@@ -261,7 +279,7 @@ export function ShipmentDialog({
 
             {data.proof ? (
               <section className="stack gap-2">
-                <h4 className="section-label">Proof of delivery</h4>
+                <h3 className="section-label">Proof of delivery</h3>
                 <Details
                   rows={[
                     [
@@ -299,20 +317,6 @@ export function ShipmentDialog({
           </div>
         )}
       </Dialog>
-      {data && step === "dispatch" ? (
-        <DispatchDetailsDialog shipment={data} onClose={() => setStep(null)} onDone={refresh} />
-      ) : null}
-      {data && step === "deliver" ? (
-        <DeliveryDialog shipment={data} onClose={() => setStep(null)} onDone={refresh} />
-      ) : null}
-      {data && returning ? (
-        <ReturnDialog
-          shipment={data}
-          lineId={returning}
-          onClose={() => setReturning(null)}
-          onDone={refresh}
-        />
-      ) : null}
     </>
   );
 

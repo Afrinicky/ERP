@@ -849,15 +849,26 @@
   font-size: var(--size-sm);
   background: var(--colour-surface-overlay);
   border: var(--border-hairline) solid var(--colour-border-default);
-  border-left: 3px solid var(--colour-border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--elevation-overlay);
   animation: rise var(--motion-medium) var(--motion-ease-out);
 }
 
-.toast--success { border-left-color: var(--status-success); }
-.toast--error { border-left-color: var(--status-error); }
-.toast--info { border-left-color: var(--status-info); }
+/* The leading mark uses the status chips' shapes: a circle for done, a square for a
+   failure, a diamond for information. The message says the rest in words. */
+.toast__mark {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+}
+
+.toast--success { border-color: var(--status-success-border); }
+.toast--success .toast__mark { background: var(--status-success); border-radius: var(--radius-full); }
+.toast--error { border-color: var(--status-error-border); }
+.toast--error .toast__mark { background: var(--status-error); }
+.toast--info { border-color: var(--status-info-border); }
+.toast--info .toast__mark { background: var(--status-info); transform: rotate(45deg); }
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
@@ -1710,10 +1721,12 @@
 }
 
 .progress__bar {
+  width: 100%;
   height: 100%;
   background: var(--colour-accent-primary);
   border-radius: var(--radius-full);
-  transition: width var(--motion-medium) var(--motion-ease);
+  transform-origin: left center;
+  transition: transform var(--motion-medium) var(--motion-ease);
 }
 
 .table__row--on > td {
@@ -1902,4 +1915,23 @@
   letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
   color: var(--colour-text-secondary);
+}
+
+/* ------------------------------------------------------------------ Skip link */
+
+.skip-link {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 300;
+  padding: var(--space-2) var(--space-4);
+  font-weight: var(--weight-semibold);
+  color: var(--colour-text-on-accent);
+  background: var(--colour-accent-primary);
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
 }

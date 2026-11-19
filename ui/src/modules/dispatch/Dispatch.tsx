@@ -18,7 +18,6 @@ import {
   Skeleton,
   StatusChip,
   Tabs,
-  TotalDisplay,
   type Tone,
 } from "@/components/primitives";
 import { ContextBar, PageHeading, WorkSurface } from "@/components/shell";
@@ -82,19 +81,11 @@ export function Dispatch() {
       <ContextBar trail={["Dispatch", current.label]} />
       <WorkSurface>
         <PageHeading title="Dispatch" detail={current.detail} />
-        <div className="measure-row">
-          <TotalDisplay label="Awaiting dispatch" value={count(["prepared", "packed"])} compact />
-          <TotalDisplay label="In transit" value={count(["dispatched"])} compact />
-          <TotalDisplay label="Delivered" value={count(["delivered"])} compact />
-          <TotalDisplay
-            label="With exceptions"
-            value={count(["partially_delivered", "failed"])}
-            tone={all.some((item) => item.state === "failed") ? "due" : undefined}
-            compact
-          />
-        </div>
         <Tabs
-          items={VIEWS.map(({ id, label }) => ({ id, label }))}
+          items={VIEWS.map(({ id, label, states }) => ({
+            id,
+            label: shipments.data ? `${label} · ${count(states)}` : label,
+          }))}
           active={view}
           onChange={setView}
         />
@@ -121,6 +112,18 @@ export function Dispatch() {
                   : view === "transit"
                     ? "Nothing is on the road."
                     : "No consignment has been closed yet."
+              }
+              detail={
+                view === "preparing"
+                  ? "Stage an order's reserved stock in Order assembly, then prepare its shipment."
+                  : undefined
+              }
+              action={
+                view === "preparing" && can("dispatch.manage") ? (
+                  <Button tone="primary" onClick={() => setPreparing(true)}>
+                    Prepare a shipment
+                  </Button>
+                ) : undefined
               }
             />
           ) : (

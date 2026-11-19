@@ -299,7 +299,7 @@ export function Card({
       {title ? (
         <header className="card__header">
           <div className="card__heading">
-            <h3 className="card__title">{title}</h3>
+            <h2 className="card__title">{title}</h2>
             {subtitle ? <p className="card__subtitle">{subtitle}</p> : null}
           </div>
           {actions ? <div className="row gap-2">{actions}</div> : null}
@@ -490,12 +490,9 @@ export function Dialog({
   }, [onClose]);
 
   return (
-    <div
-      className="dialog-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    // A click beside the dialog does not close it: a half-entered form, a count sheet or a
+    // drawn signature would be lost to a stray click. Close, Cancel and Escape remain.
+    <div className="dialog-backdrop">
       <div
         className={`dialog dialog--${size}`}
         role="dialog"
@@ -624,7 +621,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-region" role="status" aria-live="polite">
         {entries.map((entry) => (
           <div key={entry.id} className={`toast toast--${entry.tone}`}>
-            {entry.message}
+            <span className="toast__mark" aria-hidden="true" />
+            <span>{entry.message}</span>
           </div>
         ))}
       </div>
