@@ -385,7 +385,10 @@ class InventoryReportService:
                     account=code,
                     name=account.name,
                     layers=money(by_account.get(code, ZERO)),
-                    ledger=money(ledger.account_balance(business_id, account.id)),
+                    ledger=money(
+                        # Every posting, whatever its date: the layers hold them all.
+                        ledger.account_balance(business_id, account.id, as_at=date.max)
+                    ),
                 )
             )
         return Valuation(rows=rows, accounts=accounts)

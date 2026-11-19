@@ -680,7 +680,7 @@ class InventoryService:
         # Goods bought for an order line are held for it the moment they are usable.
         sales_line = self._sales_line_of(receipt_line)
         if sales_line is not None and passed > ZERO:
-            self._reserve_for_line(operation, product, warehouse.id, sales_line, passed)
+            self.reserve_for_line(operation, product, warehouse.id, sales_line, passed)
         operation.finish(f"Inspection of {product.sku}")
         inspection = Inspection(
             business_id=warehouse.business_id,
@@ -910,7 +910,7 @@ class InventoryService:
         self._db.flush()
         return reservation
 
-    def _reserve_for_line(
+    def reserve_for_line(
         self,
         operation: Operation,
         product: Product,

@@ -18,16 +18,16 @@ from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.audit import AuditRecorder
 from nickland.application.context import AnyActor
-from nickland.application.services.journals import JournalDraft, JournalService
 from nickland.application.services.orders import SalesOrderService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.procurement import ProcurementService
+from nickland.application.services.stock import StockEngine
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
+from nickland.domain.inventory import MovementType
 from nickland.domain.ledger import EntryLine, JournalSource, Side, SubledgerKind
-from nickland.domain.money import ZERO, divide, money, multiply
+from nickland.domain.money import WORKING_PRECISION, ZERO, allocate, divide, money, multiply
 from nickland.domain.orders import (
     GOODS_RECEIVED_NOT_INVOICED,
-    INVENTORY,
     RECOVERABLE_INPUT_TAX,
     TRADE_PAYABLES,
     MatchTolerance,
@@ -42,6 +42,7 @@ from nickland.domain.parties import PaymentTermKind, PaymentTerms
 from nickland.persistence.base import as_dict
 from nickland.persistence.models import Business, Party
 from nickland.persistence.order_models import (
+    GoodsReceiptLine,
     MatchingPolicy,
     MatchVariance,
     PurchaseOrder,
@@ -411,19 +412,46 @@ class SupplierBillingService:
             SupplierInvoiceState(invoice.state), SupplierInvoiceState.POSTED
         )
         order = self._procurement.require(actor, invoice.purchase_order_fk)
-        business = self._db.get(Business, invoice.business_id)
         supplier = self._db.get(Party, invoice.supplier_fk)
         rate = invoice.exchange_rate
 
+        allocated = OrganisationService(self._db, clock=self._clock).allocate_number(
+            actor, "supplier_invoice", branch_id=actor.branch_id
+        )
+        invoice.number = allocated.number
+        operation = StockEngine(self._db, clock=self._clock).begin(
+            actor,
+            MovementType.REVALUATION,
+            occurred_on=invoice.invoiced_on,
+            source_type="supplier_invoice",
+            source_id=invoice.id,
+            reference=invoice.number,
+        )
+
+        # Non-recoverable tax capitalises into landed cost, line by line; the parts are
+        # apportioned so they sum to the invoice's own figure exactly.
+        non_recoverable = money(multiply(invoice.non_recoverable_tax_total, rate))
+        capitalised = (
+            allocate(
+                non_recoverable,
+                [money(line.non_recoverable_tax) for line in invoice.lines],
+                WORKING_PRECISION,
+            )
+            if non_recoverable > ZERO
+            else [ZERO] * len(invoice.lines)
+        )
         accrual = ZERO
-        price_variance = ZERO
-        for line in invoice.lines:
+        for line, tax in zip(invoice.lines, capitalised, strict=True):
             ordered = self._db.get(PurchaseOrderLine, line.purchase_order_line_fk)
             assert ordered is not None
             at_order_cost = money(multiply(ordered.net_unit_cost * line.quantity, rate))
             at_invoice_cost = money(multiply(line.line_total, rate))
             accrual = money(accrual + at_order_cost)
-            price_variance = money(price_variance + (at_invoice_cost - at_order_cost))
+            # The approved price variance and the capitalised tax follow the goods:
+            # into their layers where still held, to cost of sales where already gone.
+            operation.revalue(
+                self._receipt_lines_of(ordered), money(at_invoice_cost - at_order_cost + tax)
+            )
             ordered.quantity_invoiced = ordered.quantity_invoiced + line.quantity
             # The sales order line now knows what its goods actually cost.
             if ordered.sales_order_line_fk is not None:
@@ -436,10 +464,8 @@ class SupplierBillingService:
                     self._orders.record_actual_cost(sales_line, landed_unit)
 
         recoverable = money(multiply(invoice.recoverable_tax_total, rate))
-        non_recoverable = money(multiply(invoice.non_recoverable_tax_total, rate))
-        lines: list[EntryLine] = []
         if accrual > ZERO:
-            lines.append(
+            operation.extra.append(
                 EntryLine(
                     account_code=GOODS_RECEIVED_NOT_INVOICED,
                     side=Side.DEBIT,
@@ -447,38 +473,11 @@ class SupplierBillingService:
                     narration=f"{order.number} accrual cleared",
                 )
             )
-        if price_variance > ZERO:
-            lines.append(
-                EntryLine(
-                    account_code=INVENTORY,
-                    side=Side.DEBIT,
-                    amount=price_variance,
-                    narration="Approved price variance",
-                )
-            )
-        elif price_variance < ZERO:
-            lines.append(
-                EntryLine(
-                    account_code=INVENTORY,
-                    side=Side.CREDIT,
-                    amount=-price_variance,
-                    narration="Approved price variance",
-                )
-            )
-        if non_recoverable > ZERO:
-            lines.append(
-                EntryLine(
-                    account_code=INVENTORY,
-                    side=Side.DEBIT,
-                    amount=non_recoverable,
-                    narration="Non-recoverable tax capitalised",
-                )
-            )
         if recoverable > ZERO:
             # Recoverable input tax is a claim on the authority, and the account is
             # the authority subledger's control account, so the line names which one.
             authority_id = self._vat_authority(invoice.business_id)
-            lines.append(
+            operation.extra.append(
                 EntryLine(
                     account_code=RECOVERABLE_INPUT_TAX,
                     side=Side.DEBIT,
@@ -488,7 +487,7 @@ class SupplierBillingService:
                     subledger=SubledgerKind.AUTHORITY,
                 )
             )
-        lines.append(
+        operation.extra.append(
             EntryLine(
                 account_code=TRADE_PAYABLES,
                 side=Side.CREDIT,
@@ -500,29 +499,16 @@ class SupplierBillingService:
                 subledger=SubledgerKind.SUPPLIER,
             )
         )
-
-        allocated = OrganisationService(self._db, clock=self._clock).allocate_number(
-            actor, "supplier_invoice", branch_id=actor.branch_id
-        )
-        invoice.number = allocated.number
-        outcome = JournalService(self._db, clock=self._clock).post(
-            actor,
-            JournalDraft(
-                posting_date=invoice.invoiced_on,
-                narration=f"Supplier invoice {invoice.supplier_reference} against {order.number}",
-                lines=lines,
-                source=JournalSource.PURCHASES,
-                source_reference=invoice.number,
-                source_id=invoice.id,
-                idempotency_key=f"supplier_invoice:{invoice.id}",
-                currency_code=business.base_currency if business else None,
-                attachment_ids=(
-                    [str(invoice.evidence_attachment_fk)] if invoice.evidence_attachment_fk else []
-                ),
-                branch_id=actor.branch_id,
+        entry = operation.finish(
+            f"Supplier invoice {invoice.supplier_reference} against {order.number}",
+            source=JournalSource.PURCHASES,
+            idempotency_key=f"supplier_invoice:{invoice.id}",
+            attachment_ids=(
+                [str(invoice.evidence_attachment_fk)] if invoice.evidence_attachment_fk else []
             ),
         )
-        invoice.journal_entry_fk = outcome.entry.id
+        assert entry is not None
+        invoice.journal_entry_fk = entry.id
         invoice.state = SupplierInvoiceState.POSTED.value
         invoice.posted_by_id = actor.user_id
         invoice.posted_at = self._clock.now()
@@ -535,8 +521,7 @@ class SupplierBillingService:
             entity_label=invoice.number,
             after={
                 "payable": str(invoice.base_total),
-                "journal": str(outcome.entry.id),
-                "awaiting_approval": outcome.awaiting_approval,
+                "journal": str(entry.id),
             },
         )
         return invoice
@@ -596,7 +581,6 @@ class SupplierBillingService:
                 "The supplier's credit note number is required.", field="supplier_reference"
             )
 
-        business = self._db.get(Business, invoice.business_id)
         supplier = self._db.get(Party, invoice.supplier_fk)
         note = SupplierCreditNote(
             business_id=invoice.business_id,
@@ -611,35 +595,44 @@ class SupplierBillingService:
         )
         self._db.add(note)
         self._db.flush()
-        outcome = JournalService(self._db, clock=self._clock).post(
+        operation = StockEngine(self._db, clock=self._clock).begin(
             actor,
-            JournalDraft(
-                posting_date=note.credited_on,
-                narration=f"Supplier credit {reference} against {invoice.supplier_reference}",
-                lines=[
-                    EntryLine(
-                        account_code=TRADE_PAYABLES,
-                        side=Side.DEBIT,
-                        amount=base_amount,
-                        party_id=invoice.supplier_fk,
-                        subledger=SubledgerKind.SUPPLIER,
-                        narration=f"{supplier.name if supplier else 'Supplier'} credit",
-                    ),
-                    EntryLine(
-                        account_code=INVENTORY,
-                        side=Side.CREDIT,
-                        amount=base_amount,
-                        narration=note.reason,
-                    ),
-                ],
-                source=JournalSource.PURCHASES,
-                source_reference=reference,
-                source_id=note.id,
-                idempotency_key=f"supplier_credit_note:{note.id}",
-                currency_code=business.base_currency if business else None,
-            ),
+            MovementType.REVALUATION,
+            occurred_on=note.credited_on,
+            source_type="supplier_credit_note",
+            source_id=note.id,
+            reference=reference,
         )
-        note.journal_entry_fk = outcome.entry.id
+        # The credit reduces what the invoiced goods cost, apportioned across the
+        # invoice's lines by value, and follows the goods as a price variance does.
+        weights = [
+            money(multiply(line.line_total, invoice.exchange_rate)) for line in invoice.lines
+        ]
+        if sum(weights, ZERO) <= ZERO:
+            weights = [line.quantity for line in invoice.lines]
+        for line, share in zip(
+            invoice.lines, allocate(base_amount, weights, WORKING_PRECISION), strict=True
+        ):
+            ordered = self._db.get(PurchaseOrderLine, line.purchase_order_line_fk)
+            assert ordered is not None
+            operation.revalue(self._receipt_lines_of(ordered), -share)
+        operation.extra.append(
+            EntryLine(
+                account_code=TRADE_PAYABLES,
+                side=Side.DEBIT,
+                amount=base_amount,
+                party_id=invoice.supplier_fk,
+                subledger=SubledgerKind.SUPPLIER,
+                narration=f"{supplier.name if supplier else 'Supplier'} credit",
+            )
+        )
+        entry = operation.finish(
+            f"Supplier credit {reference} against {invoice.supplier_reference}",
+            source=JournalSource.PURCHASES,
+            idempotency_key=f"supplier_credit_note:{note.id}",
+        )
+        assert entry is not None
+        note.journal_entry_fk = entry.id
         invoice.amount_credited = money(invoice.amount_credited + base_amount)
         self._settle_state(invoice)
         self._db.flush()
@@ -699,6 +692,15 @@ class SupplierBillingService:
         )
 
     # -- helpers shared with payables -------------------------------------------------
+
+    def _receipt_lines_of(self, ordered: PurchaseOrderLine) -> list[uuid.UUID]:
+        return list(
+            self._db.scalars(
+                select(GoodsReceiptLine.id).where(
+                    GoodsReceiptLine.purchase_order_line_fk == ordered.id
+                )
+            ).all()
+        )
 
     def _settle_state(self, invoice: SupplierInvoice) -> None:
         """Posted, partially paid or paid, from what has been paid and credited."""

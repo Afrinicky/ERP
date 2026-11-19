@@ -18,9 +18,12 @@ from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.audit import AuditRecorder
 from nickland.application.context import AnyActor
+from nickland.application.services.inventory import InventoryService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.quotations import QuotationService
+from nickland.application.services.stock import holds_stock
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
+from nickland.domain.inventory import MovementType
 from nickland.domain.money import ZERO, divide, money, present
 from nickland.domain.orders import (
     AcceptanceMethod,
@@ -41,7 +44,7 @@ from nickland.persistence.order_models import (
     SalesOrder,
     SalesOrderLine,
 )
-from nickland.persistence.pricing_models import QuotationLine
+from nickland.persistence.pricing_models import Quotation, QuotationLine
 from nickland.platform.clock import Clock, SystemClock, business_date
 
 
@@ -250,6 +253,7 @@ class SalesOrderService:
             order.lines.append(self._line_from(line))
         self._db.add(order)
         self._db.flush()
+        self._reserve_stock_part(actor, quotation, order)
         self._refresh_position(order)
         self._audit.record(
             actor,
@@ -266,10 +270,9 @@ class SalesOrderService:
         return order
 
     def _line_from(self, line: QuotationLine) -> SalesOrderLine:
-        # The part of a line sourced from stock is procured, and received, the moment
-        # it is ordered: Phase 8 reserves the stock; until then the order says what it
-        # draws on. A line split between stock and a supplier carries only its
-        # supplier part forward to procurement.
+        # The part of a line sourced from stock is reserved as the order is converted,
+        # and counts as procured and received only once it is held. A line split between
+        # stock and a supplier carries its supplier part forward to procurement.
         from_stock = money(
             sum(
                 (
@@ -295,13 +298,58 @@ class SalesOrderService:
             unit_fk=line.unit_fk,
             source_kind=source_kind.value,
             quantity_ordered=line.quantity,
-            quantity_procured=from_stock,
-            quantity_received=from_stock,
+            quantity_procured=ZERO,
+            quantity_received=ZERO,
             unit_price=line.unit_net_price,
             line_total=money(line.net_price),
             tax_amount=money(line.tax_amount),
             expected_unit_cost=expected_unit_cost,
         )
+
+    def _reserve_stock_part(self, actor: AnyActor, quotation: Quotation, order: SalesOrder) -> None:
+        """Hold what the quotation said would come from stock, as far as stock allows.
+
+        What cannot be held now stays unprocured, so the order shows it as still to be
+        found rather than claiming stock that is not on the shelf.
+        """
+        inventory = InventoryService(self._db, clock=self._clock)
+        wanted: list[tuple[SalesOrderLine, Product, Decimal]] = []
+        for quoted, line in zip(quotation.lines, order.lines, strict=True):
+            from_stock = money(
+                sum(
+                    (
+                        source.quantity
+                        for source in quoted.sources
+                        if source.kind == SourceKind.STOCK.value
+                    ),
+                    ZERO,
+                )
+            )
+            from_stock = min(from_stock, line.quantity_ordered)
+            product = self._db.get(Product, line.product_fk) if line.product_fk else None
+            if from_stock > ZERO and product is not None and holds_stock(product):
+                wanted.append((line, product, from_stock))
+        if not wanted:
+            return
+        warehouse = inventory.default_warehouse(order.business_id, order.branch_id)
+        today = self._today(actor)
+        operation = inventory.engine.begin(
+            actor,
+            MovementType.RESERVATION,
+            occurred_on=today,
+            source_type="sales_order",
+            source_id=order.id,
+            reference=order.number,
+        )
+        for line, product, quantity in wanted:
+            free = inventory.engine.available(order.business_id, product.id, warehouse.id, today)
+            held = min(free, quantity)
+            if held <= ZERO:
+                continue
+            inventory.reserve_for_line(operation, product, warehouse.id, line, held)
+            line.quantity_procured = line.quantity_procured + held
+            line.quantity_received = line.quantity_received + held
+        operation.finish(f"Stock reserved for {order.number}")
 
     # -- reading ----------------------------------------------------------------------
 

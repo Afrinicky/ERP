@@ -18,16 +18,16 @@ from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.audit import AuditRecorder
 from nickland.application.context import AnyActor
-from nickland.application.services.journals import JournalDraft, JournalService
+from nickland.application.services.inventory import InventoryService
 from nickland.application.services.orders import SalesOrderService
 from nickland.application.services.organisation import OrganisationService
+from nickland.application.services.stock import holds_stock
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
-from nickland.domain.ledger import EntryLine, JournalSource, Side
+from nickland.domain.inventory import COST_OF_GOODS_SOLD, MovementType, StockState
+from nickland.domain.ledger import JournalSource
 from nickland.domain.money import ZERO, money, multiply
 from nickland.domain.orders import (
-    GOODS_IN_QUARANTINE,
     GOODS_RECEIVED_NOT_INVOICED,
-    INVENTORY,
     RECEIVABLE_STATES,
     GoodsReceiptState,
     PurchaseOrderState,
@@ -438,7 +438,6 @@ class ProcurementService:
         if not draft.lines:
             raise ValidationError("A receipt carries at least one line.", field="lines")
 
-        business = self._db.get(Business, order.business_id)
         receipt = GoodsReceipt(
             business_id=order.business_id,
             branch_id=actor.branch_id,
@@ -500,7 +499,7 @@ class ProcurementService:
             line.quantity_received = line.quantity_received + item.quantity_received
             line.quantity_accepted = line.quantity_accepted + accepted
             line.quantity_rejected = line.quantity_rejected + item.quantity_rejected
-            accepted_value = money(accepted_value + base_unit_cost * accepted)
+            accepted_value = money(accepted_value + money(base_unit_cost * accepted))
             if line.sales_order_line_fk is not None and accepted > ZERO:
                 sales_line = self._db.get(SalesOrderLine, line.sales_order_line_fk)
                 if sales_line is not None:
@@ -515,37 +514,7 @@ class ProcurementService:
         )
         receipt.number = allocated.number
 
-        if accepted_value > ZERO:
-            inventory_account = GOODS_IN_QUARANTINE if receipt.inspection_pending else INVENTORY
-            outcome = JournalService(self._db, clock=self._clock).post(
-                actor,
-                JournalDraft(
-                    posting_date=receipt.received_on,
-                    narration=f"Goods received {receipt.number} against {order.number}",
-                    lines=[
-                        EntryLine(
-                            account_code=inventory_account,
-                            side=Side.DEBIT,
-                            amount=accepted_value,
-                            narration=f"{order.number} received",
-                        ),
-                        EntryLine(
-                            account_code=GOODS_RECEIVED_NOT_INVOICED,
-                            side=Side.CREDIT,
-                            amount=accepted_value,
-                            narration=f"{order.number} awaiting invoice",
-                        ),
-                    ],
-                    source=JournalSource.PURCHASES,
-                    source_reference=receipt.number,
-                    source_id=receipt.id,
-                    idempotency_key=f"goods_receipt:{receipt.id}",
-                    currency_code=business.base_currency if business else None,
-                    branch_id=actor.branch_id,
-                ),
-            )
-            receipt.journal_entry_fk = outcome.entry.id
-
+        self._take_in(actor, order, receipt)
         receipt.state = GoodsReceiptState.POSTED.value
         receipt.posted_by_id = actor.user_id
         receipt.posted_at = self._clock.now()
@@ -568,6 +537,72 @@ class ProcurementService:
             },
         )
         return receipt
+
+    def _take_in(self, actor: AnyActor, order: PurchaseOrder, receipt: GoodsReceipt) -> None:
+        """What was accepted enters stock, into quarantine where inspection is pending.
+
+        Stock items arrive as movements with layers, Dr 12000 or 12100; an item that holds
+        no stock is cost of sales at once, Dr 50000. Either way, Cr 20150 until the
+        supplier's invoice replaces the accrual. Goods bought for an order line are held
+        for it as soon as they are usable.
+        """
+        inventory = InventoryService(self._db, clock=self._clock)
+        engine = inventory.engine
+        if receipt.warehouse_fk is None:
+            receipt.warehouse_fk = inventory.default_warehouse(
+                receipt.business_id, actor.branch_id
+            ).id
+        warehouse_id = receipt.warehouse_fk
+        state = StockState.QUARANTINE if receipt.inspection_pending else StockState.USABLE
+        operation = engine.begin(
+            actor,
+            MovementType.RECEIPT,
+            occurred_on=receipt.received_on,
+            source_type="goods_receipt",
+            source_id=receipt.id,
+            reference=receipt.number,
+        )
+        for line in receipt.lines:
+            if line.quantity_accepted <= ZERO:
+                continue
+            ordered = self._db.get(PurchaseOrderLine, line.purchase_order_line_fk)
+            assert ordered is not None
+            product = self._db.get(Product, ordered.product_fk) if ordered.product_fk else None
+            value = money(line.unit_cost * line.quantity_accepted)
+            if not holds_stock(product):
+                operation.debit(COST_OF_GOODS_SOLD, value)
+                operation.credit(GOODS_RECEIVED_NOT_INVOICED, value)
+                continue
+            assert product is not None
+            batch = engine.batch_for(
+                product,
+                line.batch,
+                expires_on=line.expiry,
+                manufacturer=line.manufacturer,
+            )
+            operation.add(
+                product,
+                warehouse_id,
+                state,
+                line.quantity_accepted,
+                value,
+                batch=batch,
+                serials=(line.serials or "").splitlines(),
+                source_line_id=line.id,
+                counter=GOODS_RECEIVED_NOT_INVOICED,
+            )
+            if state is StockState.USABLE and ordered.sales_order_line_fk is not None:
+                sales_line = self._db.get(SalesOrderLine, ordered.sales_order_line_fk)
+                if sales_line is not None:
+                    inventory.reserve_for_line(
+                        operation, product, warehouse_id, sales_line, line.quantity_accepted
+                    )
+        entry = operation.finish(
+            f"Goods received {receipt.number} against {order.number}",
+            source=JournalSource.PURCHASES,
+            idempotency_key=f"goods_receipt:{receipt.id}",
+        )
+        receipt.journal_entry_fk = entry.id if entry is not None else None
 
     def receipts(
         self, actor: AnyActor, *, order_id: uuid.UUID | None = None, limit: int = 50

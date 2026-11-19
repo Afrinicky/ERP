@@ -24,6 +24,13 @@ from sqlalchemy.orm import Session
 from nickland.application.context import Actor
 from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.catalogue import CatalogueService, ProductDraft
+from nickland.application.services.inventory import (
+    InventoryService,
+    LandedChargeDraft,
+    OpeningDraft,
+    StockLineDraft,
+)
+from nickland.application.services.inventory_reports import InventoryReportService
 from nickland.application.services.ledger_reports import LedgerReportService
 from nickland.application.services.orders import AcceptanceDraft, SalesOrderService
 from nickland.application.services.parties import PartyDraft, PartyService
@@ -79,6 +86,8 @@ from tests.conftest import make_actor
 
 D = Decimal
 LATER = date(2027, 6, 30)
+ON_THE_SHELF = D("8900")
+"""The analyser held as opening stock, already in 12000 before anything is received."""
 """Balances are read well after every posting date, so nothing is excluded by the clock."""
 
 
@@ -103,6 +112,14 @@ def world(db: Session, clock: FixedClock, admin: Actor, provisioned: dict[str, u
         admin, ProductDraft(sku="RGT-002", name="Reagent pack", stock_unit_id=unit.id)
     )
     db.flush()
+    # One analyser on the shelf: the stock part of the split line draws on it.
+    InventoryService(db, clock=clock).open_stock(
+        admin,
+        OpeningDraft(
+            warehouse_id=provisioned["warehouse_id"],
+            lines=[StockLineDraft(product_id=analyser.id, quantity=D("1"), unit_cost=D("8900"))],
+        ),
+    )
 
     sourcing = SourcingService(db, clock=clock)
     request = sourcing.create_request(
@@ -235,6 +252,14 @@ def balance(db: Session, clock: FixedClock, business_id: uuid.UUID, code: str) -
     return LedgerReportService(db, clock=clock).account_balance(
         business_id, account.id, as_at=LATER
     )
+
+
+def stock_agrees(db: Session, clock: FixedClock, admin: Actor) -> None:
+    reports = InventoryReportService(db, clock=clock)
+    reconciliation = reports.reconcile(admin)
+    assert reconciliation.agrees, reconciliation.discrepancies
+    valuation = reports.valuation(admin)
+    assert valuation.agrees, [(a.account, a.layers, a.ledger) for a in valuation.accounts]
 
 
 def accepted_order(db: Session, orders: SalesOrderService, admin: Actor, world: dict):
@@ -389,6 +414,23 @@ class TestAcceptanceAndConversion:
         assert analyser.quantity_received == D("1")
         assert analyser.state == SalesOrderLineState.OPEN.value
         assert order.state == SalesOrderState.PARTIALLY_FULFILLED.value
+        assert InventoryService(db).reserved_for(analyser.id) == D("1")
+
+    def test_the_stock_part_is_not_assumed_when_the_shelf_is_empty(
+        self, db: Session, clock: FixedClock, orders: SalesOrderService, admin: Actor, world: dict
+    ) -> None:
+        inventory = InventoryService(db, clock=clock)
+        held = inventory.reserve(
+            admin,
+            product_id=world["analyser"].id,
+            warehouse_id=inventory.default_warehouse(admin.business_id, admin.branch_id).id,
+            quantity=D("1"),
+        )
+        order = accepted_order(db, orders, admin, world)
+        analyser = order.lines[0]
+        assert (analyser.quantity_procured, analyser.quantity_received) == (D("0"), D("0"))
+        assert inventory.reserved_for(analyser.id) == D("0")
+        inventory.release(admin, held.id)
 
     def test_a_quotation_converts_once(
         self, db: Session, orders: SalesOrderService, admin: Actor, world: dict
@@ -609,8 +651,11 @@ class TestReceiving:
         db.flush()
         assert receipt.journal_entry_fk is not None
         business_id = admin.business_id
-        assert balance(db, clock, business_id, "12000") == D("6880")
+        assert balance(db, clock, business_id, "12000") == ON_THE_SHELF + D("6880")
         assert balance(db, clock, business_id, "20150") == D("6880")
+        stock_agrees(db, clock, admin)
+        # Bought for the order line, so held for it as soon as it is usable.
+        assert InventoryService(db).reserved_for(gamma.lines[0].sales_order_line_fk) == D("40")
 
     def test_rejected_goods_are_counted_but_not_valued(
         self, db: Session, clock: FixedClock, orders, procurement, admin: Actor, world: dict
@@ -673,7 +718,7 @@ class TestReceiving:
         )
         db.flush()
         assert balance(db, clock, admin.business_id, "12100") == D("6880")
-        assert balance(db, clock, admin.business_id, "12000") == D("0")
+        assert balance(db, clock, admin.business_id, "12000") == ON_THE_SHELF + D("0")
 
 
 # --------------------------------------------------------------------------------------
@@ -735,6 +780,7 @@ class TestThreeWayMatch:
     def test_approving_the_variance_lets_the_invoice_post(
         self,
         db: Session,
+        clock: FixedClock,
         orders,
         procurement,
         billing: SupplierBillingService,
@@ -765,6 +811,9 @@ class TestThreeWayMatch:
         posted = billing.post(admin, invoice.id)
         assert posted.state == "posted"
         assert posted.number.startswith("SIN-")
+        # The approved rise of 3 a pack follows the 40 packs into their layer.
+        assert balance(db, clock, admin.business_id, "12000") == ON_THE_SHELF + D("7000")
+        stock_agrees(db, clock, admin)
 
     def test_a_rejected_variance_returns_the_invoice_for_correction(
         self,
@@ -943,7 +992,7 @@ class TestPayables:
         assert invoice.base_total == D("7912")
         assert balance(db, clock, business_id, "20000") == D("7912")
         assert balance(db, clock, business_id, "20150") == D("0"), "the accrual is cleared"
-        assert balance(db, clock, business_id, "12000") == D("6880")
+        assert balance(db, clock, business_id, "12000") == ON_THE_SHELF + D("6880")
         assert balance(db, clock, business_id, "13000") == D("1032")
 
     def test_payment_reduces_the_payable_and_the_cash_and_posts_no_expense(
@@ -977,7 +1026,7 @@ class TestPayables:
         assert balance(db, clock, business_id, "20000") == D("2912")
         assert balance(db, clock, business_id, "10200") == D("-5000")
         assert balance(db, clock, business_id, "50000") == expenses_before
-        assert balance(db, clock, business_id, "12000") == D("6880"), (
+        assert balance(db, clock, business_id, "12000") == ON_THE_SHELF + D("6880"), (
             "inventory is untouched by paying"
         )
 
@@ -1069,7 +1118,27 @@ class TestPayables:
         business_id = admin.business_id
         assert invoice.amount_credited == D("344")
         assert balance(db, clock, business_id, "20000") == D("7568")
-        assert balance(db, clock, business_id, "12000") == D("6536")
+        assert balance(db, clock, business_id, "12000") == ON_THE_SHELF + D("6536")
+        stock_agrees(db, clock, admin)
+
+    def test_a_landed_charge_is_carried_into_the_goods(
+        self,
+        db: Session,
+        clock: FixedClock,
+        orders,
+        procurement,
+        admin: Actor,
+        world: dict,
+    ) -> None:
+        _, gamma = received_gamma(db, orders, procurement, admin, world)
+        receipt = procurement.receipts(admin, order_id=gamma.id)[0]
+        InventoryService(db, clock=clock).landed_charge(
+            admin,
+            LandedChargeDraft(receipt_id=receipt.id, category="freight", amount=D("120")),
+        )
+        assert balance(db, clock, admin.business_id, "12000") == ON_THE_SHELF + D("7000")
+        assert balance(db, clock, admin.business_id, "20100") == D("120")
+        stock_agrees(db, clock, admin)
 
 
 # --------------------------------------------------------------------------------------
