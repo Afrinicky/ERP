@@ -35,6 +35,11 @@ from nickland.application.services.catalogue import (  # noqa: E402
     ProductDraft,
 )
 from nickland.application.services.identity import IdentityService  # noqa: E402
+from nickland.application.services.inventory import (  # noqa: E402
+    InventoryService,
+    OpeningDraft,
+    StockLineDraft,
+)
 from nickland.application.services.ledger_reports import LedgerReportService  # noqa: E402
 from nickland.application.services.orders import AcceptanceDraft, SalesOrderService  # noqa: E402
 from nickland.application.services.parties import PartyDraft, PartyService  # noqa: E402
@@ -121,6 +126,15 @@ def build() -> tuple[Session, Actor, dict[str, uuid.UUID]]:
         actor, ProductDraft(sku="RGT-002", name="Reagent pack", stock_unit_id=unit.id)
     )
     session.flush()
+    # One analyser on the shelf, for the stock part of the split line to draw on.
+    assert warehouse_id is not None
+    InventoryService(session).open_stock(
+        actor,
+        OpeningDraft(
+            warehouse_id=warehouse_id,
+            lines=[StockLineDraft(product_id=analyser.id, quantity=D("1"), unit_cost=D("8900"))],
+        ),
+    )
 
     sourcing = SourcingService(session)
     request = sourcing.create_request(

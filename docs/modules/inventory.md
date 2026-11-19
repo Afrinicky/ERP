@@ -86,6 +86,16 @@ goods it relates to are no longer on the shelf.
 Inventory accounts 12000, 12100 and 12200 refuse manual journals: a figure posted by hand
 there would have no layer behind it, and the valuation could no longer agree with them.
 
+## Negative stock
+
+Valued stock never goes below zero, whatever a warehouse's `allows_negative_stock` setting
+says. A negative quantity has no cost layer behind it, so the value of what was issued could
+only be guessed and later corrected — and a guessed cost posted to cost of sales is the very
+difference between the valuation and the ledger that this module exists to prevent. The
+setting remains on the warehouse for the point-of-sale phase to decide whether a counter sale
+may be recorded before the stock it draws on is received; if it may, the sale waits for the
+receipt to be valued, and the ledger never holds a negative layer.
+
 ## Traceability
 
 - A **batch**-tracked product carries a batch on every physical movement. A receipt names it,
@@ -135,6 +145,18 @@ reserved for that line automatically; quarantined goods are reserved when they p
 | Reserve, assemble, issue | `assembly.manage` |
 | Issue an expired batch | `expiry.override` |
 | Reverse an operation | `stock.adjust` |
+
+## Where the other phases meet it
+
+- A goods receipt enters stock through the engine: one movement and layer per line, posted
+  Dr 12000 or 12100, Cr 20150. A line for an item that holds no stock goes to cost of sales.
+- A supplier invoice's approved price variance and its non-recoverable tax, and a supplier
+  credit note, revalue the layers of the receipts they relate to, wherever that stock now is,
+  and send the issued share to cost of sales.
+- Converting a quotation reserves the part sourced from stock, as far as stock allows; what
+  cannot be held stays unprocured rather than assumed.
+- Goods received or passed at inspection against a purchase order raised for an order line
+  are reserved for that line.
 
 ## Test obligations
 
