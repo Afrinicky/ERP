@@ -183,6 +183,14 @@ def agrees(db: Session, clock: FixedClock, admin: Actor) -> None:
     assert valuation.agrees, [(a.account, a.layers, a.ledger) for a in valuation.accounts]
 
 
+def issue(
+    dispatch: DispatchService, admin: Actor, shipment_id: uuid.UUID, kind: DocumentKind
+) -> IssuedDocument:
+    return DocumentRenderService(dispatch.session, clock=dispatch.clock).issue_for_shipment(
+        admin, shipment_id, kind
+    )
+
+
 def ship(
     dispatch: DispatchService,
     admin: Actor,
@@ -210,7 +218,7 @@ def ship(
         ),
     )
     dispatch.pack(admin, shipment.id, package_count=3)
-    return dispatch.dispatch(
+    sent = dispatch.dispatch(
         admin,
         shipment.id,
         DispatchDraft(
@@ -222,6 +230,9 @@ def ship(
             tracking_reference="SPL-77310",
         ),
     )
+    # The waybill travels with the goods.
+    issue(dispatch, admin, sent.id, DocumentKind.WAYBILL)
+    return sent
 
 
 # --------------------------------------------------------------------------------------
@@ -235,7 +246,7 @@ class TestWaybillAndProof:
     ) -> None:
         shipment = ship(dispatch, admin, world, [("gloves", "10")])
         assert shipment.number == f"{world['order'].number}/1"
-        waybill = dispatch.issue_document(admin, shipment.id, DocumentKind.WAYBILL)
+        waybill = issue(dispatch, admin, shipment.id, DocumentKind.WAYBILL)
         assert waybill.number.startswith("WB-")
         dispatch.confirm_delivery(
             admin,
@@ -276,14 +287,14 @@ class TestWaybillAndProof:
                 lines=[ShipmentLineDraft(sales_order_line_id=world["gloves"].id, quantity=D("4"))],
             ),
         )
-        pick = dispatch.issue_document(admin, shipment.id, DocumentKind.PICK_LIST)
-        assert dispatch.issue_document(admin, shipment.id, DocumentKind.PICK_LIST).id == pick.id
+        pick = issue(dispatch, admin, shipment.id, DocumentKind.PICK_LIST)
+        assert issue(dispatch, admin, shipment.id, DocumentKind.PICK_LIST).id == pick.id
         with pytest.raises(ConflictError):
-            dispatch.issue_document(admin, shipment.id, DocumentKind.WAYBILL)
+            issue(dispatch, admin, shipment.id, DocumentKind.WAYBILL)
         with pytest.raises(ConflictError):
-            dispatch.issue_document(admin, shipment.id, DocumentKind.PACKING_LIST)
+            issue(dispatch, admin, shipment.id, DocumentKind.PACKING_LIST)
         dispatch.pack(admin, shipment.id, package_count=1)
-        packing = dispatch.issue_document(admin, shipment.id, DocumentKind.PACKING_LIST)
+        packing = issue(dispatch, admin, shipment.id, DocumentKind.PACKING_LIST)
         assert packing.kind == "packing_list"
 
     def test_several_waybills_for_one_order(
@@ -292,8 +303,7 @@ class TestWaybillAndProof:
         first = ship(dispatch, admin, world, [("gloves", "4")])
         second = ship(dispatch, admin, world, [("gloves", "6")], mode="own_vehicle")
         numbers = {
-            dispatch.issue_document(admin, item.id, DocumentKind.WAYBILL).number
-            for item in (first, second)
+            issue(dispatch, admin, item.id, DocumentKind.WAYBILL).number for item in (first, second)
         }
         assert len(numbers) == 2
         assert [item.number for item in dispatch.shipments(admin, order_id=world["order"].id)] == [
@@ -639,6 +649,7 @@ class TestModesAndControls:
         )
         assert context.order_reference == world["order"].number
         assert [(line.batch, line.quantity) for line in context.lines] == [("RX-25088", D("2"))]
-        note = dispatch.issue_document(admin, shipment.id, DocumentKind.DELIVERY_NOTE)
+        note = issue(dispatch, admin, shipment.id, DocumentKind.DELIVERY_NOTE)
+        assert issue(dispatch, admin, shipment.id, DocumentKind.DELIVERY_NOTE).id == note.id
         stored = db.get(IssuedDocument, note.id)
         assert stored is not None and stored.byte_count > 0

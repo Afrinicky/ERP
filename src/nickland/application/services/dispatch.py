@@ -24,7 +24,6 @@ from nickland.application.services.inventory import InventoryService, open_quant
 from nickland.application.services.orders import SalesOrderService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.stock import Operation, holds_stock
-from nickland.documents.service import DocumentRenderService
 from nickland.domain.catalogue import TrackingPolicy
 from nickland.domain.dispatch import (
     DispatchDetail,
@@ -121,6 +120,9 @@ class OutcomeDraft:
     lost: Decimal = ZERO
     reason: str | None = None
     serials_delivered: list[str] = field(default_factory=list)
+    remainder_as: ExceptionKind | str | None = None
+    """Account for everything not delivered under one outcome, worked out here rather
+    than by whoever is entering it: ``returned``, ``damaged`` or ``lost``."""
 
 
 @dataclass(slots=True)
@@ -144,6 +146,14 @@ class DispatchService:
         self._assembly = AssemblyService(session, clock=self._clock)
         self._orders = SalesOrderService(session, clock=self._clock)
         self._records = DocumentRecordService(session, clock=self._clock)
+
+    @property
+    def session(self) -> DbSession:
+        return self._db
+
+    @property
+    def clock(self) -> Clock:
+        return self._clock
 
     # -- preparing ----------------------------------------------------------------------
 
@@ -434,13 +444,7 @@ class DispatchService:
                 raise ValidationError(
                     f"Line {line.position}: record what became of it.", field="outcomes"
                 )
-            outcome = LineOutcome(
-                shipped=line.quantity,
-                delivered=money(item.delivered),
-                returned=money(item.returned),
-                damaged=money(item.damaged),
-                lost=money(item.lost),
-            )
+            outcome = _outcome_of(line, item)
             outcome.validate(position=line.position)
             if outcome.short > ZERO and not _clean(item.reason):
                 raise ValidationError(
@@ -453,6 +457,12 @@ class DispatchService:
             raise ValidationError(
                 "A delivery is confirmed with the name of the person who received it.",
                 field="recipient_name",
+            )
+
+        if recipient and shipment.waybill_fk is None:
+            raise ConflictError(
+                "The waybill is issued before a delivery is confirmed against it: the "
+                "recipient signs the copy that travelled with the goods."
             )
 
         engine = self._inventory.engine
@@ -552,10 +562,14 @@ class DispatchService:
         operation.finish(f"Delivery of {shipment.number}")
 
         if recipient:
-            waybill = self.issue_document(actor, shipment.id, DocumentKind.WAYBILL)
+            if shipment.waybill_fk is None:
+                raise ConflictError(
+                    "The waybill is issued before a delivery is confirmed against it: the "
+                    "recipient signs the copy that travelled with the goods."
+                )
             acknowledgement = self._records.acknowledge(
                 actor,
-                waybill.id,
+                shipment.waybill_fk,
                 recipient_name=recipient,
                 recipient_role=draft.recipient_role,
                 location=draft.location or shipment.destination,
@@ -669,20 +683,24 @@ class DispatchService:
 
     # -- documents ----------------------------------------------------------------------
 
-    def issue_document(
+    def document_for(
         self, actor: AnyActor, shipment_id: uuid.UUID, kind: DocumentKind
-    ) -> IssuedDocument:
-        """Issue one of the shipment's documents, once. Asking again serves the copy kept."""
+    ) -> tuple[Shipment, IssuedDocument | None, DocumentContext | None]:
+        """What the documents layer needs to issue one of the shipment's documents.
+
+        Returns the copy already issued, if there is one, since each is issued once; or
+        else the context to render, numbered from the type's own sequence.
+        """
         actor.require("waybill.issue")
         shipment = self.require(actor, shipment_id)
         if kind not in DOCUMENT_FIELD:
             raise ValidationError(f"A shipment does not carry a {kind.heading.lower()}.")
         existing_id = getattr(shipment, DOCUMENT_FIELD[kind])
         if existing_id is not None:
-            existing = self._db.get(IssuedDocument, existing_id)
-            assert existing is not None
-            return existing
+            return shipment, self._db.get(IssuedDocument, existing_id), None
         state = ShipmentState(shipment.state)
+        if state is ShipmentState.CANCELLED:
+            raise ConflictError("A cancelled shipment carries no documents.")
         allowed = ISSUABLE_FROM.get(kind)
         if allowed is not None and state not in allowed:
             raise ConflictError(
@@ -691,8 +709,6 @@ class DispatchService:
             )
         if allowed is None and shipment.dispatch_operation_id is None:
             raise ConflictError(f"A {kind.heading.lower()} is issued once the goods have left.")
-        if state is ShipmentState.CANCELLED:
-            raise ConflictError("A cancelled shipment carries no documents.")
 
         self._records.seed(shipment.business_id)
         document_type = self._records.type_by_code(shipment.business_id, kind.value)
@@ -705,18 +721,13 @@ class DispatchService:
             )
             .number
         )
-        context = self.context(actor, shipment, kind, number=number)
-        issued = DocumentRenderService(self._db, clock=self._clock).issue(
-            actor,
-            kind.value,
-            context,
-            source_type="shipment",
-            source_id=shipment.id,
-            party_id=shipment.customer_fk,
-        )
+        return shipment, None, self.context(actor, shipment, kind, number=number)
+
+    def record_document(
+        self, shipment: Shipment, kind: DocumentKind, issued: IssuedDocument
+    ) -> None:
         setattr(shipment, DOCUMENT_FIELD[kind], issued.id)
         self._db.flush()
-        return issued
 
     def context(
         self, actor: AnyActor, shipment: Shipment, kind: DocumentKind, *, number: str
@@ -1018,6 +1029,33 @@ class DispatchService:
         if len(batches) == 1:
             return self._db.get(Batch, next(iter(batches)))
         return None
+
+
+def _outcome_of(line: ShipmentLine, item: OutcomeDraft) -> LineOutcome:
+    delivered = money(item.delivered)
+    if item.remainder_as is None:
+        return LineOutcome(
+            shipped=line.quantity,
+            delivered=delivered,
+            returned=money(item.returned),
+            damaged=money(item.damaged),
+            lost=money(item.lost),
+        )
+    kind = ExceptionKind(item.remainder_as)
+    if kind is ExceptionKind.CUSTOMER_RETURN:
+        raise ValidationError("A return after delivery is recorded once the goods come back.")
+    if delivered > line.quantity:
+        raise ValidationError(
+            f"Line {line.position}: more cannot be delivered than was shipped.", field="delivered"
+        )
+    remainder = money(line.quantity - delivered)
+    return LineOutcome(
+        shipped=line.quantity,
+        delivered=delivered,
+        returned=remainder if kind is ExceptionKind.RETURNED else ZERO,
+        damaged=remainder if kind is ExceptionKind.DAMAGED else ZERO,
+        lost=remainder if kind is ExceptionKind.LOST else ZERO,
+    )
 
 
 def _clean(value: str | None) -> str | None:

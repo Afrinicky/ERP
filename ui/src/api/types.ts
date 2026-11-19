@@ -2283,3 +2283,134 @@ export interface AssemblyStepInput {
   serials?: string[];
   override_reason?: string | null;
 }
+
+// -- Dispatch ---------------------------------------------------------------------------
+
+export type ShipmentStateName =
+  | 'prepared'
+  | 'packed'
+  | 'dispatched'
+  | 'delivered'
+  | 'partially_delivered'
+  | 'failed'
+  | 'cancelled';
+
+export type DispatchModeName = 'carrier' | 'own_vehicle' | 'courier' | 'collection';
+
+export interface ShippableLine {
+  line_id: string;
+  position: number;
+  description: string;
+  sku: string | null;
+  tracking: 'none' | 'batch' | 'serial';
+  holds_stock: boolean;
+  ordered: string;
+  delivered: string;
+  outstanding: string;
+  staged: string;
+  shippable: string;
+}
+
+export interface DocumentLink {
+  id: string;
+  number: string;
+  kind: string;
+}
+
+export interface ShipmentLineRow {
+  id: string;
+  position: number;
+  sales_order_line_id: string;
+  sku: string;
+  description: string;
+  tracking: 'none' | 'batch' | 'serial';
+  quantity: string;
+  delivered: string;
+  returned: string;
+  damaged: string;
+  lost: string;
+  customer_returned: string;
+  serials: string[];
+}
+
+export interface Shipment {
+  id: string;
+  number: string;
+  order_id: string;
+  order_number: string | null;
+  customer: string | null;
+  warehouse: string;
+  state: ShipmentStateName;
+  state_label: string;
+  mode: DispatchModeName;
+  mode_label: string;
+  carrier: string | null;
+  driver: string | null;
+  vehicle: string | null;
+  destination: string | null;
+  package_count: number;
+  tracking_reference: string | null;
+  prepared_on: string;
+  packed_on: string | null;
+  dispatched_on: string | null;
+  delivered_on: string | null;
+  notes: string | null;
+  pick_list: DocumentLink | null;
+  packing_list: DocumentLink | null;
+  waybill: DocumentLink | null;
+  delivery_note: DocumentLink | null;
+  proof: {
+    recipient_name: string;
+    recipient_role: string | null;
+    acknowledged_at: string;
+    location: string | null;
+    evidence_kind: string;
+    has_evidence: boolean;
+    evidence_hash: string | null;
+  } | null;
+  lines: ShipmentLineRow[];
+  exceptions: {
+    id: string;
+    line_position: number;
+    kind: 'returned' | 'damaged' | 'lost' | 'customer_return';
+    kind_label: string;
+    quantity: string;
+    reason: string;
+    replacement_owed: boolean;
+    occurred_on: string;
+  }[];
+}
+
+export interface DispatchInput {
+  mode: DispatchModeName;
+  package_count: number;
+  carrier?: string | null;
+  driver?: string | null;
+  vehicle?: string | null;
+  destination?: string | null;
+  tracking_reference?: string | null;
+  override_reason?: string | null;
+}
+
+export interface DeliveryOutcomeInput {
+  shipment_line_id: string;
+  delivered: string;
+  returned?: string;
+  damaged?: string;
+  lost?: string;
+  reason?: string | null;
+  serials_delivered?: string[];
+  /** Everything not delivered, under one outcome; the service works out how many. */
+  remainder_as?: 'returned' | 'damaged' | 'lost' | null;
+}
+
+export interface DeliveryInput {
+  outcomes: DeliveryOutcomeInput[];
+  recipient_name?: string | null;
+  recipient_role?: string | null;
+  location?: string | null;
+  comments?: string | null;
+  evidence_kind?: string;
+  evidence_base64?: string | null;
+  media_type?: string | null;
+}

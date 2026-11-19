@@ -209,6 +209,32 @@ class DocumentRenderService:
             party_id=party_id,
         )
 
+    def issue_for_shipment(
+        self, actor: AnyActor, shipment_id: uuid.UUID, kind: DocumentKind
+    ) -> IssuedDocument:
+        """A shipment's pick list, packing list, waybill or delivery note. PRD §6.9.
+
+        Issued once: asking again returns the copy kept, so the waybill the recipient
+        signed is the one that is reprinted.
+        """
+        from nickland.application.services.dispatch import DispatchService
+
+        dispatch = DispatchService(self._db, clock=self._clock)
+        shipment, existing, context = dispatch.document_for(actor, shipment_id, kind)
+        if existing is not None:
+            return existing
+        assert context is not None
+        issued = self.issue(
+            actor,
+            kind.value,
+            context,
+            source_type="shipment",
+            source_id=shipment.id,
+            party_id=shipment.customer_fk,
+        )
+        dispatch.record_document(shipment, kind, issued)
+        return issued
+
     def reprint(self, actor: AnyActor, document_id: uuid.UUID) -> RenderedDocument:
         """Serve the stored snapshot, so a reprint matches the copy already sent."""
         issued = self._records.require_issued(actor, document_id)

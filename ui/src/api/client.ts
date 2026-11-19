@@ -7,6 +7,10 @@
 
 import type {
   Account,
+  DeliveryInput,
+  DispatchInput,
+  Shipment,
+  ShippableLine,
   AssemblyStepInput,
   AssemblyWorkspace,
   InspectionInput,
@@ -964,6 +968,40 @@ export const api = {
       request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/release`, payload),
     assemble: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
       request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/assemble`, payload),
+  },
+
+  dispatch: {
+    shipments: (query: { order_id?: string; state?: string } = {}) =>
+      request<Shipment[]>('GET', '/dispatch/shipments', undefined, query),
+    shipment: (shipmentId: string) => request<Shipment>('GET', `/dispatch/shipments/${shipmentId}`),
+    shippable: (orderId: string) =>
+      request<ShippableLine[]>('GET', `/dispatch/orders/${orderId}/lines`),
+    prepare: (payload: {
+      sales_order_id: string;
+      lines: { sales_order_line_id: string; quantity: string; serials?: string[] }[];
+      destination?: string | null;
+      notes?: string | null;
+    }) => request<Shipment>('POST', '/dispatch/shipments', payload),
+    pack: (shipmentId: string, packageCount: number) =>
+      request<Shipment>('POST', `/dispatch/shipments/${shipmentId}/pack`, {
+        package_count: packageCount,
+      }),
+    dispatch: (shipmentId: string, payload: DispatchInput) =>
+      request<Shipment>('POST', `/dispatch/shipments/${shipmentId}/dispatch`, payload),
+    deliver: (shipmentId: string, payload: DeliveryInput) =>
+      request<Shipment>('POST', `/dispatch/shipments/${shipmentId}/deliver`, payload),
+    cancel: (shipmentId: string, reason: string) =>
+      request<Shipment>('POST', `/dispatch/shipments/${shipmentId}/cancel`, { reason }),
+    customerReturn: (
+      shipmentId: string,
+      lineId: string,
+      payload: { quantity: string; reason: string; replacement_owed: boolean; serials?: string[] },
+    ) =>
+      request<Shipment>('POST', `/dispatch/shipments/${shipmentId}/lines/${lineId}/return`, payload),
+    issueDocument: (
+      shipmentId: string,
+      kind: 'pick_list' | 'packing_list' | 'waybill' | 'delivery_note',
+    ) => request<IssuedDocument>('POST', `/dispatch/shipments/${shipmentId}/documents/${kind}`),
   },
 
   designer: {

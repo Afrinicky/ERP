@@ -254,7 +254,7 @@ export function ReceiptDialog({
   );
 }
 
-interface SignaturePadHandle {
+export interface SignaturePadHandle {
   toBase64: () => string | null;
   clear: () => void;
 }
@@ -265,7 +265,7 @@ interface SignaturePadHandle {
  * The handle is an ordinary prop rather than a `ref`: React reserves that name and
  * strips it from a function component's props, so the parent would hold nothing.
  */
-function SignaturePad({
+export function SignaturePad({
   id,
   handle,
   onDrawnChange,

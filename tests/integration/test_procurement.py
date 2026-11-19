@@ -71,6 +71,8 @@ from nickland.application.services.supplier_billing import (
     SupplierBillingService,
 )
 from nickland.application.services.units import UnitService
+from nickland.documents.service import DocumentRenderService
+from nickland.domain.documents import DocumentKind
 from nickland.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -1196,6 +1198,9 @@ class TestAssembly:
                 vehicle="GR 2214-24",
                 destination="Banhart Hospital, Accra",
             ),
+        )
+        DocumentRenderService(db, clock=clock).issue_for_shipment(
+            admin, shipment.id, DocumentKind.WAYBILL
         )
         # In transit: still owned, carried in goods in transit until signed for.
         assert balance(db, clock, admin.business_id, "12200") == D("6880")

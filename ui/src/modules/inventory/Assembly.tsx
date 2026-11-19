@@ -1,5 +1,6 @@
 /**
- * Order assembly: reserve stock for each line, stage it at the assembly bay, dispatch.
+ * Order assembly: reserve stock for each line and stage it at the assembly bay, ready for a
+ * shipment.
  *
  * Quantities are entered with the transactional stepper, and each step is one large
  * action labelled for what it does, per the design system's transactional controls.
@@ -22,23 +23,24 @@ import {
   StatusChip,
   Stepper,
   TextArea,
-  TextInput,
   useToast,
 } from "@/components/primitives";
 import { describe } from "@/lib/errors";
 import { quantity } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
+import { PrepareDialog } from "@/modules/dispatch/PrepareDialog";
+import { ShipmentDialog } from "@/modules/dispatch/ShipmentDialog";
+
 import { serialList } from "./shared";
 
-type Step = "reserve" | "release" | "assemble" | "dispatch";
+type Step = "reserve" | "release" | "assemble";
 
 const STEP: Record<Step, { title: string; action: string; limit: (line: AssemblyLine) => string }> =
   {
     reserve: { title: "Reserve stock", action: "Reserve", limit: (line) => line.to_reserve },
     release: { title: "Release reservation", action: "Release", limit: (line) => line.stageable },
     assemble: { title: "Stage for dispatch", action: "Stage", limit: (line) => line.stageable },
-    dispatch: { title: "Dispatch to customer", action: "Dispatch", limit: (line) => line.staged },
   };
 
 export function Assembly({ canAssemble }: { canAssemble: boolean }) {
@@ -96,16 +98,26 @@ export function Assembly({ canAssemble }: { canAssemble: boolean }) {
 }
 
 function Lines({ space, canAssemble }: { space: AssemblyWorkspace; canAssemble: boolean }) {
+  const { can } = useSession();
   const [active, setActive] = useState<{ line: AssemblyLine; step: Step } | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [opened, setOpened] = useState<string | null>(null);
 
   return (
     <Card
       title={`${space.order_number ?? "Order"} · ${space.customer ?? ""}`}
       subtitle={`Assembled at ${space.warehouse}`}
       actions={
-        <StatusChip tone={space.ready ? "ok" : "neutral"}>
-          {space.ready ? "Ready for dispatch" : "In assembly"}
-        </StatusChip>
+        <>
+          <StatusChip tone={space.ready ? "ok" : "neutral"}>
+            {space.ready ? "Ready for dispatch" : "In assembly"}
+          </StatusChip>
+          {can("dispatch.manage") && space.lines.some((line) => Number(line.staged) > 0) ? (
+            <Button tone="primary" onClick={() => setPreparing(true)}>
+              Prepare shipment
+            </Button>
+          ) : null}
+        </>
       }
       flush
     >
@@ -123,7 +135,7 @@ function Lines({ space, canAssemble }: { space: AssemblyWorkspace; canAssemble: 
           <Figure label="Reserved" value={line.reserved} />
           <Figure label="Incoming" value={line.incoming} />
           <Figure label="Staged" value={line.staged} />
-          <Figure label="Dispatched" value={line.dispatched} />
+          <Figure label="Delivered" value={line.delivered} />
           <div className="assembly-line__actions">
             {canAssemble && line.holds_stock ? (
               <>
@@ -146,15 +158,6 @@ function Lines({ space, canAssemble }: { space: AssemblyWorkspace; canAssemble: 
                     Stage
                   </Button>
                 ) : null}
-                {Number(line.staged) > 0 ? (
-                  <Button
-                    tone="primary"
-                    size="transactional"
-                    onClick={() => setActive({ line, step: "dispatch" })}
-                  >
-                    Dispatch
-                  </Button>
-                ) : null}
                 {Number(line.stageable) > 0 ? (
                   <Button tone="plain" onClick={() => setActive({ line, step: "release" })}>
                     Release
@@ -163,7 +166,7 @@ function Lines({ space, canAssemble }: { space: AssemblyWorkspace; canAssemble: 
               </>
             ) : null}
             {line.holds_stock && Number(line.outstanding) === 0 ? (
-              <StatusChip tone="ok">Dispatched</StatusChip>
+              <StatusChip tone="ok">{Number(line.staged) > 0 ? "Staged" : "Dispatched"}</StatusChip>
             ) : null}
           </div>
         </div>
@@ -176,6 +179,17 @@ function Lines({ space, canAssemble }: { space: AssemblyWorkspace; canAssemble: 
           onClose={() => setActive(null)}
         />
       ) : null}
+      {preparing ? (
+        <PrepareDialog
+          orderId={space.order_id}
+          onClose={() => setPreparing(false)}
+          onPrepared={(id) => {
+            setPreparing(false);
+            setOpened(id);
+          }}
+        />
+      ) : null}
+      {opened ? <ShipmentDialog shipmentId={opened} onClose={() => setOpened(null)} /> : null}
     </Card>
   );
 }
@@ -202,25 +216,20 @@ function StepDialog({
 }) {
   const client = useQueryClient();
   const toast = useToast();
-  const { can } = useSession();
   const spec = STEP[step];
   const limit = Number(spec.limit(line));
   const [amount, setAmount] = useState(String(limit));
   const [serialText, setSerialText] = useState("");
-  const [override, setOverride] = useState("");
-  const [needsOverride, setNeedsOverride] = useState(false);
 
   const run = useMutation({
     mutationFn: () => {
       const payload = {
         quantity: amount,
         serials: serialList(serialText),
-        override_reason: override.trim() || null,
       };
       if (step === "reserve") return api.inventory.assemblyReserve(orderId, line.line_id, payload);
       if (step === "release") return api.inventory.assemblyRelease(orderId, line.line_id, payload);
-      if (step === "assemble") return api.inventory.assemble(orderId, line.line_id, payload);
-      return api.inventory.assemblyDispatch(orderId, line.line_id, payload);
+      return api.inventory.assemble(orderId, line.line_id, payload);
     },
     onSuccess: (space) => {
       client.setQueryData(["inventory", "assembly", orderId], space);
@@ -230,10 +239,6 @@ function StepDialog({
         `${spec.action}: ${quantity(amount)} × ${line.sku ?? line.description}.`,
       );
       onClose();
-    },
-    onError: (error) => {
-      if (step === "dispatch" && describe(error).message.includes("expired"))
-        setNeedsOverride(true);
     },
   });
 
@@ -254,7 +259,9 @@ function StepDialog({
             onClick={() => run.mutate()}
             busy={run.isPending}
             disabled={
-              Number(amount) <= 0 || Number(amount) > limit || (needsOverride && !override.trim())
+              Number(amount) <= 0 ||
+              Number(amount) > limit ||
+              (step === "assemble" && line.tracking === "serial" && !serialText.trim())
             }
           >
             {spec.action} {quantity(amount)}
@@ -279,7 +286,7 @@ function StepDialog({
             />
           )}
         </Field>
-        {step === "dispatch" && line.tracking === "serial" ? (
+        {step === "assemble" && line.tracking === "serial" ? (
           <Field label="Serial numbers" required hint="One per line">
             {(id) => (
               <TextArea
@@ -290,25 +297,6 @@ function StepDialog({
               />
             )}
           </Field>
-        ) : null}
-        {needsOverride ? (
-          can("expiry.override") ? (
-            <Field label="Reason for issuing expired stock" required>
-              {(id) => (
-                <TextInput
-                  id={id}
-                  value={override}
-                  onChange={(event) => setOverride(event.target.value)}
-                  placeholder="Customer accepts for training use"
-                />
-              )}
-            </Field>
-          ) : (
-            <Alert
-              tone="warning"
-              title="An authorised override is required to issue expired stock."
-            />
-          )
         ) : null}
       </div>
     </Dialog>

@@ -17,6 +17,7 @@ import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Affiliates } from '@/modules/affiliates/Affiliates';
 import { Parties } from '@/modules/parties/Parties';
 import { Sales } from '@/modules/sales/Sales';
+import { Dispatch } from '@/modules/dispatch/Dispatch';
 import { Inventory } from '@/modules/inventory/Inventory';
 import { Purchases } from '@/modules/purchases/Purchases';
 import { Placeholder } from '@/modules/Placeholder';
@@ -100,25 +101,7 @@ function Entry() {
 
         <Route path="/inventory/*" element={<Inventory />} />
 
-        <Route
-          path="/dispatch/*"
-          element={
-            <Placeholder
-              title="Dispatch"
-              phase="Phase 9"
-              stage="Operations"
-              purpose="Picking, packing, waybills, delivery and proof of receipt."
-              depends="Inventory and the document designer."
-              contents={[
-                'Pick lists and packing lists from assembled orders',
-                'Waybills and delivery notes, several per order where needed',
-                'Carrier, own vehicle, courier and customer collection',
-                'Signed or scanned proof of delivery, preserved unaltered',
-                'Failed, short and damaged delivery, with their consequences posted',
-              ]}
-            />
-          }
-        />
+        <Route path="/dispatch/*" element={<Dispatch />} />
 
         <Route path="/affiliates/*" element={<Affiliates />} />
 

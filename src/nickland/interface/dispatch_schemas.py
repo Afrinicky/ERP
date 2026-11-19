@@ -64,6 +64,7 @@ class OutcomeContract(_Figures):
     lost: Decimal = Decimal("0")
     reason: str | None = Field(default=None, max_length=300)
     serials_delivered: list[str] = Field(default_factory=list)
+    remainder_as: str | None = Field(default=None, pattern="^(returned|damaged|lost)$")
 
 
 class DeliveryContract(Contract):

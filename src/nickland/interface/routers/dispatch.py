@@ -23,6 +23,7 @@ from nickland.interface.dependencies import (
     ActorDependency,
     AssemblyDependency,
     DispatchDependency,
+    DocumentDependency,
     InventoryReportDependency,
 )
 from nickland.interface.dispatch_schemas import (
@@ -254,6 +255,7 @@ def deliver(
     payload: DeliveryContract,
     actor: ActorDependency,
     dispatch: DispatchDependency,
+    documents: DocumentDependency,
     reports: InventoryReportDependency,
 ) -> ShipmentReply:
     evidence: bytes | None = None
@@ -264,6 +266,10 @@ def deliver(
             raise ValidationError(
                 "The evidence is not valid base64.", field="evidence_base64"
             ) from error
+    if payload.recipient_name:
+        # The recipient signs the waybill; issue it now if the driver left without a copy
+        # being recorded, so the proof has a document to attach to.
+        documents.issue_for_shipment(actor, shipment_id, DocumentKind.WAYBILL)
     shipment = dispatch.confirm_delivery(
         actor,
         shipment_id,
@@ -277,6 +283,7 @@ def deliver(
                     lost=item.lost,
                     reason=item.reason,
                     serials_delivered=item.serials_delivered,
+                    remainder_as=item.remainder_as,
                 )
                 for item in payload.outcomes
             ],
@@ -338,11 +345,13 @@ def issue_document(
     shipment_id: uuid.UUID,
     kind: str,
     actor: ActorDependency,
-    dispatch: DispatchDependency,
+    documents: DocumentDependency,
 ) -> IssuedDocumentReply:
     """Issued once; asking again returns the copy already issued."""
     try:
         chosen = DocumentKind(kind)
     except ValueError as error:
         raise ValidationError(f"{kind!r} is not a shipment document.", field="kind") from error
-    return IssuedDocumentReply.model_validate(dispatch.issue_document(actor, shipment_id, chosen))
+    return IssuedDocumentReply.model_validate(
+        documents.issue_for_shipment(actor, shipment_id, chosen)
+    )
