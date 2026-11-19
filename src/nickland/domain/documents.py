@@ -21,7 +21,7 @@ from nickland.domain.money import ZERO, money
 
 
 class DocumentKind(StrEnum):
-    """The twelve documents that ship, per PRD §6.6 and §6.7."""
+    """The documents that ship, per PRD §6.6, §6.7 and §6.9."""
 
     PRO_FORMA = "pro_forma"
     QUOTATION = "quotation"
@@ -35,6 +35,8 @@ class DocumentKind(StrEnum):
     STATEMENT = "statement"
     PAYMENT_VOUCHER = "payment_voucher"
     CREDIT_NOTE = "credit_note"
+    PICK_LIST = "pick_list"
+    """The storekeeper's list of what to take from where, per PRD §6.9. Internal."""
 
     @property
     def heading(self) -> str:
@@ -56,11 +58,7 @@ class DocumentKind(StrEnum):
         template may turn them on. The default is the safe way round; the decision is
         the administrator's.
         """
-        return self not in (
-            DocumentKind.WAYBILL,
-            DocumentKind.DELIVERY_NOTE,
-            DocumentKind.PACKING_LIST,
-        )
+        return self not in GOODS_DOCUMENTS
 
     @property
     def is_outbound(self) -> bool:
@@ -71,6 +69,17 @@ class DocumentKind(StrEnum):
             DocumentKind.PAYMENT_VOUCHER,
         )
 
+
+GOODS_DOCUMENTS = frozenset(
+    {
+        DocumentKind.WAYBILL,
+        DocumentKind.DELIVERY_NOTE,
+        DocumentKind.PACKING_LIST,
+        DocumentKind.PICK_LIST,
+    }
+)
+"""Paperwork that travels with goods or is read in the store: unpriced by default, and
+printed with a delivery block and dispatch signatures."""
 
 _HEADINGS: dict[DocumentKind, str] = {
     DocumentKind.PRO_FORMA: "Pro Forma Invoice",
@@ -85,6 +94,7 @@ _HEADINGS: dict[DocumentKind, str] = {
     DocumentKind.STATEMENT: "Statement of Account",
     DocumentKind.PAYMENT_VOUCHER: "Payment Voucher",
     DocumentKind.CREDIT_NOTE: "Credit Note",
+    DocumentKind.PICK_LIST: "Pick List",
 }
 
 

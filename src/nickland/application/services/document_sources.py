@@ -191,10 +191,14 @@ class DocumentSourceService:
             note=row.get("specification"),
         )
 
+    def party_block(self, customer_id: uuid.UUID, contact_id: uuid.UUID | None = None) -> Party:
+        """A customer as a bill-to or ship-to block, for any document source."""
+        return self._party(customer_id, contact_id)
+
     def _party(self, customer_id: uuid.UUID, contact_id: uuid.UUID | None) -> Party:
         party = self._db.get(PartyRow, customer_id)
         if party is None:
-            raise NotFoundError("The customer on this quotation no longer exists.")
+            raise NotFoundError("The customer on this record no longer exists.")
         address = self._db.scalar(
             select(Address).where(Address.owner_type == "party", Address.owner_id == party.id)
         )

@@ -2262,6 +2262,7 @@ export interface AssemblyLine {
   assembled: string;
   staged: string;
   dispatched: string;
+  delivered: string;
   outstanding: string;
   to_reserve: string;
   /** Reserved and still on the shelf: what may be staged or released. */

@@ -122,6 +122,7 @@ def _refuse_line_change(obj: Any, changed: set[str]) -> None:
 
 def _guard(session: Session, _context: Any, _instances: Any) -> None:
     """Refuse the flush where it would rewrite a settled record."""
+    from nickland.persistence.dispatch_models import DeliveryException
     from nickland.persistence.document_models import DocumentAcknowledgement, IssuedDocument
     from nickland.persistence.inventory_models import LayerConsumption, StockMovement
     from nickland.persistence.ledger_models import JournalEntry, JournalLine
@@ -139,6 +140,11 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
             and all(old is None for old in inspect(obj).attrs.journal_entry_fk.history.deleted)
         ):
             continue
+        if isinstance(obj, DeliveryException):
+            raise ConflictError(
+                "A delivery exception cannot be altered. Record a further one.",
+                record_id=str(obj.id),
+            )
         if isinstance(obj, StockMovement | LayerConsumption):
             raise ConflictError(
                 "A stock movement cannot be altered. The stock ledger is append-only, so "
@@ -186,6 +192,11 @@ def _guard(session: Session, _context: Any, _instances: Any) -> None:
                 _refuse_line_change(obj, changed)
 
     for obj in session.deleted:
+        if isinstance(obj, DeliveryException):
+            raise ConflictError(
+                "A delivery exception cannot be deleted. It posted stock and value.",
+                record_id=str(obj.id),
+            )
         if isinstance(obj, StockMovement | LayerConsumption):
             raise ConflictError(
                 "A stock movement cannot be deleted. Reverse the operation it belongs to.",

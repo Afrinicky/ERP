@@ -165,7 +165,11 @@ class SalesOrderLine(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixi
     quantity_dispatched: Mapped[Decimal] = mapped_column(
         Quantity, nullable=False, default=Decimal("0")
     )
-    """Issued from stock to the customer."""
+    """Left the warehouse for the customer, and not come back."""
+    quantity_delivered: Mapped[Decimal] = mapped_column(
+        Quantity, nullable=False, default=Decimal("0")
+    )
+    """Signed for by the customer, less what they later returned."""
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
 
     unit_price: Mapped[Decimal] = mapped_column(UnitPrice, nullable=False, default=Decimal("0"))

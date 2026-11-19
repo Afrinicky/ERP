@@ -32,6 +32,7 @@ from nickland.domain.inventory import (
 from nickland.domain.money import ZERO, money
 from nickland.domain.orders import RECEIVABLE_STATES
 from nickland.persistence.catalogue_models import Product
+from nickland.persistence.document_models import DocumentAcknowledgement, IssuedDocument
 from nickland.persistence.inventory_models import (
     Batch,
     CostLayer,
@@ -43,7 +44,12 @@ from nickland.persistence.inventory_models import (
 )
 from nickland.persistence.ledger_models import Account
 from nickland.persistence.models import Business, Party, User, Warehouse
-from nickland.persistence.order_models import PurchaseOrder, PurchaseOrderLine, SalesOrderLine
+from nickland.persistence.order_models import (
+    PurchaseOrder,
+    PurchaseOrderLine,
+    SalesOrder,
+    SalesOrderLine,
+)
 from nickland.platform.clock import Clock, SystemClock, business_date
 
 
@@ -505,6 +511,20 @@ class InventoryReportService:
     def order_number_of_line(self, line_id: uuid.UUID | None) -> str | None:
         line = self._db.get(SalesOrderLine, line_id) if line_id else None
         return line.order.number if line is not None else None
+
+    def order_number(self, order_id: uuid.UUID | None) -> str | None:
+        order = self._db.get(SalesOrder, order_id) if order_id else None
+        return order.number if order is not None else None
+
+    def order_line_description(self, line_id: uuid.UUID) -> str:
+        line = self._db.get(SalesOrderLine, line_id)
+        return line.description if line is not None else "—"
+
+    def issued_document(self, document_id: uuid.UUID | None) -> IssuedDocument | None:
+        return self._db.get(IssuedDocument, document_id) if document_id else None
+
+    def acknowledgement(self, record_id: uuid.UUID | None) -> DocumentAcknowledgement | None:
+        return self._db.get(DocumentAcknowledgement, record_id) if record_id else None
 
     def reversible(self, movement: StockMovement) -> bool:
         """Whether the operation could still be reversed: a kind a person reverses, not

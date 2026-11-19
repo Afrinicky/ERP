@@ -23,10 +23,8 @@ from nickland.application.services.orders import SalesOrderService
 from nickland.application.services.stock import holds_stock
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
 from nickland.domain.inventory import (
-    COST_OF_GOODS_SOLD,
     LocationKind,
     MovementType,
-    ReservationState,
     StockState,
 )
 from nickland.domain.money import ZERO, money
@@ -58,10 +56,16 @@ class AssemblyLine:
     incoming: Decimal
     assembled: Decimal
     dispatched: Decimal
+    delivered: Decimal
 
     @property
     def outstanding(self) -> Decimal:
         return money(max(ZERO, self.required - self.dispatched))
+
+    @property
+    def owed(self) -> Decimal:
+        """Still owed to the customer: required, less what they have signed for."""
+        return money(max(ZERO, self.required - self.delivered))
 
     @property
     def staged(self) -> Decimal:
@@ -130,6 +134,7 @@ class AssemblyService:
                     incoming=incoming.get(line.id, ZERO),
                     assembled=line.quantity_assembled,
                     dispatched=line.quantity_dispatched,
+                    delivered=line.quantity_delivered,
                 )
             )
         return Workspace(order=order, warehouse=warehouse, lines=lines)
@@ -191,9 +196,17 @@ class AssemblyService:
         return self.workspace(actor, order_id)
 
     def assemble(
-        self, actor: AnyActor, order_id: uuid.UUID, line_id: uuid.UUID, quantity: Decimal
+        self,
+        actor: AnyActor,
+        order_id: uuid.UUID,
+        line_id: uuid.UUID,
+        quantity: Decimal,
+        *,
+        serials: list[str] | None = None,
     ) -> Workspace:
-        """Move held stock to the assembly bay, ready to go out together."""
+        """Move held stock to the assembly bay, ready to go out together.
+
+        A serialised item is staged by naming the units, one per serial number."""
         actor.require("assembly.manage")
         space = self.workspace(actor, order_id)
         line, view, product = self._line(space, line_id)
@@ -214,6 +227,11 @@ class AssemblyService:
             reference=space.order.number,
         )
         remaining = quantity
+        if product.tracking_policy == "serial":
+            operation.relocate(
+                product, space.warehouse.id, quantity, to_location=bay.id, serials=serials or []
+            )
+            remaining = ZERO
         for balance in self._balances(product, space.warehouse.id, exclude=bay.id):
             if remaining <= ZERO:
                 break
@@ -233,106 +251,6 @@ class AssemblyService:
         operation.finish(f"Assembly for {space.order.number}")
         line.quantity_assembled = money(line.quantity_assembled + quantity)
         self._db.flush()
-        return self.workspace(actor, order_id)
-
-    def dispatch(
-        self,
-        actor: AnyActor,
-        order_id: uuid.UUID,
-        line_id: uuid.UUID,
-        quantity: Decimal,
-        *,
-        serials: list[str] | None = None,
-        override_reason: str | None = None,
-    ) -> Workspace:
-        """Issue staged stock to the customer against the line's reservation: Dr 50000."""
-        actor.require("assembly.manage")
-        space = self.workspace(actor, order_id)
-        line, view, product = self._line(space, line_id)
-        quantity = _quantity(quantity)
-        if quantity > view.staged:
-            raise ConflictError(
-                f"Line {view.position}: {view.staged.normalize()} is staged for dispatch."
-            )
-        override = (override_reason or "").strip() or None
-        if override:
-            actor.require("expiry.override")
-        bay = self._inventory.engine.location_of_kind(space.warehouse.id, LocationKind.ASSEMBLY)
-        operation = self._inventory.engine.begin(
-            actor,
-            MovementType.ISSUE,
-            occurred_on=self._inventory.today(actor),
-            source_type="sales_order",
-            source_id=space.order.id,
-            reference=space.order.number,
-        )
-        reservations = self._inventory.reservations_for(line.id)
-        remaining = quantity
-        for reservation in reservations:
-            if remaining <= ZERO:
-                break
-            portion = min(open_quantity(reservation), remaining)
-            operation.release(
-                product,
-                space.warehouse.id,
-                portion,
-                batch_id=reservation.batch_fk,
-                movement_type=MovementType.ISSUE,
-            )
-            reservation.quantity_consumed = money(reservation.quantity_consumed + portion)
-            if open_quantity(reservation) <= ZERO:
-                reservation.state = ReservationState.CONSUMED.value
-            remaining = money(remaining - portion)
-        if remaining > ZERO:
-            raise ConflictError("The line's reservation does not cover the dispatch.")
-        if serials:
-            operation.take(
-                product,
-                space.warehouse.id,
-                StockState.USABLE,
-                quantity,
-                location_id=bay.id,
-                serials=serials,
-                exclude_expired=True,
-                override_reason=override,
-                counter=COST_OF_GOODS_SOLD,
-                movement_type=MovementType.ISSUE,
-            )
-        else:
-            remaining = quantity
-            # Each part names the batch it leaves from, earliest expiry first.
-            for balance in self._balances(product, space.warehouse.id, only=bay.id):
-                if remaining <= ZERO:
-                    break
-                portion = min(balance.quantity, remaining)
-                operation.take(
-                    product,
-                    space.warehouse.id,
-                    StockState.USABLE,
-                    portion,
-                    location_id=bay.id,
-                    bin_id=balance.bin_fk,
-                    batch_id=balance.batch_fk,
-                    exclude_expired=True,
-                    override_reason=override,
-                    counter=COST_OF_GOODS_SOLD,
-                    movement_type=MovementType.ISSUE,
-                )
-                remaining = money(remaining - portion)
-            if remaining > ZERO:
-                raise ConflictError("Less is at the assembly bay than was to be dispatched.")
-        operation.finish(f"Dispatch for {space.order.number}")
-        line.quantity_dispatched = money(line.quantity_dispatched + quantity)
-        self._db.flush()
-        self._audit.record(
-            actor,
-            "order_line_dispatched",
-            entity_type="sales_order",
-            entity_id=space.order.id,
-            entity_label=space.order.number,
-            reason=override,
-            after={"line": view.position, "quantity": str(quantity)},
-        )
         return self.workspace(actor, order_id)
 
     # -- helpers ----------------------------------------------------------------------

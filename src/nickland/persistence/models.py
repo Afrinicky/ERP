@@ -503,6 +503,11 @@ from nickland.persistence.catalogue_models import (  # noqa: E402
     UnitConversionRow,
     UnitOfMeasure,
 )
+from nickland.persistence.dispatch_models import (  # noqa: E402
+    DeliveryException,
+    Shipment,
+    ShipmentLine,
+)
 from nickland.persistence.document_models import (  # noqa: E402
     DocumentAcknowledgement,
     DocumentTemplate,
@@ -605,6 +610,7 @@ __all__ = [
     "CustomFieldValue",
     "CustomerAcceptance",
     "CustomerPrice",
+    "DeliveryException",
     "DiscountLimitRow",
     "DocumentAcknowledgement",
     "DocumentTemplate",
@@ -654,6 +660,8 @@ __all__ = [
     "SalesOrderLine",
     "Session",
     "Setting",
+    "Shipment",
+    "ShipmentLine",
     "StockBalance",
     "StockBin",
     "StockCount",

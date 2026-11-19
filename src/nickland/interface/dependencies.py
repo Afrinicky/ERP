@@ -23,6 +23,7 @@ from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.commissions import CommissionService
 from nickland.application.services.custom_fields import CustomFieldService
 from nickland.application.services.designer import DesignerService
+from nickland.application.services.dispatch import DispatchService
 from nickland.application.services.documents import DocumentRecordService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
@@ -324,9 +325,14 @@ def get_assembly(session: SessionDependency, runtime: RuntimeDependency) -> Asse
     return AssemblyService(session, clock=runtime.clock)
 
 
+def get_dispatch(session: SessionDependency, runtime: RuntimeDependency) -> DispatchService:
+    return DispatchService(session, clock=runtime.clock)
+
+
 InventoryDependency = Annotated[InventoryService, Depends(get_inventory)]
 InventoryReportDependency = Annotated[InventoryReportService, Depends(get_inventory_reports)]
 AssemblyDependency = Annotated[AssemblyService, Depends(get_assembly)]
+DispatchDependency = Annotated[DispatchService, Depends(get_dispatch)]
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
 DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
 SalesOrderDependency = Annotated[SalesOrderService, Depends(get_sales_orders)]

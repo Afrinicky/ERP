@@ -49,11 +49,11 @@ def documents(db: Session, clock: FixedClock) -> DocumentRenderService:
 
 
 class TestSeeding:
-    def test_the_twelve_defaults_are_seeded_at_provisioning(
+    def test_the_defaults_are_seeded_at_provisioning(
         self, records: DocumentRecordService, admin: Actor
     ) -> None:
         types = records.types(admin)
-        assert len(types) == len(SEEDED_TYPES) == 12
+        assert len(types) == len(SEEDED_TYPES) == 13
         assert {item.code for item in types} == {item.code for item in SEEDED_TYPES}
 
     def test_each_type_has_one_published_template(

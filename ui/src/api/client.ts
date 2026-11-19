@@ -964,8 +964,6 @@ export const api = {
       request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/release`, payload),
     assemble: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
       request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/assemble`, payload),
-    assemblyDispatch: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
-      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/dispatch`, payload),
   },
 
   designer: {

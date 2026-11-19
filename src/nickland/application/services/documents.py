@@ -185,6 +185,21 @@ SEEDED_TYPES: tuple[SeededType, ...] = (
         70,
     ),
     SeededType(
+        "pick_list",
+        "Pick list",
+        DocumentKind.PICK_LIST,
+        "pick_list",
+        TemplateOptions(
+            show_delivery=False,
+            show_totals=False,
+            show_banking=False,
+            show_terms=False,
+            show_batch_and_expiry=True,
+            footer_note="Pick the earliest expiry first. Record any shortfall before dispatch.",
+        ),
+        75,
+    ),
+    SeededType(
         "purchase_order",
         "Purchase order",
         DocumentKind.PURCHASE_ORDER,
@@ -276,15 +291,22 @@ class DocumentRecordService:
     # ------------------------------------------------------------------- seeding
 
     def seed(self, business_id: uuid.UUID) -> int:
-        """Create the twelve default types, each with one published template."""
-        existing = self._db.scalar(
-            select(DocumentType.id).where(DocumentType.business_id == business_id).limit(1)
+        """Create any default type the business lacks, each with one published template.
+
+        Additive, so a type introduced by a later release reaches a business provisioned
+        before it, and nothing already there is touched.
+        """
+        present = set(
+            self._db.scalars(
+                select(DocumentType.code).where(DocumentType.business_id == business_id)
+            ).all()
         )
-        if existing is not None:
+        missing = [seeded for seeded in SEEDED_TYPES if seeded.code not in present]
+        if not missing:
             return 0
 
         now = self._clock.now()
-        for seeded in SEEDED_TYPES:
+        for seeded in missing:
             document_type = DocumentType(
                 business_id=business_id,
                 code=seeded.code,
@@ -314,7 +336,7 @@ class DocumentRecordService:
             )
             self._db.add(document_type)
         self._db.flush()
-        return len(SEEDED_TYPES)
+        return len(missing)
 
     # -------------------------------------------------------------------- reading
 

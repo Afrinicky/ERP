@@ -80,6 +80,7 @@ POSITION_FIELD = {
 
 SERIAL_AFTER = {
     MovementType.ISSUE: SerialState.ISSUED,
+    MovementType.DELIVERY: SerialState.ISSUED,
     MovementType.RETURN_TO_SUPPLIER: SerialState.RETURNED_TO_SUPPLIER,
 }
 """Where a serial goes when it leaves stock. Anything else that removes it writes it off;
@@ -561,8 +562,12 @@ class Operation:
         override_reason: str | None = None,
         counter: str | None = None,
         movement_type: MovementType | None = None,
+        layer_ids: frozenset[uuid.UUID] | None = None,
     ) -> list[Drawn]:
         """Stock leaves a state: drawn from places and layers, posted out of its account.
+
+        ``layer_ids`` confines the cost to particular layers: a delivery is valued from
+        the layers its own dispatch created, not from whatever else is in transit.
 
         With ``exclude_expired`` an expired batch is passed over, or refused where it is
         named, unless an override is recorded. ``counter`` names the account debited.
@@ -589,6 +594,8 @@ class Operation:
         for portion in portions:
             balance = portion.balance
             layers = self._layers(product.id, warehouse_id, state, balance.batch_fk)
+            if layer_ids is not None:
+                layers = [layer for layer in layers if layer.id in layer_ids]
             views = [_view(layer) for layer in layers]
             takes = consume(views, portion.quantity)
             by_id = {layer.id: layer for layer in layers}
@@ -659,6 +666,8 @@ class Operation:
         exclude_expired: bool = False,
         movement_type: MovementType | None = None,
         arriving_type: MovementType | None = None,
+        layer_ids: frozenset[uuid.UUID] | None = None,
+        override_reason: str | None = None,
     ) -> Decimal:
         """Stock changes state or warehouse, carrying its layers and their age with it."""
         drawn = self.take(
@@ -671,7 +680,9 @@ class Operation:
             batch_id=batch_id,
             serials=serials,
             exclude_expired=exclude_expired,
+            override_reason=override_reason,
             movement_type=movement_type,
+            layer_ids=layer_ids,
         )
         destination = to_location or self.engine.default_location(to_warehouse, to_state)
         moved = ZERO

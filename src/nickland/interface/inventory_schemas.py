@@ -442,6 +442,7 @@ class AssemblyLineReply(Reply):
     assembled: Decimal
     staged: Decimal
     dispatched: Decimal
+    delivered: Decimal
     outstanding: Decimal
     to_reserve: Decimal
     stageable: Decimal

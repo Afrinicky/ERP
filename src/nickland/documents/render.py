@@ -29,6 +29,7 @@ from nickland.domain.binding import (
     line_values,
 )
 from nickland.domain.documents import (
+    GOODS_DOCUMENTS,
     BankAccount,
     DocumentContext,
     DocumentKind,
@@ -382,11 +383,9 @@ def _signatures(context: DocumentContext, options: TemplateOptions) -> str:
         return ""
     if context.kind in (DocumentKind.PRO_FORMA, DocumentKind.QUOTATION, DocumentKind.STATEMENT):
         blocks = [("Prepared by", context.prepared_by), ("Approved by", context.approved_by)]
-    elif context.kind in (
-        DocumentKind.WAYBILL,
-        DocumentKind.DELIVERY_NOTE,
-        DocumentKind.PACKING_LIST,
-    ):
+    elif context.kind is DocumentKind.PICK_LIST:
+        blocks = [("Picked by", context.prepared_by), ("Checked by", None)]
+    elif context.kind in GOODS_DOCUMENTS:
         blocks = [("Dispatched by", context.prepared_by), ("Received by", None)]
     else:
         blocks = [

@@ -31,7 +31,7 @@ from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Final
 
-from nickland.domain.documents import Classification, DocumentKind, PageFormat
+from nickland.domain.documents import GOODS_DOCUMENTS, Classification, DocumentKind, PageFormat
 from nickland.domain.errors import ValidationError
 from nickland.domain.expressions import Expression, parse
 
@@ -1362,7 +1362,7 @@ def default_sections(kind: DocumentKind, *, priced: bool) -> tuple[Section, ...]
         Section(id="title", kind=SectionKind.TITLE, title=kind.heading),
         Section(id="parties", kind=SectionKind.PARTIES, title="Parties"),
     ]
-    if kind in (DocumentKind.WAYBILL, DocumentKind.DELIVERY_NOTE, DocumentKind.PACKING_LIST):
+    if kind in GOODS_DOCUMENTS:
         sections.append(Section(id="delivery", kind=SectionKind.DELIVERY, title="Delivery"))
     sections.append(
         Section(

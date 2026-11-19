@@ -97,6 +97,13 @@ class MovementType(StrEnum):
     COUNT_LOSS = "count_loss"
     ADJUSTMENT_GAIN = "adjustment_gain"
     ADJUSTMENT_LOSS = "adjustment_loss"
+    DISPATCH = "dispatch"
+    """To a customer: usable at the bay into transit, until the delivery is confirmed."""
+    DELIVERY = "delivery"
+    """Signed for by the customer: out of transit, to cost of sales."""
+    DELIVERY_RETURN = "delivery_return"
+    """Came back from a delivery: to the store, or to quarantine if damaged."""
+    TRANSIT_LOSS = "transit_loss"
     REVALUATION = "revaluation"
     """Value into or out of existing layers with no change in quantity: a landed charge,
     an approved invoice price variance, capitalised tax, a supplier credit."""
@@ -119,12 +126,16 @@ class LocationKind(StrEnum):
     QUARANTINE = "quarantine"
     ASSEMBLY = "assembly"
     """Where reserved stock is staged for an order before dispatch."""
+    DISPATCH = "dispatch"
+    """Where goods with a carrier are held in the ledger until delivery is confirmed:
+    kept apart from stock in transit between warehouses."""
 
 
 SEEDED_LOCATIONS: Final[tuple[tuple[str, str, LocationKind], ...]] = (
     ("MAIN", "Main store", LocationKind.STORAGE),
     ("QUAR", "Quarantine", LocationKind.QUARANTINE),
     ("ASSY", "Assembly", LocationKind.ASSEMBLY),
+    ("DESP", "Dispatched", LocationKind.DISPATCH),
 )
 """The places every warehouse has from the first movement, so a receipt into quarantine
 and an order staged for dispatch each have somewhere to go."""

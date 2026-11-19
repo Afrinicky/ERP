@@ -25,6 +25,14 @@ from nickland.application.context import Actor
 from nickland.application.services.assembly import AssemblyService
 from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.catalogue import CatalogueService, ProductDraft
+from nickland.application.services.dispatch import (
+    DeliveryDraft,
+    DispatchDraft,
+    DispatchService,
+    OutcomeDraft,
+    PrepareDraft,
+    ShipmentLineDraft,
+)
 from nickland.application.services.inventory import (
     InventoryService,
     LandedChargeDraft,
@@ -1169,15 +1177,45 @@ class TestAssembly:
 
         with pytest.raises(ConflictError):
             assembly.release(admin, order.id, reagent.line_id, D("1"))
-        space = assembly.dispatch(admin, order.id, reagent.line_id, D("40"))
-        reagent = space.lines[1]
-        assert (reagent.dispatched, reagent.reserved, reagent.outstanding) == (
+        dispatch = DispatchService(db, clock=clock)
+        shipment = dispatch.prepare(
+            admin,
+            PrepareDraft(
+                sales_order_id=order.id,
+                lines=[ShipmentLineDraft(sales_order_line_id=reagent.line_id, quantity=D("40"))],
+            ),
+        )
+        dispatch.pack(admin, shipment.id, package_count=4)
+        dispatch.dispatch(
+            admin,
+            shipment.id,
+            DispatchDraft(
+                mode="own_vehicle",
+                package_count=4,
+                driver="K. Boateng",
+                vehicle="GR 2214-24",
+                destination="Banhart Hospital, Accra",
+            ),
+        )
+        # In transit: still owned, carried in goods in transit until signed for.
+        assert balance(db, clock, admin.business_id, "12200") == D("6880")
+        dispatch.confirm_delivery(
+            admin,
+            shipment.id,
+            DeliveryDraft(
+                outcomes=[OutcomeDraft(shipment_line_id=shipment.lines[0].id, delivered=D("40"))],
+                recipient_name="A. Mensah",
+            ),
+        )
+        reagent = assembly.workspace(admin, order.id).lines[1]
+        assert (reagent.dispatched, reagent.delivered, reagent.reserved) == (
             D("40"),
-            D("0"),
+            D("40"),
             D("0"),
         )
         # 40 packs at 172 went to cost of sales.
         assert balance(db, clock, admin.business_id, "50000") == D("6880")
+        assert balance(db, clock, admin.business_id, "12200") == D("0")
         assert balance(db, clock, admin.business_id, "12000") == ON_THE_SHELF
         stock_agrees(db, clock, admin)
 

@@ -265,6 +265,7 @@ def _workspace(reports: InventoryReportDependency, space: Workspace) -> Assembly
                 assembled=line.assembled,
                 staged=line.staged,
                 dispatched=line.dispatched,
+                delivered=line.delivered,
                 outstanding=line.outstanding,
                 to_reserve=line.to_reserve,
                 stageable=line.stageable,
@@ -932,27 +933,3 @@ def assembly_assemble(
     return _workspace(
         reports, assembly_service.assemble(actor, order_id, line_id, payload.quantity)
     )
-
-
-@router.post(
-    "/assembly/{order_id}/lines/{line_id}/dispatch",
-    response_model=AssemblyReply,
-    summary="Dispatch a line",
-)
-def assembly_dispatch(
-    order_id: uuid.UUID,
-    line_id: uuid.UUID,
-    payload: AssemblyQuantityContract,
-    actor: ActorDependency,
-    assembly_service: AssemblyDependency,
-    reports: InventoryReportDependency,
-) -> AssemblyReply:
-    space = assembly_service.dispatch(
-        actor,
-        order_id,
-        line_id,
-        payload.quantity,
-        serials=payload.serials,
-        override_reason=payload.override_reason,
-    )
-    return _workspace(reports, space)
