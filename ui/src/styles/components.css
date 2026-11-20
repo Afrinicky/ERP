@@ -2318,6 +2318,16 @@
   align-items: baseline;
 }
 
+.access__actions-heading,
+.access__actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.access__choice {
+  min-width: 150px;
+}
+
 .access__held {
   font-size: var(--size-xs);
   font-weight: var(--weight-regular);

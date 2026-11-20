@@ -137,7 +137,7 @@ function RolesView() {
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: "24%" }}>Role</th>
+                  <th style={{ width: "18%" }}>Role</th>
                   <th>Responsibilities</th>
                   <th className="numeric" style={{ width: "9%" }}>
                     Users
@@ -146,7 +146,7 @@ function RolesView() {
                     Permissions
                   </th>
                   <th style={{ width: "12%" }}>Standing</th>
-                  {manage ? <th style={{ width: "22%" }} /> : null}
+                  {manage ? <th className="access__actions-heading" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -168,7 +168,7 @@ function RolesView() {
                       )}
                     </td>
                     {manage ? (
-                      <td>
+                      <td className="access__actions">
                         <div className="table__actions">
                           <Button tone="plain" size="compact" onClick={() => setEditing(role)}>
                             {role.is_administrator ? "View" : "Permissions"}
@@ -495,10 +495,12 @@ function RolePermissionsDialog({ role, onClose }: { role: Role; onClose: () => v
                 {shown.map((permission) => (
                   <Checkbox
                     key={permission.code}
-                    label={
-                      permission.sensitive ? `${permission.name} · sensitive` : permission.name
+                    label={permission.name}
+                    hint={
+                      permission.sensitive
+                        ? `Sensitive. ${permission.description}`
+                        : permission.description
                     }
-                    hint={permission.description}
                     checked={locked || granted.has(permission.code)}
                     disabled={locked}
                     onChange={(checked) => toggle([permission.code], checked)}
@@ -517,6 +519,8 @@ function RolePermissionsDialog({ role, onClose }: { role: Role; onClose: () => v
 
 function UsersView() {
   const users = useQuery({ queryKey: ["users", false], queryFn: () => api.users.list(false) });
+  const roles = useQuery({ queryKey: ["roles"], queryFn: api.roles.list });
+  const names = new Map((roles.data ?? []).map((role) => [role.code, role.name]));
   const [selected, setSelected] = useState<string | null>(null);
   const current = selected ?? users.data?.[0]?.id ?? null;
 
@@ -533,6 +537,7 @@ function UsersView() {
               <PersonRow
                 key={user.id}
                 user={user}
+                roles={user.role_codes.map((code) => names.get(code) ?? code).join(", ")}
                 selected={user.id === current}
                 onSelect={() => setSelected(user.id)}
               />
@@ -547,10 +552,12 @@ function UsersView() {
 
 function PersonRow({
   user,
+  roles,
   selected,
   onSelect,
 }: {
   user: User;
+  roles: string;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -564,7 +571,7 @@ function PersonRow({
     >
       <span className="access__person-name">{user.full_name}</span>
       <span className="cell-note">
-        {user.username} · {user.role_codes.join(", ")}
+        {user.username} · {roles}
       </span>
     </button>
   );
@@ -676,7 +683,7 @@ function PersonAccess({ userId }: { userId: string }) {
                 <tr>
                   <th>Permission</th>
                   <th style={{ width: "16%" }}>From roles</th>
-                  <th style={{ width: "22%" }}>For this person</th>
+                  <th style={{ width: "18%" }}>For this person</th>
                   <th style={{ width: "14%" }}>In force</th>
                 </tr>
               </thead>
@@ -703,17 +710,16 @@ function PersonAccess({ userId }: { userId: string }) {
                       return (
                         <tr key={permission.code}>
                           <td>
-                            <div>
-                              {permission.name}
-                              {permission.sensitive ? (
-                                <span className="cell-note"> · sensitive</span>
-                              ) : null}
+                            <div>{permission.name}</div>
+                            <div className="cell-note">
+                              {permission.sensitive ? "Sensitive. " : ""}
+                              {permission.description}
                             </div>
-                            <div className="cell-note">{permission.description}</div>
                           </td>
                           <td>{inRoles ? "Yes" : "No"}</td>
                           <td>
                             <Select
+                              className="access__choice"
                               aria-label={`${permission.name} for ${data.full_name}`}
                               value={choice}
                               disabled={locked}
@@ -724,7 +730,7 @@ function PersonAccess({ userId }: { userId: string }) {
                                 })
                               }
                             >
-                              <option value="role">As the roles say</option>
+                              <option value="role">Follow roles</option>
                               {inRoles ? (
                                 <option value="withhold">Withhold</option>
                               ) : (

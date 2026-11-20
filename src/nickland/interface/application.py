@@ -9,6 +9,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from nickland.interface.dependencies import Runtime
 from nickland.interface.errors import install_error_handlers
@@ -78,6 +81,25 @@ def build_runtime(settings: Settings | None = None, *, local_token: str | None =
         clock=SystemClock(),
         local_token=local_token,
     )
+
+
+class InterfaceFiles(StaticFiles):
+    """The built interface, with its own routes served the page that renders them.
+
+    The interface routes in the browser, so /sales or /settings/access exists only as a
+    route inside index.html. Without the fallback, reloading such a page, or opening a
+    link to it, finds no file and returns Not Found. A path that names a file, or one
+    under the API, is still Not Found when absent.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as error:
+            last = path.rsplit("/", 1)[-1]
+            if error.status_code != 404 or path.startswith("api") or "." in last:
+                raise
+            return await super().get_response("index.html", scope)
 
 
 def create_application(
@@ -162,7 +184,7 @@ def create_application(
         application.include_router(router, prefix=API_PREFIX)
 
     if static_root is not None and static_root.is_dir():
-        application.mount("/", StaticFiles(directory=static_root, html=True), name="interface")
+        application.mount("/", InterfaceFiles(directory=static_root, html=True), name="interface")
         logger.info("Serving interface from %s", static_root)
 
     return application
