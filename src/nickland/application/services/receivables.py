@@ -1401,6 +1401,10 @@ class ReceivablesService:
             raise NotFoundError("Receipt not found.")
         return receipt
 
+    def require_deposit(self, actor: AnyActor, deposit_id: uuid.UUID) -> CustomerDeposit:
+        actor.require_any("receivable.view", "receipt.manage")
+        return self._deposit(actor, deposit_id)
+
     def _deposit(self, actor: AnyActor, deposit_id: uuid.UUID) -> CustomerDeposit:
         deposit = self._db.get(CustomerDeposit, deposit_id)
         if deposit is None or deposit.business_id != actor.business_id:

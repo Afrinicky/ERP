@@ -2616,3 +2616,361 @@ export interface PosRefundInput {
   restock: boolean;
   supervisor?: PosSupervisor | null;
 }
+
+// -- Financial management ----------------------------------------------------------------
+
+export type FinancialAccountKindName = 'cash_drawer' | 'petty_cash' | 'bank' | 'mobile_money';
+
+export interface FinancialAccount {
+  id: string;
+  kind: FinancialAccountKindName;
+  kind_label: string;
+  name: string;
+  ledger_code: string;
+  institution: string | null;
+  number: string | null;
+  branch_name: string | null;
+  custodian: string | null;
+  balance: string;
+  is_active: boolean;
+}
+
+export type TreasuryMovementKindName =
+  | 'transfer'
+  | 'bank_charge'
+  | 'interest'
+  | 'adjustment_in'
+  | 'adjustment_out';
+
+export interface TreasuryMovement {
+  id: string;
+  number: string;
+  kind: TreasuryMovementKindName;
+  kind_label: string;
+  occurred_on: string;
+  from_account: string | null;
+  to_account: string | null;
+  amount: string;
+  charge: string;
+  reference: string | null;
+  reason: string;
+}
+
+export interface Cashbook {
+  account: FinancialAccount;
+  starts_on: string | null;
+  ends_on: string;
+  opening_balance: string;
+  closing_balance: string;
+  total_in: string;
+  total_out: string;
+  lines: {
+    entry_id: string;
+    number: string | null;
+    posting_date: string;
+    narration: string;
+    source: string;
+    debit: string;
+    credit: string;
+    running_balance: string;
+  }[];
+}
+
+export interface InvoiceableLine {
+  line_id: string;
+  description: string;
+  unit_price: string;
+  ordered: string;
+  delivered: string;
+  invoiced: string;
+  invoiceable: string;
+}
+
+export interface SalesInvoiceLine {
+  id: string;
+  position: number;
+  description: string;
+  quantity: string;
+  unit_price: string;
+  net: string;
+  tax: string;
+  total: string;
+  quantity_credited: string;
+}
+
+export interface SalesInvoice {
+  id: string;
+  number: string;
+  origin: 'sales_order' | 'pos_sale';
+  customer_id: string;
+  customer: string | null;
+  order_number: string | null;
+  issued_on: string;
+  due_on: string;
+  net_total: string;
+  tax_total: string;
+  total: string;
+  amount_received: string;
+  amount_credited: string;
+  amount_written_off: string;
+  amount_provided: string;
+  outstanding: string;
+  state: 'open' | 'part_settled' | 'settled' | 'written_off';
+  state_label: string;
+  disputed: boolean;
+  days_overdue: number;
+  credit_override_reason: string | null;
+  lines: SalesInvoiceLine[];
+}
+
+export interface CustomerReceipt {
+  id: string;
+  number: string;
+  customer_id: string;
+  customer: string | null;
+  account: string | null;
+  received_on: string;
+  amount: string;
+  allocated: string;
+  refunded: string;
+  unapplied: string;
+  reference: string | null;
+}
+
+export interface CustomerDeposit {
+  id: string;
+  number: string;
+  customer_id: string;
+  customer: string | null;
+  order_number: string | null;
+  received_on: string;
+  amount: string;
+  applied: string;
+  refunded: string;
+  held: string;
+  condition: 'on_invoice' | 'on_delivery';
+  condition_label: string;
+  state: 'held' | 'part_applied' | 'applied' | 'refunded';
+}
+
+export interface CreditNoteRecord {
+  id: string;
+  number: string;
+  invoice_id: string;
+  issued_on: string;
+  reason: string;
+  net: string;
+  tax: string;
+  total: string;
+}
+
+export interface AgeingRow {
+  customer_id: string;
+  customer: string;
+  current: string;
+  days_1_30: string;
+  days_31_60: string;
+  days_61_90: string;
+  over_90: string;
+  total: string;
+  unapplied: string;
+  credit_limit: string | null;
+  on_hold: boolean;
+}
+
+export interface CollectionNote {
+  id: string;
+  kind: 'contact' | 'promise' | 'dispute' | 'resolved';
+  kind_label: string;
+  note: string;
+  invoice_number: string | null;
+  promised_on: string | null;
+  promised_amount: string | null;
+  recorded_at: string;
+  recorded_by: string | null;
+}
+
+export interface WorklistItem {
+  invoice: SalesInvoice;
+  days_overdue: number;
+  outstanding: string;
+  latest_note: string | null;
+  latest_kind: string | null;
+  promised_on: string | null;
+  reminder_due: boolean;
+}
+
+export interface PartyStatement {
+  party_id: string;
+  party: string;
+  starts_on: string;
+  ends_on: string;
+  opening: string;
+  closing: string;
+  entries: {
+    posted_on: string;
+    reference: string | null;
+    narration: string;
+    debit: string;
+    credit: string;
+    balance: string;
+  }[];
+  ageing: Record<string, string>;
+}
+
+export interface ExpenseRecord {
+  id: string;
+  number: string;
+  payee_name: string;
+  category_code: string;
+  category: string | null;
+  description: string;
+  classification: 'operating' | 'capital';
+  net: string;
+  input_tax: string;
+  total: string;
+  incurred_on: string;
+  payee_reference: string | null;
+  settlement: 'paid' | 'on_credit' | 'staff_claim';
+  settlement_label: string;
+  account: string | null;
+  employee: string | null;
+  state: 'awaiting_approval' | 'recognised' | 'settled' | 'rejected';
+  state_label: string;
+  submitted_by: string | null;
+  approved_by: string | null;
+  rejection_reason: string | null;
+  duplicate_of: string | null;
+  duplicate_reason: string | null;
+  settled_on: string | null;
+}
+
+export interface ExpenseInput {
+  payee_name: string;
+  category_code: string;
+  description: string;
+  net: string;
+  settlement: 'paid' | 'on_credit' | 'staff_claim';
+  input_tax?: string;
+  classification?: 'operating' | 'capital';
+  incurred_on?: string | null;
+  payee_reference?: string | null;
+  employee_id?: string | null;
+  financial_account_id?: string | null;
+  duplicate_reason?: string | null;
+}
+
+export interface RecurringExpenseRecord {
+  id: string;
+  name: string;
+  payee_name: string;
+  category_code: string;
+  description: string;
+  net: string;
+  input_tax: string;
+  settlement: string;
+  frequency: 'weekly' | 'monthly' | 'quarterly';
+  next_due: string;
+  ends_on: string | null;
+  is_active: boolean;
+}
+
+export interface StatementLineRecord {
+  id: string;
+  position: number;
+  line_date: string;
+  description: string;
+  reference: string | null;
+  amount: string;
+  state: 'unmatched' | 'matched' | 'duplicate' | 'excluded';
+  note: string | null;
+}
+
+export interface BankStatementRecord {
+  id: string;
+  account_id: string;
+  account: string | null;
+  reference: string;
+  starts_on: string;
+  ends_on: string;
+  closing_balance: string;
+  ledger_balance: string;
+  difference: string;
+  unmatched: number;
+  duplicates: number;
+  state: 'open' | 'reconciled';
+  reconciled: boolean;
+  lines: StatementLineRecord[];
+}
+
+export interface LedgerItem {
+  journal_line_id: string;
+  entry_number: string | null;
+  posting_date: string;
+  narration: string;
+  reference: string | null;
+  amount: string;
+}
+
+export interface SourceRow {
+  source: string;
+  label: string;
+  records: number;
+  recorded: string;
+  posted: string;
+  difference: string;
+  unposted: number;
+  agrees: boolean;
+  notes: string[];
+}
+
+export interface MeasureRecord {
+  code: string;
+  label: string;
+  basis: 'flow' | 'position';
+  description: string;
+  value: string;
+  starts_on: string | null;
+  ends_on: string;
+}
+
+export interface MeasureDrill {
+  measure: MeasureRecord;
+  lines: {
+    entry_id: string;
+    number: string | null;
+    posting_date: string;
+    narration: string;
+    account_code: string;
+    account_name: string;
+    debit: string;
+    credit: string;
+    contribution: string;
+  }[];
+  total: string;
+  truncated: boolean;
+}
+
+export interface Widget {
+  measure: string;
+  size: 'small' | 'medium' | 'large';
+}
+
+export interface CommandLayout {
+  preset: string;
+  widgets: Widget[];
+  source: 'personal' | 'role' | 'preset';
+}
+
+export interface PaymentBatchRecord {
+  id: string;
+  number: string;
+  state: 'awaiting_approval' | 'paid' | 'rejected';
+  account: string | null;
+  pay_on: string;
+  items: { supplier_id: string; supplier: string; amount: string; invoice_ids: string[] }[];
+  total: string;
+  prepared_by: string | null;
+  approved_by: string | null;
+  rejection_reason: string | null;
+}

@@ -424,6 +424,9 @@ class TreasuryService:
         group = self._db.get(AccountGroup, ledger.group_fk) if ledger and ledger.group_fk else None
         return group.code if group else None
 
+    def today(self, business_id: uuid.UUID) -> date:
+        return self._today(business_id)
+
     def _today(self, business_id: uuid.UUID) -> date:
         business = self._db.get(Business, business_id)
         return business_date(self._clock.now(), business.timezone if business else "UTC")

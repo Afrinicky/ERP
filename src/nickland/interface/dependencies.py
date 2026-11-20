@@ -21,11 +21,13 @@ from nickland.application.services.assembly import AssemblyService
 from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.backup import BackupService
 from nickland.application.services.catalogue import CatalogueService
+from nickland.application.services.command_centre import CommandCentreService
 from nickland.application.services.commissions import CommissionService
 from nickland.application.services.custom_fields import CustomFieldService
 from nickland.application.services.designer import DesignerService
 from nickland.application.services.dispatch import DispatchService
 from nickland.application.services.documents import DocumentRecordService
+from nickland.application.services.expenses import ExpenseService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
 from nickland.application.services.importing import ImportService
@@ -43,11 +45,14 @@ from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.pricing_policy import PricingPolicyService
 from nickland.application.services.procurement import ProcurementService
 from nickland.application.services.quotations import QuotationService
+from nickland.application.services.receivables import ReceivablesService
+from nickland.application.services.reconciliation import ReconciliationService
 from nickland.application.services.setup import SetupService
 from nickland.application.services.sourcing import SourcingService
 from nickland.application.services.supplier_billing import SupplierBillingService
 from nickland.application.services.taxation import TaxService
 from nickland.application.services.theme import ThemeService
+from nickland.application.services.treasury import TreasuryService
 from nickland.application.services.units import UnitService
 from nickland.documents.service import DocumentRenderService
 from nickland.domain.errors import AuthenticationError, ConflictError
@@ -349,6 +354,37 @@ InventoryReportDependency = Annotated[InventoryReportService, Depends(get_invent
 AssemblyDependency = Annotated[AssemblyService, Depends(get_assembly)]
 DispatchDependency = Annotated[DispatchService, Depends(get_dispatch)]
 PosDependency = Annotated[PosService, Depends(get_pos)]
+
+
+def get_treasury(session: SessionDependency, runtime: RuntimeDependency) -> TreasuryService:
+    return TreasuryService(session, clock=runtime.clock)
+
+
+def get_receivables(session: SessionDependency, runtime: RuntimeDependency) -> ReceivablesService:
+    return ReceivablesService(session, clock=runtime.clock)
+
+
+def get_expenses(session: SessionDependency, runtime: RuntimeDependency) -> ExpenseService:
+    return ExpenseService(session, clock=runtime.clock)
+
+
+def get_reconciliation(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> ReconciliationService:
+    return ReconciliationService(session, clock=runtime.clock)
+
+
+def get_command_centre(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CommandCentreService:
+    return CommandCentreService(session, clock=runtime.clock)
+
+
+TreasuryDependency = Annotated[TreasuryService, Depends(get_treasury)]
+ReceivablesDependency = Annotated[ReceivablesService, Depends(get_receivables)]
+ExpenseDependency = Annotated[ExpenseService, Depends(get_expenses)]
+ReconciliationDependency = Annotated[ReconciliationService, Depends(get_reconciliation)]
+CommandCentreDependency = Annotated[CommandCentreService, Depends(get_command_centre)]
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
 DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
 SalesOrderDependency = Annotated[SalesOrderService, Depends(get_sales_orders)]

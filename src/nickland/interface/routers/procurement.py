@@ -7,7 +7,7 @@ from datetime import date
 
 from fastapi import APIRouter
 
-from nickland.application.services.payables import PaymentDraft
+from nickland.application.services.payables import BatchItem, PaymentDraft
 from nickland.application.services.procurement import (
     PurchaseLineDraft,
     PurchaseOrderDraft,
@@ -26,7 +26,16 @@ from nickland.interface.dependencies import (
     PayablesDependency,
     ProcurementDependency,
     SalesOrderDependency,
+    SessionDependency,
     SupplierBillingDependency,
+)
+from nickland.interface.finance_replies import Names
+from nickland.interface.finance_schemas import (
+    BatchContract,
+    BatchReply,
+    PartyStatementReply,
+    PriorityContract,
+    StatementEntryReply,
 )
 from nickland.interface.order_schemas import (
     CreditNoteContract,
@@ -649,6 +658,120 @@ def list_payments(
         _payment_reply(actor, parties, item)
         for item in payables.payments(actor, supplier_id=supplier_id, limit=limit)
     ]
+
+
+@router.post(
+    "/payables/invoices/{invoice_id}/priority",
+    response_model=PayableRowReply | None,
+    summary="Pay first, or hold back",
+)
+def set_priority(
+    invoice_id: uuid.UUID,
+    body: PriorityContract,
+    actor: ActorDependency,
+    payables: PayablesDependency,
+) -> PayableRowReply | None:
+    payables.set_priority(actor, invoice_id, body.priority, reason=body.reason)
+    found = [row for row in payables.register(actor).rows if row.invoice_id == invoice_id]
+    return PayableRowReply.model_validate(found[0]) if found else None
+
+
+@router.get(
+    "/payables/suppliers/{supplier_id}/statement",
+    response_model=PartyStatementReply,
+    summary="Supplier statement",
+)
+def supplier_statement(
+    supplier_id: uuid.UUID,
+    actor: ActorDependency,
+    payables: PayablesDependency,
+    start: date,
+    end: date | None = None,
+) -> PartyStatementReply:
+    found = payables.statement(actor, supplier_id, start=start, end=end)
+    return PartyStatementReply(
+        party_id=found.supplier.id,
+        party=found.supplier.name,
+        starts_on=found.starts_on,
+        ends_on=found.ends_on,
+        opening=found.opening,
+        closing=found.closing,
+        entries=[StatementEntryReply.model_validate(item) for item in found.entries],
+    )
+
+
+def _batch(db: SessionDependency, batch) -> BatchReply:  # type: ignore[no-untyped-def]
+    names = Names(db)
+    return BatchReply(
+        id=batch.id,
+        number=batch.number,
+        state=batch.state,
+        account=names.account(batch.financial_account_fk),
+        pay_on=batch.pay_on,
+        items=batch.items,
+        total=batch.total,
+        prepared_by=names.user(batch.prepared_by_id),
+        approved_by=names.user(batch.approved_by_id),
+        rejection_reason=batch.rejection_reason,
+    )
+
+
+@router.get("/payables/batches", response_model=list[BatchReply], summary="Payment batches")
+def batches(
+    actor: ActorDependency, payables: PayablesDependency, db: SessionDependency
+) -> list[BatchReply]:
+    return [_batch(db, item) for item in payables.batches(actor)]
+
+
+@router.post(
+    "/payables/batches", response_model=BatchReply, status_code=201, summary="Prepare a batch"
+)
+def prepare_batch(
+    body: BatchContract,
+    actor: ActorDependency,
+    payables: PayablesDependency,
+    db: SessionDependency,
+) -> BatchReply:
+    batch = payables.prepare_batch(
+        actor,
+        financial_account_id=body.financial_account_id,
+        items=[
+            BatchItem(
+                supplier_id=item.supplier_id,
+                amount=item.amount,
+                invoice_ids=item.invoice_ids,
+                reference=item.reference,
+            )
+            for item in body.items
+        ],
+        pay_on=body.pay_on,
+    )
+    return _batch(db, batch)
+
+
+@router.post(
+    "/payables/batches/{batch_id}/approve", response_model=BatchReply, summary="Approve and pay"
+)
+def approve_batch(
+    batch_id: uuid.UUID,
+    actor: ActorDependency,
+    payables: PayablesDependency,
+    db: SessionDependency,
+) -> BatchReply:
+    return _batch(db, payables.approve_batch(actor, batch_id))
+
+
+@router.post(
+    "/payables/batches/{batch_id}/reject", response_model=BatchReply, summary="Reject a batch"
+)
+def reject_batch(
+    batch_id: uuid.UUID,
+    body: ReasonContract,
+    actor: ActorDependency,
+    payables: PayablesDependency,
+    db: SessionDependency,
+) -> BatchReply:
+    return _batch(db, payables.reject_batch(actor, batch_id, reason=body.reason))
 
 
 __all__ = ["router"]
