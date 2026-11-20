@@ -430,6 +430,10 @@ class SupplierInvoice(
         Uuid, ForeignKey("purchase_orders.id", ondelete="RESTRICT"), nullable=False
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    priority: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="normal", server_default="normal"
+    )
+    """``urgent`` is paid first, ``hold`` is not paid until released."""
     invoiced_on: Mapped[date] = mapped_column(Date, nullable=False)
     due_on: Mapped[date] = mapped_column(Date, nullable=False)
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="GHS")

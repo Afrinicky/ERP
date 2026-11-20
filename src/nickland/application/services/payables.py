@@ -34,6 +34,8 @@ from nickland.domain.orders import (
     ageing_bucket,
     allocate_payment,
 )
+from nickland.persistence.finance_models import PaymentBatch
+from nickland.persistence.ledger_models import Account, JournalEntry, JournalLine
 from nickland.persistence.models import Business, Party
 from nickland.persistence.order_models import (
     SupplierInvoice,
@@ -57,6 +59,8 @@ class PaymentDraft:
     invoice_ids: list[uuid.UUID] = field(default_factory=list)
     """Which invoices to settle, in order. Empty: the oldest outstanding first."""
     notes: str | None = None
+    financial_account_id: uuid.UUID | None = None
+    """The account it leaves. None: the method's default account."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +87,34 @@ class PayablesRegister:
     total_outstanding: Decimal
     by_bucket: dict[str, Decimal]
     by_supplier: dict[str, Decimal]
+
+
+@dataclass(slots=True)
+class BatchItem:
+    supplier_id: uuid.UUID
+    amount: Decimal
+    invoice_ids: list[uuid.UUID] = field(default_factory=list)
+    reference: str | None = None
+
+
+@dataclass(slots=True)
+class StatementEntry:
+    posted_on: date
+    reference: str | None
+    narration: str
+    debit: Decimal
+    credit: Decimal
+    balance: Decimal
+
+
+@dataclass(slots=True)
+class SupplierStatement:
+    supplier: Party
+    starts_on: date
+    ends_on: date
+    opening: Decimal
+    entries: list[StatementEntry]
+    closing: Decimal
 
 
 class PayablesService:
@@ -114,6 +146,12 @@ class PayablesService:
         settles = money(draft.amount + draft.withheld)
 
         candidates = self._outstanding_for(business_id, supplier.id)
+        if not draft.invoice_ids:
+            # Paying on account: urgent invoices first, held ones not at all.
+            candidates = sorted(
+                (row for row in candidates if row[0].priority != "hold"),
+                key=lambda row: (row[0].priority != "urgent", row[0].due_on),
+            )
         if draft.invoice_ids:
             chosen = dict.fromkeys(draft.invoice_ids, True)
             candidates = [row for row in candidates if row[0].id in chosen]
@@ -178,9 +216,15 @@ class PayablesService:
                     subledger=SubledgerKind.AUTHORITY,
                 )
             )
+        paid_from = PAYMENT_ACCOUNTS[method]
+        if draft.financial_account_id is not None:
+            from nickland.application.services.treasury import TreasuryService
+
+            treasury = TreasuryService(self._db, clock=self._clock)
+            paid_from = treasury.ledger_code(treasury.require(actor, draft.financial_account_id))
         lines.append(
             EntryLine(
-                account_code=PAYMENT_ACCOUNTS[method],
+                account_code=paid_from,
                 side=Side.CREDIT,
                 amount=payment.amount,
                 narration=payment.reference or f"Payment {payment.number}",
@@ -278,6 +322,216 @@ class PayablesService:
             by_bucket=by_bucket,
             by_supplier=by_supplier,
         )
+
+    def set_priority(
+        self, actor: AnyActor, invoice_id: uuid.UUID, priority: str, *, reason: str
+    ) -> SupplierInvoice:
+        """Pay an invoice first, or hold it back until released."""
+        actor.require("payment.manage")
+        if priority not in ("urgent", "normal", "hold"):
+            raise ValidationError("Urgent, normal or on hold.", field="priority")
+        if not reason.strip():
+            raise ValidationError("A change of priority records why.", field="reason")
+        invoice = self._db.get(SupplierInvoice, invoice_id)
+        if invoice is None or invoice.business_id != actor.business_id:
+            raise NotFoundError("Supplier invoice not found.")
+        before = invoice.priority
+        invoice.priority = priority
+        self._db.flush()
+        self._audit.record(
+            actor,
+            "supplier_invoice_priority_set",
+            entity_type="supplier_invoice",
+            entity_id=invoice.id,
+            entity_label=invoice.number or invoice.supplier_reference,
+            reason=reason.strip(),
+            before={"priority": before},
+            after={"priority": priority},
+        )
+        return invoice
+
+    def statement(
+        self, actor: AnyActor, supplier_id: uuid.UUID, *, start: date, end: date | None = None
+    ) -> SupplierStatement:
+        """What the ledger holds for one supplier: every movement on their payable."""
+        actor.require("payable.view")
+        supplier = self._db.get(Party, supplier_id)
+        if (
+            supplier is None
+            or supplier.business_id != actor.business_id
+            or not supplier.is_supplier
+        ):
+            raise NotFoundError("Supplier not found.")
+        ends_on = end or self._today(actor)
+        account = self._db.scalar(
+            select(Account).where(
+                Account.business_id == supplier.business_id, Account.code == TRADE_PAYABLES
+            )
+        )
+        assert account is not None
+        base = select(JournalLine).where(
+            JournalLine.account_fk == account.id,
+            JournalLine.party_fk == supplier.id,
+            JournalLine.state == "posted",
+        )
+        opening = money(
+            sum(
+                (
+                    line.base_credit - line.base_debit
+                    for line in self._db.scalars(base.where(JournalLine.posting_date < start))
+                ),
+                ZERO,
+            )
+        )
+        running = opening
+        entries = []
+        for line in self._db.scalars(
+            base.where(
+                JournalLine.posting_date >= start, JournalLine.posting_date <= ends_on
+            ).order_by(JournalLine.posting_date, JournalLine.entry_fk, JournalLine.display_order)
+        ):
+            entry = self._db.get(JournalEntry, line.entry_fk)
+            running = money(running + line.base_credit - line.base_debit)
+            entries.append(
+                StatementEntry(
+                    posted_on=line.posting_date,
+                    reference=entry.source_reference if entry else None,
+                    narration=line.narration or (entry.narration if entry else ""),
+                    debit=line.base_debit,
+                    credit=line.base_credit,
+                    balance=running,
+                )
+            )
+        return SupplierStatement(
+            supplier=supplier,
+            starts_on=start,
+            ends_on=ends_on,
+            opening=opening,
+            entries=entries,
+            closing=running,
+        )
+
+    # -- batches ----------------------------------------------------------------------------
+
+    def prepare_batch(
+        self,
+        actor: AnyActor,
+        *,
+        financial_account_id: uuid.UUID,
+        items: list[BatchItem],
+        pay_on: date | None = None,
+    ) -> PaymentBatch:
+        """Several payments, prepared together and approved once by someone else."""
+        actor.require("payment.manage")
+        business_id = _business_of(actor)
+        if not items:
+            raise ValidationError("A batch pays at least one supplier.", field="items")
+        from nickland.application.services.treasury import TreasuryService
+
+        account = TreasuryService(self._db, clock=self._clock).require(actor, financial_account_id)
+        stored = []
+        for item in items:
+            supplier = self._db.get(Party, item.supplier_id)
+            if supplier is None or supplier.business_id != business_id or not supplier.is_supplier:
+                raise NotFoundError("Supplier not found.")
+            if money(item.amount) <= ZERO:
+                raise ValidationError("Each payment is above zero.", field="items")
+            owed = money(
+                sum((owed for _, owed in self._outstanding_for(business_id, supplier.id)), ZERO)
+            )
+            if money(item.amount) > owed:
+                raise ConflictError(f"{supplier.name} is owed {owed}.")
+            stored.append(
+                {
+                    "supplier_id": str(supplier.id),
+                    "supplier": supplier.name,
+                    "amount": str(money(item.amount)),
+                    "invoice_ids": [str(value) for value in item.invoice_ids],
+                    "reference": item.reference,
+                }
+            )
+        batch = PaymentBatch(
+            business_id=business_id,
+            number=OrganisationService(self._db, clock=self._clock)
+            .allocate_number(actor, "payment_voucher", branch_id=actor.branch_id)
+            .number,
+            financial_account_fk=account.id,
+            pay_on=pay_on or self._today(actor),
+            items=stored,
+            total=money(sum((money(item.amount) for item in items), ZERO)),
+            prepared_by_id=actor.user_id,
+        )
+        self._db.add(batch)
+        self._db.flush()
+        return batch
+
+    def approve_batch(self, actor: AnyActor, batch_id: uuid.UUID) -> PaymentBatch:
+        """Approve and pay every payment in the batch."""
+        actor.require("payment.approve")
+        batch = self._batch(actor, batch_id)
+        if batch.state != "awaiting_approval":
+            raise ConflictError(f"Batch {batch.number} is {batch.state.replace('_', ' ')}.")
+        if batch.prepared_by_id == actor.user_id and not actor.is_administrator:
+            raise ConflictError("A batch is approved by someone other than whoever prepared it.")
+        paid = []
+        for item in batch.items:
+            payment = self.pay(
+                actor,
+                PaymentDraft(
+                    supplier_id=uuid.UUID(str(item["supplier_id"])),
+                    amount=Decimal(str(item["amount"])),
+                    method=PaymentMethod.BANK,
+                    paid_on=batch.pay_on,
+                    reference=str(item["reference"]) if item.get("reference") else batch.number,
+                    invoice_ids=[uuid.UUID(str(value)) for value in item["invoice_ids"]],  # type: ignore[attr-defined]
+                    financial_account_id=batch.financial_account_fk,
+                ),
+            )
+            paid.append(str(payment.id))
+        batch.state = "paid"
+        batch.approved_by_id = actor.user_id
+        batch.decided_at = self._clock.now()
+        batch.payment_ids = paid
+        self._db.flush()
+        self._audit.record(
+            actor,
+            "payment_batch_approved",
+            entity_type="payment_batch",
+            entity_id=batch.id,
+            entity_label=batch.number,
+            after={"total": str(batch.total), "payments": len(paid)},
+        )
+        return batch
+
+    def reject_batch(self, actor: AnyActor, batch_id: uuid.UUID, *, reason: str) -> PaymentBatch:
+        actor.require("payment.approve")
+        batch = self._batch(actor, batch_id)
+        if batch.state != "awaiting_approval":
+            raise ConflictError(f"Batch {batch.number} is {batch.state.replace('_', ' ')}.")
+        if not reason.strip():
+            raise ValidationError("A rejection records why.", field="reason")
+        batch.state = "rejected"
+        batch.rejection_reason = reason.strip()
+        batch.approved_by_id = actor.user_id
+        batch.decided_at = self._clock.now()
+        self._db.flush()
+        return batch
+
+    def batches(self, actor: AnyActor) -> list[PaymentBatch]:
+        actor.require("payable.view")
+        return list(
+            self._db.scalars(
+                select(PaymentBatch)
+                .where(PaymentBatch.business_id == actor.business_id)
+                .order_by(PaymentBatch.created_at.desc())
+            ).all()
+        )
+
+    def _batch(self, actor: AnyActor, batch_id: uuid.UUID) -> PaymentBatch:
+        batch = self._db.get(PaymentBatch, batch_id)
+        if batch is None or batch.business_id != actor.business_id:
+            raise NotFoundError("Payment batch not found.")
+        return batch
 
     def _withholding_authority(self, business_id: uuid.UUID) -> uuid.UUID:
         """The authority tax withheld from a supplier is owed to: the purchase-side

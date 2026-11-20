@@ -480,3 +480,49 @@ class ReconciliationMatch(Base, IdentifiedMixin, BusinessScopedMixin):
     """``suggested``, ``manual`` or ``posted`` (posted from the statement line)."""
     matched_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
     matched_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+
+# -- the command centre -------------------------------------------------------------------
+
+
+class DashboardLayout(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """A command-centre layout: one person's own, or a role's, which its holders start from."""
+
+    __tablename__ = "dashboard_layouts"
+
+    user_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    role_code: Mapped[str | None] = mapped_column(String(48))
+    preset: Mapped[str] = mapped_column(String(24), nullable=False, default="owner")
+    widgets: Mapped[list[dict[str, str]]] = mapped_column(SA_JSON, nullable=False)
+    """Each measure shown, in order, with its size."""
+
+    __table_args__ = (
+        UniqueConstraint("business_id", "user_fk", name=None),
+        UniqueConstraint("business_id", "role_code", name=None),
+    )
+
+
+# -- payables -----------------------------------------------------------------------------
+
+
+class PaymentBatch(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """Several supplier payments prepared together and approved once."""
+
+    __tablename__ = "payment_batches"
+
+    number: Mapped[str] = mapped_column(String(40), nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default="awaiting_approval")
+    financial_account_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("financial_accounts.id", ondelete="RESTRICT"), nullable=False
+    )
+    pay_on: Mapped[date] = mapped_column(Date, nullable=False)
+    items: Mapped[list[dict[str, object]]] = mapped_column(SA_JSON, nullable=False)
+    """Each supplier, the amount, and the invoices it settles."""
+    total: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    prepared_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    approved_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    decided_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    payment_ids: Mapped[list[str] | None] = mapped_column(SA_JSON)
+
+    __table_args__ = (UniqueConstraint("business_id", "number", name=None),)

@@ -1041,6 +1041,65 @@ class TestPayables:
             "inventory is untouched by paying"
         )
 
+    def test_a_held_invoice_is_not_paid_on_account_until_released(
+        self,
+        db: Session,
+        clock: FixedClock,
+        orders,
+        procurement,
+        billing,
+        payables: PayablesService,
+        admin: Actor,
+        world: dict,
+    ) -> None:
+        _, invoice = self._posted_invoice(db, orders, procurement, billing, admin, world)
+        payables.set_priority(admin, invoice.id, "hold", reason="Short delivery under query")
+        with pytest.raises(ValidationError):
+            payables.pay(admin, PaymentDraft(supplier_id=world["gamma"].id, amount=D("100")))
+        payables.set_priority(admin, invoice.id, "normal", reason="Query resolved")
+        payables.pay(admin, PaymentDraft(supplier_id=world["gamma"].id, amount=D("100")))
+        assert invoice.amount_paid == D("100")
+
+    def test_a_batch_is_approved_by_someone_else_and_pays_each_supplier(
+        self,
+        db: Session,
+        clock: FixedClock,
+        orders,
+        procurement,
+        billing,
+        payables: PayablesService,
+        admin: Actor,
+        world: dict,
+    ) -> None:
+        from nickland.application.services.payables import BatchItem
+        from nickland.application.services.treasury import TreasuryService
+        from nickland.domain.finance import FinancialAccountKind
+
+        _, invoice = self._posted_invoice(db, orders, procurement, billing, admin, world)
+        bank = TreasuryService(db, clock=clock).default_for(
+            admin.business_id,
+            FinancialAccountKind.BANK,  # type: ignore[arg-type]
+        )
+        preparer = make_actor(admin.business_id, permissions={"payment.manage", "payment.approve"})
+        batch = payables.prepare_batch(
+            preparer,
+            financial_account_id=bank.id,
+            items=[
+                BatchItem(supplier_id=world["gamma"].id, amount=D("2000"), invoice_ids=[invoice.id])
+            ],
+        )
+        assert batch.state == "awaiting_approval" and invoice.amount_paid == D("0")
+        with pytest.raises(ConflictError, match="someone other"):
+            payables.approve_batch(preparer, batch.id)
+        payables.approve_batch(admin, batch.id)
+        assert batch.state == "paid" and len(batch.payment_ids or []) == 1
+        assert invoice.amount_paid == D("2000")
+        statement = payables.statement(
+            admin, world["gamma"].id, start=date(2026, 1, 1), end=date(2027, 12, 31)
+        )
+        assert statement.closing == D("5912")
+        assert [entry.debit for entry in statement.entries if entry.debit] == [D("2000")]
+
     def test_withholding_settles_the_supplier_but_not_the_cash(
         self,
         db: Session,

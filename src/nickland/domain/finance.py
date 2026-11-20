@@ -422,3 +422,217 @@ def _date(text: str) -> date:
         except ValueError:
             continue
     raise ValueError(f"{text!r} is not a date this import reads.")
+
+
+# --------------------------------------------------------------------------------------
+# The command centre
+# --------------------------------------------------------------------------------------
+
+
+class MeasureBasis(StrEnum):
+    FLOW = "flow"
+    """Movement over the period: sales, costs, profit."""
+    POSITION = "position"
+    """A balance at the period's end: cash, receivables, liabilities."""
+
+
+@dataclass(frozen=True, slots=True)
+class Component:
+    """Accounts that contribute to a measure, and how."""
+
+    codes: frozenset[str] = frozenset()
+    groups: frozenset[str] = frozenset()
+    prefixes: frozenset[str] = frozenset()
+    """Codes beginning so: every financial account, however many banks there are."""
+    credit_normal: bool = True
+    """Credit less debit when true (income, liabilities); debit less credit otherwise."""
+    multiplier: int = 1
+    credits_only: bool = False
+    """Counts credits alone: gross sales before any discount or return."""
+
+
+@dataclass(frozen=True, slots=True)
+class MeasureDefinition:
+    code: str
+    label: str
+    basis: MeasureBasis
+    components: tuple[Component, ...]
+    description: str
+
+
+_SALES = frozenset({"40000", "40100", "40200"})
+_SALES_DEDUCTIONS = frozenset({"40900", "40950"})
+_OTHER_INCOME = frozenset({"70000", "70100"})
+_CASH = frozenset({CASH_ON_HAND, BANK, MOBILE_MONEY, PETTY_CASH})
+_CASH_PREFIXES = ("101", "102", "103", "104")
+
+MEASURES: Final[tuple[MeasureDefinition, ...]] = (
+    MeasureDefinition(
+        "gross_sales",
+        "Gross sales",
+        MeasureBasis.FLOW,
+        (Component(codes=_SALES, credits_only=True),),
+        "Sales invoiced and sold at the register, before discounts and returns.",
+    ),
+    MeasureDefinition(
+        "net_sales",
+        "Net sales",
+        MeasureBasis.FLOW,
+        (Component(codes=_SALES), Component(codes=_SALES_DEDUCTIONS)),
+        "Gross sales less discounts and returns.",
+    ),
+    MeasureDefinition(
+        "recognised_revenue",
+        "Recognised revenue",
+        MeasureBasis.FLOW,
+        (Component(groups=frozenset({"REV"})), Component(codes=_OTHER_INCOME)),
+        "Every revenue account and other income, net. Receipts and deposits are not in it.",
+    ),
+    MeasureDefinition(
+        "cost_of_goods_sold",
+        "Cost of goods sold",
+        MeasureBasis.FLOW,
+        (Component(groups=frozenset({"COS"}), credit_normal=False),),
+        "The cost of what was sold, from the stock ledger's layers.",
+    ),
+    MeasureDefinition(
+        "gross_profit",
+        "Gross profit",
+        MeasureBasis.FLOW,
+        (
+            Component(codes=_SALES),
+            Component(codes=_SALES_DEDUCTIONS),
+            Component(groups=frozenset({"COS"}), credit_normal=False, multiplier=-1),
+        ),
+        "Net sales less the cost of goods sold.",
+    ),
+    MeasureDefinition(
+        "operating_expenses",
+        "Operating expenses",
+        MeasureBasis.FLOW,
+        (Component(groups=frozenset({"OPEX"}), credit_normal=False),),
+        "Rent, salaries, utilities and the other costs of running the business.",
+    ),
+    MeasureDefinition(
+        "net_profit",
+        "Net profit",
+        MeasureBasis.FLOW,
+        (Component(groups=frozenset({"REV", "COS", "OPEX", "OTH", "TAX"})),),
+        "The profit and loss result: every income less every expense.",
+    ),
+    MeasureDefinition(
+        "cash_and_bank",
+        "Cash and bank",
+        MeasureBasis.POSITION,
+        (Component(codes=_CASH, prefixes=frozenset(_CASH_PREFIXES), credit_normal=False),),
+        "Every cash drawer, petty cash box, bank account and wallet.",
+    ),
+    MeasureDefinition(
+        "receivables",
+        "Receivables",
+        MeasureBasis.POSITION,
+        (
+            Component(
+                codes=frozenset({TRADE_RECEIVABLES, DOUBTFUL_DEBTS_ALLOWANCE}), credit_normal=False
+            ),
+        ),
+        "Owed by customers, less the allowance for doubtful debts.",
+    ),
+    MeasureDefinition(
+        "payables",
+        "Payables",
+        MeasureBasis.POSITION,
+        (Component(codes=frozenset({"20000"})),),
+        "Owed to suppliers.",
+    ),
+    MeasureDefinition(
+        "loan_balances",
+        "Loan balances",
+        MeasureBasis.POSITION,
+        (Component(codes=frozenset({"23000"})),),
+        "Owed to lenders.",
+    ),
+    MeasureDefinition(
+        "tax_liabilities",
+        "Tax liabilities",
+        MeasureBasis.POSITION,
+        (Component(codes=frozenset({OUTPUT_TAX, "21100", "21200"})),),
+        "Output tax, withholding and other statutory liabilities owed.",
+    ),
+    MeasureDefinition(
+        "net_working_capital",
+        "Net working capital",
+        MeasureBasis.POSITION,
+        (
+            Component(groups=frozenset({"CA"}), credit_normal=False),
+            Component(groups=frozenset({"CL"}), multiplier=-1),
+        ),
+        "Current assets less current liabilities.",
+    ),
+)
+
+MEASURES_BY_CODE: Final = {item.code: item for item in MEASURES}
+
+LAYOUT_PRESETS: Final[dict[str, tuple[str, ...]]] = {
+    "owner": (
+        "net_sales",
+        "gross_profit",
+        "net_profit",
+        "cash_and_bank",
+        "receivables",
+        "payables",
+        "loan_balances",
+        "net_working_capital",
+    ),
+    "finance_manager": (
+        "recognised_revenue",
+        "operating_expenses",
+        "net_profit",
+        "cash_and_bank",
+        "receivables",
+        "payables",
+        "tax_liabilities",
+        "net_working_capital",
+    ),
+    "accountant": (
+        "gross_sales",
+        "net_sales",
+        "cost_of_goods_sold",
+        "operating_expenses",
+        "tax_liabilities",
+        "receivables",
+        "payables",
+    ),
+    "branch_manager": ("gross_sales", "net_sales", "gross_profit", "cash_and_bank", "receivables"),
+}
+
+LAYOUT_LABELS: Final = {
+    "owner": "Owner",
+    "finance_manager": "Finance manager",
+    "accountant": "Accountant",
+    "branch_manager": "Branch manager",
+}
+
+WIDGET_SIZES: Final = frozenset({"small", "medium", "large"})
+
+
+def validate_widgets(widgets: list[dict[str, str]]) -> list[dict[str, str]]:
+    """A layout: measures in order, each sized. No measure twice, none unknown."""
+    if not widgets:
+        raise ValidationError("A layout shows at least one measure.", field="widgets")
+    if len(widgets) > 24:
+        raise ValidationError("A layout shows at most 24 measures.", field="widgets")
+    seen: set[str] = set()
+    clean = []
+    for widget in widgets:
+        code = str(widget.get("measure", ""))
+        size = str(widget.get("size", "medium"))
+        if code not in MEASURES_BY_CODE:
+            raise ValidationError(f"{code!r} is not a measure.", field="widgets")
+        if size not in WIDGET_SIZES:
+            raise ValidationError(f"{size!r} is not a widget size.", field="widgets")
+        if code in seen:
+            raise ValidationError(f"{MEASURES_BY_CODE[code].label} appears twice.", field="widgets")
+        seen.add(code)
+        clean.append({"measure": code, "size": size})
+    return clean
