@@ -7,6 +7,15 @@
 
 import type {
   Account,
+  PosCountPreview,
+  PosRefund,
+  PosRefundInput,
+  PosSale,
+  PosSaleSummary,
+  PosShift,
+  PosShiftSummary,
+  PosSupervisor,
+  TenderMethodName,
   DeliveryInput,
   DispatchInput,
   Shipment,
@@ -1365,6 +1374,89 @@ export const api = {
         `/commissions/${accrualId}/override`,
         payload,
       ),
+  },
+
+  pos: {
+    shift: () => request<PosShiftSummary | null>('GET', '/pos/shift'),
+    openShift: (opening_float: string, register?: string) =>
+      request<PosShiftSummary>('POST', '/pos/shifts', { opening_float, register_name: register }),
+    shifts: () => request<PosShift[]>('GET', '/pos/shifts'),
+    shiftSummary: (shiftId: string) => request<PosShiftSummary>('GET', `/pos/shifts/${shiftId}`),
+    previewCount: (shiftId: string, denominations: Record<string, number>) =>
+      request<PosCountPreview>('POST', `/pos/shifts/${shiftId}/count/preview`, { denominations }),
+    submitCount: (
+      shiftId: string,
+      denominations: Record<string, number>,
+      variance_reason?: string | null,
+    ) =>
+      request<PosShiftSummary>('POST', `/pos/shifts/${shiftId}/count`, {
+        denominations,
+        variance_reason,
+      }),
+    approveShift: (shiftId: string) =>
+      request<PosShiftSummary>('POST', `/pos/shifts/${shiftId}/approve`),
+    cashMovement: (payload: {
+      kind: 'cash_in' | 'cash_out';
+      amount: string;
+      reason: string;
+      counter: 'bank' | 'petty_cash';
+    }) =>
+      request<{ id: string; kind: string; amount: string; reason: string }>(
+        'POST',
+        '/pos/cash-movements',
+        payload,
+      ),
+
+    sale: () => request<PosSale>('GET', '/pos/sale'),
+    sales: (shift_id?: string) =>
+      request<PosSaleSummary[]>('GET', '/pos/sales', undefined, { shift_id }),
+    parked: () => request<PosSaleSummary[]>('GET', '/pos/parked'),
+    saleById: (saleId: string) => request<PosSale>('GET', `/pos/sales/${saleId}`),
+    findSale: (number: string) =>
+      request<PosSale>('GET', `/pos/sales/by-number/${encodeURIComponent(number)}`),
+    scan: (saleId: string, code: string, quantity = '1') =>
+      request<PosSale>('POST', `/pos/sales/${saleId}/scan`, { code, quantity }),
+    addLine: (saleId: string, product_id: string, quantity = '1') =>
+      request<PosSale>('POST', `/pos/sales/${saleId}/lines`, { product_id, quantity }),
+    setQuantity: (saleId: string, lineId: string, quantity: string) =>
+      request<PosSale>('PUT', `/pos/sales/${saleId}/lines/${lineId}`, { quantity }),
+    overridePrice: (saleId: string, lineId: string, unit_price: string, reason: string) =>
+      request<PosSale>('POST', `/pos/sales/${saleId}/lines/${lineId}/override`, {
+        unit_price,
+        reason,
+      }),
+    discount: (saleId: string, lineId: string, rate: string) =>
+      request<PosSale>('POST', `/pos/sales/${saleId}/lines/${lineId}/discount`, { rate }),
+    setCustomer: (saleId: string, customer_id: string | null) =>
+      request<PosSale>('PUT', `/pos/sales/${saleId}/customer`, { customer_id }),
+    park: (saleId: string, label?: string | null) =>
+      request<PosSale>('POST', `/pos/sales/${saleId}/park`, { label }),
+    resume: (saleId: string) => request<PosSale>('POST', `/pos/sales/${saleId}/resume`),
+    abandon: (saleId: string, reason: string) =>
+      request<PosSale>('POST', `/pos/sales/${saleId}/abandon`, { reason }),
+
+    tender: (
+      saleId: string,
+      payload: {
+        method: TenderMethodName;
+        amount?: string | null;
+        cash_received?: string | null;
+        reference?: string | null;
+      },
+    ) => request<PosSale>('POST', `/pos/sales/${saleId}/tenders`, payload),
+    confirmTender: (tenderId: string, provider_reference: string) =>
+      request<PosSale>('POST', `/pos/tenders/${tenderId}/confirm`, { provider_reference }),
+    failTender: (tenderId: string, reason: string) =>
+      request<PosSale>('POST', `/pos/tenders/${tenderId}/fail`, { reason }),
+    complete: (saleId: string) => request<PosSale>('POST', `/pos/sales/${saleId}/complete`),
+    receiptText: (saleId: string, width = 42) =>
+      requestText(`/pos/sales/${saleId}/receipt.txt`, { width }),
+
+    refunds: (saleId: string) => request<PosRefund[]>('GET', `/pos/sales/${saleId}/refunds`),
+    refund: (saleId: string, payload: PosRefundInput) =>
+      request<PosRefund>('POST', `/pos/sales/${saleId}/refunds`, payload),
+    void: (saleId: string, reason: string, supervisor?: PosSupervisor | null) =>
+      request<PosRefund>('POST', `/pos/sales/${saleId}/void`, { reason, supervisor }),
   },
 
   platform: {

@@ -21,6 +21,7 @@ import { Dispatch } from '@/modules/dispatch/Dispatch';
 import { Inventory } from '@/modules/inventory/Inventory';
 import { Purchases } from '@/modules/purchases/Purchases';
 import { Placeholder } from '@/modules/Placeholder';
+import { Register } from '@/modules/pos/Register';
 import { SetupWizard } from '@/modules/setup/SetupWizard';
 import { SignIn } from '@/modules/session/SignIn';
 import { Settings } from '@/modules/settings/Settings';
@@ -76,26 +77,7 @@ function Entry() {
 
         <Route path="/sales/*" element={<Sales />} />
 
-        <Route
-          path="/register/*"
-          element={
-            <Placeholder
-              title="Point of Sale"
-              phase="Phase 10"
-              stage="Operations"
-              purpose="A dedicated register for walk-in sales, with shifts and reconciliation."
-              depends="The ledger, the tax engine and inventory, through which every sale posts."
-              contents={[
-                'Product search by name or barcode, listing unavailable items with the reason stated inline rather than hiding them',
-                'A line table carrying product, quantity and line total, with the running total set as the largest figure on screen',
-                'Type of sale and tender as radio choices rather than menus, so the current selection is visible without opening anything',
-                'Cash, Mobile Money, card, transfer, on-account and split tender',
-                'Electronic tender held as pending until the provider confirms it',
-                'Cashier shift, drawer reconciliation, returns, refunds and voids under authorisation',
-              ]}
-            />
-          }
-        />
+        <Route path="/register/*" element={<Register />} />
 
         <Route path="/purchases/*" element={<Purchases />} />
 

@@ -37,6 +37,7 @@ from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.parties import PartyService
 from nickland.application.services.payables import PayablesService
 from nickland.application.services.periods import PeriodService
+from nickland.application.services.pos import PosService
 from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.pricing_policy import PricingPolicyService
 from nickland.application.services.procurement import ProcurementService
@@ -329,10 +330,15 @@ def get_dispatch(session: SessionDependency, runtime: RuntimeDependency) -> Disp
     return DispatchService(session, clock=runtime.clock)
 
 
+def get_pos(session: SessionDependency, runtime: RuntimeDependency) -> PosService:
+    return PosService(session, clock=runtime.clock)
+
+
 InventoryDependency = Annotated[InventoryService, Depends(get_inventory)]
 InventoryReportDependency = Annotated[InventoryReportService, Depends(get_inventory_reports)]
 AssemblyDependency = Annotated[AssemblyService, Depends(get_assembly)]
 DispatchDependency = Annotated[DispatchService, Depends(get_dispatch)]
+PosDependency = Annotated[PosService, Depends(get_pos)]
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
 DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
 SalesOrderDependency = Annotated[SalesOrderService, Depends(get_sales_orders)]

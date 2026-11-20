@@ -913,6 +913,11 @@ def render_thermal_text(context: DocumentContext, *, width: int = 42) -> str:
         pair("Balance due" if owed else "Change", _money(abs(totals.balance_due), context))
     rule("=")
 
+    if context.terms:
+        for label, value in context.terms:
+            pair(label[: width - len(value) - 1], value)
+        rule()
+
     if totals.amount_in_words:
         for chunk in _wrap(totals.amount_in_words, width):
             out.append(chunk)

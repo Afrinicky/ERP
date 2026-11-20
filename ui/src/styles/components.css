@@ -1935,3 +1935,278 @@
 .skip-link:focus-visible {
   transform: none;
 }
+
+/* ------------------------------------------------------------------ Register
+   The counter: the sale takes the width, payment a fixed column read at arm's length.
+   The scan field is the one control that always has focus between sales. */
+
+.register {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.register--opening {
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+}
+
+.register__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.register__drawer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-bottom: var(--space-4);
+}
+
+.register__drawer-label {
+  font-size: var(--size-xs);
+  color: var(--colour-text-secondary);
+}
+
+.register__drawer-value {
+  font-family: var(--font-mono);
+  font-size: var(--size-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--colour-text-primary);
+}
+
+.register__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.register__scan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--colour-border-subtle);
+}
+
+.register__scan-label {
+  font-size: var(--size-sm);
+  font-weight: var(--weight-medium);
+  color: var(--colour-text-secondary);
+}
+
+.register__scan-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.register__scan-row > :first-child {
+  flex: 1;
+}
+
+.register__scan-input {
+  height: var(--control-height-touch-lg);
+  font-size: var(--size-lg);
+  font-family: var(--font-mono);
+}
+
+.register__matches {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.register__match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--control-height-touch);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--colour-border-subtle);
+  background: var(--colour-surface-raised);
+  color: var(--colour-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.register__match:last-child {
+  border-bottom: 0;
+}
+
+.register__match:hover,
+.register__match:focus-visible {
+  background: var(--colour-accent-primary-surface);
+}
+
+.register__lines td {
+  vertical-align: middle;
+}
+
+.register__item {
+  font-weight: var(--weight-medium);
+}
+
+.register__quantity-heading {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.register__quantity-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.register__amount {
+  font-weight: var(--weight-semibold);
+}
+
+.register__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-4);
+  border-top: 1px solid var(--colour-border-subtle);
+}
+
+.register__summary > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--size-sm);
+}
+
+.register__summary dt {
+  color: var(--colour-text-secondary);
+}
+
+.register__summary dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.register__payment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4);
+}
+
+.register__tenders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.register__tender {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--colour-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--colour-surface-sunken);
+}
+
+.register__tender-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-weight: var(--weight-medium);
+}
+
+.register__tender-amount {
+  font-family: var(--font-mono);
+}
+
+.register__finish {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--colour-border-subtle);
+}
+
+.register__keys {
+  margin: 0;
+  font-size: var(--size-xs);
+  color: var(--colour-text-tertiary);
+}
+
+.register__keys kbd {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--colour-border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--colour-text-secondary);
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--colour-accent-primary);
+  font: inherit;
+  font-size: var(--size-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.text-button:hover {
+  text-decoration: underline;
+}
+
+/* The closing count: denominations on the left, the reconciliation beside them. */
+
+.count {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.count__sheet {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-5);
+}
+
+.count__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.count__denomination {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+}
+
+.count__result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (max-width: 1023px) {
+  .register,
+  .register--opening,
+  .count {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

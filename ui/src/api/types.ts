@@ -2414,3 +2414,157 @@ export interface DeliveryInput {
   evidence_base64?: string | null;
   media_type?: string | null;
 }
+
+// -- Point of sale ---------------------------------------------------------------------
+
+export type TenderMethodName = 'cash' | 'mobile_money' | 'card' | 'bank_transfer' | 'on_account';
+export type TenderStateName = 'pending' | 'confirmed' | 'failed' | 'abandoned';
+export type SaleStateName =
+  | 'open'
+  | 'parked'
+  | 'completed'
+  | 'voided'
+  | 'refunded'
+  | 'partially_refunded';
+export type ShiftStateName = 'open' | 'submitted' | 'closed';
+
+export interface PosSaleLine {
+  id: string;
+  position: number;
+  product_id: string;
+  sku: string;
+  description: string;
+  quantity: string;
+  list_price: string;
+  price_source: string | null;
+  unit_price: string;
+  override_reason: string | null;
+  discount_rate: string;
+  discount: string;
+  net: string;
+  tax: string;
+  total: string;
+  returnable: string;
+}
+
+export interface PosTender {
+  id: string;
+  method: TenderMethodName;
+  method_label: string;
+  state: TenderStateName;
+  state_label: string;
+  amount: string;
+  cash_received: string | null;
+  change_given: string | null;
+  provider_reference: string | null;
+  failure_reason: string | null;
+}
+
+export interface PosSale {
+  id: string;
+  number: string | null;
+  state: SaleStateName;
+  customer_id: string | null;
+  customer: string | null;
+  parked_label: string | null;
+  lines: PosSaleLine[];
+  tenders: PosTender[];
+  gross_total: string;
+  discount_total: string;
+  net_total: string;
+  tax_total: string;
+  total: string;
+  due: string;
+  change: string;
+  suggested_cash: { amount: string; exact: boolean }[];
+  refunded_total: string;
+  awaiting_confirmation: boolean;
+  completed_at: string | null;
+  cashier: string | null;
+  receipt_id: string | null;
+  void_reason: string | null;
+}
+
+export interface PosSaleSummary {
+  id: string;
+  number: string | null;
+  state: SaleStateName;
+  customer: string | null;
+  parked_label: string | null;
+  total: string;
+  refunded_total: string;
+  items: number;
+  completed_at: string | null;
+  methods: string[];
+}
+
+export interface PosShift {
+  id: string;
+  number: string;
+  register_name: string;
+  cashier: string | null;
+  state: ShiftStateName;
+  business_day: string;
+  opened_at: string;
+  opening_float: string;
+  counted_cash: string | null;
+  expected_cash: string | null;
+  variance: string | null;
+  variance_reason: string | null;
+  submitted_at: string | null;
+  closed_at: string | null;
+  approved_by: string | null;
+  counted_denominations: Record<string, number> | null;
+}
+
+export interface PosShiftSummary {
+  shift: PosShift;
+  drawer: {
+    opening_float: string;
+    cash_sales: string;
+    cash_in: string;
+    cash_out: string;
+    cash_refunds: string;
+    expected: string;
+  };
+  sales: number;
+  pending_tenders: number;
+  by_method: { method: TenderMethodName; label: string; amount: string }[];
+  denominations: string[];
+}
+
+export interface PosCountPreview {
+  counted: string;
+  expected: string;
+  variance: string;
+}
+
+export interface PosRefund {
+  id: string;
+  number: string;
+  kind: 'refund' | 'exchange' | 'void';
+  sale_id: string;
+  reason: string;
+  method: TenderMethodName;
+  restock: boolean;
+  net_total: string;
+  tax_total: string;
+  total: string;
+  requested_by: string | null;
+  authorised_by: string | null;
+  refunded_on: string;
+  lines: { sale_line_id: string; quantity: string; net: string; tax: string }[];
+}
+
+export interface PosSupervisor {
+  username: string;
+  password: string;
+}
+
+export interface PosRefundInput {
+  lines: { sale_line_id: string; quantity: string }[];
+  reason: string;
+  method?: TenderMethodName | null;
+  restock: boolean;
+  supervisor?: PosSupervisor | null;
+}

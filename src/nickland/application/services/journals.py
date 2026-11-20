@@ -98,6 +98,19 @@ class EntryPage:
     limit: int
 
 
+WRITTEN_BY_HAND = frozenset(
+    {JournalSource.MANUAL, JournalSource.OPENING_BALANCE, JournalSource.YEAR_END}
+)
+"""Entries a person composes, which need ``journal.post``.
+
+Every other source is the consequence of an act its own service has already
+authorised — a register sale under ``pos.operate``, a receipt of goods under its own
+permission — and requiring the ledger permission as well would mean that the person
+who serves at the counter could not complete a sale without also being able to write
+arbitrary journals.
+"""
+
+
 class JournalService:
     """Posts, approves, rejects and reverses journal entries."""
 
@@ -117,7 +130,9 @@ class JournalService:
         Where the amount meets the approval threshold the entry is recorded as
         pending instead, and affects no balance until a checker approves it.
         """
-        actor.require("journal.post")
+        source = JournalSource(str(draft.source))
+        if source in WRITTEN_BY_HAND:
+            actor.require("journal.post")
         business_id = _business_of(actor)
 
         existing = self._by_idempotency_key(business_id, draft.idempotency_key)
@@ -129,7 +144,6 @@ class JournalService:
             )
 
         balance = assert_balanced(draft.lines)
-        source = JournalSource(str(draft.source))
         accounts = self._resolve_accounts(business_id, draft.lines, source)
         period = self._permitted_period(business_id, draft.posting_date)
         currency = draft.currency_code or self._base_currency(business_id)

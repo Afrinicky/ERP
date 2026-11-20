@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import json
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -153,7 +155,8 @@ class TestAppearance:
         )
         body = response.json()
         assert body["passes"] is True
-        assert len(body["audit"]) == 32
+        declared = json.loads(Path("tokens/pairings.json").read_text(encoding="utf-8"))
+        assert len(body["audit"]) == len(declared["pairings"])
         assert all(line["ratio"] >= 1.0 for line in body["audit"])
 
     def test_preview_reports_a_failing_combination_without_refusing(
@@ -1429,3 +1432,113 @@ class TestDispatchOverHttp:
         assert [item["id"] for item in listed.json()] == [shipment_id]
         valuation = admin_client.get(f"{API}/inventory/valuation").json()
         assert valuation["agrees"], valuation["accounts"]
+
+
+class TestRegisterOverHttp:
+    """Phase 10 through the published API: a sales person opens a shift, scans, takes
+    cash, completes with a receipt, is refused a refund alone, and has it authorised by
+    the proprietor at the register; then the drawer is counted and closed."""
+
+    def test_a_counter_sale_from_scan_to_receipt_and_an_authorised_refund(
+        self, admin_client: TestClient
+    ) -> None:
+        warehouse = admin_client.get(f"{API}/inventory/warehouses").json()[0]
+        unit = admin_client.get(f"{API}/units").json()[0]
+        product = admin_client.post(
+            f"{API}/products",
+            json={
+                "sku": "SWB-020",
+                "name": "Alcohol swabs",
+                "stock_unit_id": unit["id"],
+                "list_price": "12.50",
+            },
+        ).json()
+        admin_client.post(
+            f"{API}/inventory/opening",
+            json={
+                "warehouse_id": warehouse["id"],
+                "lines": [{"product_id": product["id"], "quantity": "40", "unit_cost": "5"}],
+            },
+        )
+        admin_client.post(
+            f"{API}/users",
+            json={
+                "username": "counter1",
+                "full_name": "E. Mensah",
+                "password": STAFF_PASSWORD,
+                "role_codes": ["sales_person"],
+            },
+        )
+        admin_token = admin_client.headers[SESSION_HEADER]
+        admin_client.headers[SESSION_HEADER] = sign_in(admin_client, "counter1", STAFF_PASSWORD)
+
+        assert admin_client.get(f"{API}/pos/shift").json() is None
+        opened = admin_client.post(f"{API}/pos/shifts", json={"opening_float": "100"})
+        assert opened.status_code == 201, opened.text
+        shift_id = opened.json()["shift"]["id"]
+
+        sale = admin_client.get(f"{API}/pos/sale").json()
+        scanned = admin_client.post(
+            f"{API}/pos/sales/{sale['id']}/scan", json={"code": "SWB-020", "quantity": "8"}
+        )
+        assert scanned.status_code == 200, scanned.text
+        body = scanned.json()
+        assert body["net_total"] == "100.000000" and body["total"] == "121.900000"
+        assert body["suggested_cash"][0] == {"amount": "121.90", "exact": True}
+
+        discount = admin_client.post(
+            f"{API}/pos/sales/{sale['id']}/lines/{body['lines'][0]['id']}/discount",
+            json={"rate": "0.1"},
+        )
+        assert discount.status_code == 403  # the sales person holds no discount
+
+        tendered = admin_client.post(
+            f"{API}/pos/sales/{sale['id']}/tenders",
+            json={"method": "cash", "cash_received": "150"},
+        ).json()
+        assert tendered["due"] == "0.000000"
+        completed = admin_client.post(f"{API}/pos/sales/{sale['id']}/complete")
+        assert completed.status_code == 200, completed.text
+        done = completed.json()
+        assert done["state"] == "completed" and done["receipt_id"]
+        assert done["change"] == "28.100000"
+        receipt = admin_client.get(f"{API}/pos/sales/{sale['id']}/receipt.txt")
+        assert done["number"] in receipt.text and "Change" in receipt.text
+
+        refund = {
+            "lines": [{"sale_line_id": done["lines"][0]["id"], "quantity": "2"}],
+            "reason": "Two packets opened",
+        }
+        refused = admin_client.post(f"{API}/pos/sales/{sale['id']}/refunds", json=refund)
+        assert refused.status_code == 403
+        wrong = admin_client.post(
+            f"{API}/pos/sales/{sale['id']}/refunds",
+            json={**refund, "supervisor": {"username": "proprietor", "password": "wrong"}},
+        )
+        assert wrong.status_code == 401
+        authorised = admin_client.post(
+            f"{API}/pos/sales/{sale['id']}/refunds",
+            json={
+                **refund,
+                "supervisor": {"username": "proprietor", "password": "Provision9Admin"},
+            },
+        )
+        assert authorised.status_code == 201, authorised.text
+        made = authorised.json()
+        assert made["sale_id"] == sale["id"]
+        assert made["authorised_by"] == "N. Nickland" and made["requested_by"] == "E. Mensah"
+        assert made["total"] == "30.480000"  # 25.00 net and 5.48 tax, two of eight
+
+        summary = admin_client.get(f"{API}/pos/shifts/{shift_id}").json()
+        assert summary["drawer"]["expected"] == "191.420000"  # 100 + 121.90 - 30.48
+        counted = admin_client.post(
+            f"{API}/pos/shifts/{shift_id}/count",
+            json={"denominations": {"100": 1, "50": 1, "20": 2}, "variance_reason": "Short"},
+        ).json()
+        assert counted["shift"]["state"] == "submitted"
+        assert Decimal(counted["shift"]["variance"]) == Decimal("-1.42")
+
+        admin_client.headers[SESSION_HEADER] = admin_token
+        closed = admin_client.post(f"{API}/pos/shifts/{shift_id}/approve").json()
+        assert closed["shift"]["state"] == "closed"
+        assert closed["shift"]["approved_by"] == "N. Nickland"

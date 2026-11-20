@@ -235,6 +235,37 @@ class DocumentRenderService:
         dispatch.record_document(shipment, kind, issued)
         return issued
 
+    def issue_for_pos_sale(self, actor: AnyActor, sale_id: uuid.UUID) -> IssuedDocument:
+        """A register sale's receipt, issued once. PRD §6.10.
+
+        Asking again returns the copy kept, so a reprint is the receipt the customer was
+        handed.
+        """
+        from nickland.application.services.pos import PosService
+
+        pos = PosService(self._db, clock=self._clock)
+        sale = pos.require_sale(actor, sale_id)
+        if sale.receipt_fk is not None:
+            return self._records.require_issued(actor, sale.receipt_fk)
+        issued = self.issue(
+            actor,
+            DocumentKind.RECEIPT.value,
+            pos.receipt_context(actor, sale),
+            source_type="pos_sale",
+            source_id=sale.id,
+            party_id=sale.customer_fk,
+        )
+        pos.record_receipt(sale, issued.id)
+        return issued
+
+    def pos_receipt_text(self, actor: AnyActor, sale_id: uuid.UUID, *, width: int = 42) -> str:
+        """The receipt as a counter printer driven directly receives it."""
+        from nickland.application.services.pos import PosService
+
+        pos = PosService(self._db, clock=self._clock)
+        sale = pos.require_sale(actor, sale_id)
+        return render_thermal_text(pos.receipt_context(actor, sale), width=width)
+
     def reprint(self, actor: AnyActor, document_id: uuid.UUID) -> RenderedDocument:
         """Serve the stored snapshot, so a reprint matches the copy already sent."""
         issued = self._records.require_issued(actor, document_id)
