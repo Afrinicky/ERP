@@ -1,9 +1,10 @@
 /**
  * Financial Management.
  *
- * Five views over one ledger: the position, the chart, the journal, the statements
- * and the accounting calendar. Each reads from the same posted entries, so no figure
- * here is maintained separately from the record it summarises.
+ * The command centre, treasury, receivables, expenses and reconciliation, and the
+ * ledger's own views: the position, the chart, the journal, the statements and the
+ * accounting calendar. Each reads from the same posted entries, so no figure here is
+ * maintained separately from the record it summarises.
  */
 
 import { useState } from 'react';
@@ -13,15 +14,35 @@ import { ContextBar, PageHeading, WorkSurface } from '@/components/shell';
 import { useSession } from '@/lib/session';
 
 import { ChartOfAccounts } from './ChartOfAccounts';
+import { CommandCentre } from './CommandCentre';
+import { Expenses } from './Expenses';
+import { Receivables } from './Receivables';
+import { Reconciliation } from './Reconciliation';
+import { Treasury } from './Treasury';
 import { FinanceOverview } from './FinanceOverview';
 import { FinancialStatements } from './FinancialStatements';
 import { JournalRegister } from './JournalRegister';
 import { AccountingCalendar } from './AccountingCalendar';
 
-type View = 'overview' | 'accounts' | 'journal' | 'statements' | 'calendar';
+type View =
+  | 'command'
+  | 'overview'
+  | 'treasury'
+  | 'receivables'
+  | 'expenses'
+  | 'reconciliation'
+  | 'accounts'
+  | 'journal'
+  | 'statements'
+  | 'calendar';
 
 const VIEWS: { id: View; label: string; permission?: string }[] = [
+  { id: 'command', label: 'Command centre', permission: 'report.view' },
   { id: 'overview', label: 'Position' },
+  { id: 'treasury', label: 'Treasury', permission: 'journal.view' },
+  { id: 'receivables', label: 'Receivables', permission: 'receivable.view' },
+  { id: 'expenses', label: 'Expenses', permission: 'expense.manage' },
+  { id: 'reconciliation', label: 'Reconciliation', permission: 'reconciliation.manage' },
   { id: 'accounts', label: 'Chart of accounts', permission: 'account.view' },
   { id: 'journal', label: 'Journal', permission: 'journal.view' },
   { id: 'statements', label: 'Statements', permission: 'report.view' },
@@ -29,6 +50,11 @@ const VIEWS: { id: View; label: string; permission?: string }[] = [
 ];
 
 const DETAIL: Record<View, string> = {
+  command: 'The headline measures for the period, each opening onto the postings it is made of.',
+  treasury: 'Cash, bank and Mobile Money accounts, the money moved between them, and each cashbook.',
+  receivables: 'What customers owe, what they have paid and paid ahead, and what is being collected.',
+  expenses: 'Costs incurred, the approvals they wait for, and the debts they leave.',
+  reconciliation: 'Statements matched to the ledger, and every source of money against its postings.',
   overview: 'The position as the ledger records it, and anything awaiting attention.',
   accounts: 'Every account, its classification and the balance it carries.',
   journal: 'Every entry posted, by whom and against what. Corrections are reversals.',
@@ -38,7 +64,7 @@ const DETAIL: Record<View, string> = {
 
 export function Finance() {
   const { can } = useSession();
-  const [view, setView] = useState<View>('overview');
+  const [view, setView] = useState<View>(can('report.view') ? 'command' : 'overview');
   // The view's primary action lives in the context bar, where every other module
   // puts it, rather than inside the filter card where it competed with the filters
   // and never quite aligned with them. The request is passed down and consumed.
@@ -79,7 +105,12 @@ export function Finance() {
           onChange={show}
         />
 
+        {view === 'command' ? <CommandCentre /> : null}
         {view === 'overview' ? <FinanceOverview /> : null}
+        {view === 'treasury' ? <Treasury /> : null}
+        {view === 'receivables' ? <Receivables /> : null}
+        {view === 'expenses' ? <Expenses /> : null}
+        {view === 'reconciliation' ? <Reconciliation /> : null}
         {view === 'accounts' ? (
           <ChartOfAccounts requested={request} onHandled={() => setRequest(false)} />
         ) : null}
