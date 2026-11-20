@@ -170,9 +170,7 @@ class TestCashSale:
         assert on_hand(db, world["gloves"].id) == D("18")
         assert on_hand(db, world["swabs"].id) == D("46")
 
-        recorded = db.scalars(
-            select(TaxAssessment).where(TaxAssessment.source_id == sale.id)
-        ).all()
+        recorded = db.scalars(select(TaxAssessment).where(TaxAssessment.source_id == sale.id)).all()
         assert recorded
 
     def test_the_receipt_prints_the_tender_and_the_change(
@@ -238,7 +236,9 @@ class TestCashSale:
         self, pos: PosService, admin: Actor, world: dict, shift
     ) -> None:
         sale = ring_up(pos, admin, world)
-        assert pos.suggested_cash(admin, sale) == [D("304.75"), D("400")]
+        assert pos.suggested_cash(admin, sale) == [
+            D(x) for x in ("304.75", "305", "310", "320", "350", "400")
+        ]
 
 
 class TestTheCart:
@@ -368,7 +368,9 @@ class TestElectronicTenders:
         pos.tender(admin, sale.id, method="mobile_money")
         pos.provider_update(
             admin,
-            ProviderStatus(idempotency_key=sale.tenders[0].idempotency_key, state=TenderState.PENDING),
+            ProviderStatus(
+                idempotency_key=sale.tenders[0].idempotency_key, state=TenderState.PENDING
+            ),
         )
         assert sale.tenders[0].state == TenderState.PENDING
 

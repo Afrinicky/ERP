@@ -106,22 +106,35 @@ class TestAllocate:
 
 
 class TestSuggestedTenders:
-    """What a cash tender offers as one-press choices, per the design system's audit."""
+    """What a cash tender offers as one-press choices: the exact figure, then that figure
+    rounded up to each note."""
 
-    def test_the_exact_figure_comes_first_then_the_next_notes(self) -> None:
+    def test_a_counter_sale_offers_the_amounts_people_hand_over(self) -> None:
+        assert suggested_tenders(Decimal("304.75")) == [
+            Decimal("304.75"),
+            Decimal("305.00"),
+            Decimal("310.00"),
+            Decimal("320.00"),
+            Decimal("350.00"),
+            Decimal("400.00"),
+        ]
+
+    def test_the_exact_figure_comes_first_then_each_note_above_it(self) -> None:
         assert suggested_tenders(Decimal("48.23")) == [
             Decimal("48.23"),
+            Decimal("49.00"),
             Decimal("50.00"),
+            Decimal("60.00"),
             Decimal("100.00"),
             Decimal("200.00"),
         ]
 
     def test_a_small_sale_offers_small_notes(self) -> None:
-        assert suggested_tenders(Decimal("3.40")) == [
+        assert suggested_tenders(Decimal("3.40"))[:4] == [
             Decimal("3.40"),
+            Decimal("4.00"),
             Decimal("5.00"),
             Decimal("10.00"),
-            Decimal("20.00"),
         ]
 
     def test_a_round_figure_is_not_offered_twice(self) -> None:
@@ -129,7 +142,7 @@ class TestSuggestedTenders:
         assert offered[0] == Decimal("50.00")
         assert len(offered) == len(set(offered))
 
-    def test_beyond_the_largest_note_the_next_bundle_is_offered(self) -> None:
+    def test_a_large_round_figure_offers_the_next_bundle(self) -> None:
         assert suggested_tenders(Decimal("1380")) == [Decimal("1380.00"), Decimal("1400.00")]
 
     def test_nothing_is_offered_when_nothing_is_due(self) -> None:
@@ -140,4 +153,9 @@ class TestSuggestedTenders:
         offered = suggested_tenders(
             Decimal("7.10"), denominations=(Decimal("5"), Decimal("20"), Decimal("100"))
         )
-        assert offered == [Decimal("7.10"), Decimal("20.00"), Decimal("100.00")]
+        assert offered == [
+            Decimal("7.10"),
+            Decimal("10.00"),
+            Decimal("20.00"),
+            Decimal("100.00"),
+        ]
