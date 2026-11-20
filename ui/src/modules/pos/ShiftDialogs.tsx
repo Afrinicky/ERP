@@ -36,7 +36,6 @@ import { useCurrency, useSession } from "@/lib/session";
 
 export function OpenShift({ onOpened }: { onOpened: () => void }) {
   const { can } = useSession();
-  const currency = useCurrency();
   const [float, setFloat] = useState("");
   const [register, setRegister] = useState("Register 1");
 
@@ -52,12 +51,6 @@ export function OpenShift({ onOpened }: { onOpened: () => void }) {
           <div className="tender">
             <div className="tender__figures">
               {open.isError ? <Alert tone="error" title={describe(open.error).message} /> : null}
-              <TotalDisplay
-                label="Opening float"
-                value={money(float || "0", currency)}
-                tone="default"
-                compact
-              />
               <Field label="Opening float" required hint="The cash in the drawer now.">
                 {(id) => (
                   <TextInput
@@ -383,32 +376,42 @@ export function CloseShiftDialog({
             ))}
           </div>
           <div className="count__result">
-            <TotalDisplay
-              label="Counted"
-              value={money(preview.data?.counted ?? "0", currency)}
-              compact
-            />
-            <Details
-              rows={[
-                ["Opening float", money(summary.drawer.opening_float, currency)],
-                ["Cash sales", money(summary.drawer.cash_sales, currency)],
-                ["Cash in", money(summary.drawer.cash_in, currency)],
-                ["Cash out", money(summary.drawer.cash_out, currency)],
-                ["Cash refunds", money(summary.drawer.cash_refunds, currency)],
-                ["Expected", money(summary.drawer.expected, currency)],
-              ]}
-            />
-            <TotalDisplay
-              label={balanced ? "Balanced" : isNegative(variance) ? "Short" : "Over"}
-              value={money(variance, currency)}
-              tone={balanced ? "settled" : "due"}
-              compact
-            />
-            {summary.by_method.length > 0 ? (
-              <Details
-                rows={summary.by_method.map((item) => [item.label, money(item.amount, currency)])}
+            <div className="stack gap-4">
+              <TotalDisplay
+                label="Counted"
+                value={money(preview.data?.counted ?? "0", currency)}
+                compact
               />
-            ) : null}
+              <TotalDisplay
+                label={balanced ? "Balanced" : isNegative(variance) ? "Short" : "Over"}
+                value={money(variance, currency)}
+                tone={balanced ? "settled" : "due"}
+                compact
+              />
+            </div>
+            <div className="stack gap-2">
+              <h3 className="section-label">The drawer should hold</h3>
+              <Details
+                rows={[
+                  ["Opening float", money(summary.drawer.opening_float, currency)],
+                  ["Cash sales", money(summary.drawer.cash_sales, currency)],
+                  ["Cash in", money(summary.drawer.cash_in, currency)],
+                  ["Cash out", money(summary.drawer.cash_out, currency)],
+                  ["Cash refunds", money(summary.drawer.cash_refunds, currency)],
+                  ["Expected", money(summary.drawer.expected, currency)],
+                ]}
+              />
+            </div>
+            <div className="stack gap-2">
+              <h3 className="section-label">Taken this shift</h3>
+              {summary.by_method.length > 0 ? (
+                <Details
+                  rows={summary.by_method.map((item) => [item.label, money(item.amount, currency)])}
+                />
+              ) : (
+                <p className="cell-note">No sale has been completed.</p>
+              )}
+            </div>
           </div>
         </div>
         {needsReason ? (

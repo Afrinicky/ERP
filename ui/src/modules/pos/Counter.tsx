@@ -31,7 +31,7 @@ import {
 } from "@/components/primitives";
 import { isZero } from "@/lib/decimal";
 import { describe } from "@/lib/errors";
-import { money, quantity } from "@/lib/format";
+import { editable, money, quantity } from "@/lib/format";
 import { useCurrency, useSession } from "@/lib/session";
 
 const METHODS: { value: TenderMethodName; label: string }[] = [
@@ -658,12 +658,18 @@ function PaymentPanel({
     <Card title="Payment" flush>
       <div className="register__payment">
         <TotalDisplay
-          label={settled && !empty ? "Total, paid" : "Total"}
+          label={ready ? "Total, paid" : "Total"}
           value={money(sale.total, currency)}
           caption={
-            empty ? undefined : settled ? undefined : `${money(sale.due, currency)} still due`
+            empty
+              ? undefined
+              : sale.awaiting_confirmation
+                ? "Payment awaiting confirmation"
+                : settled
+                  ? undefined
+                  : `${money(sale.due, currency)} still due`
           }
-          tone={empty ? "default" : settled ? "settled" : "due"}
+          tone={empty ? "default" : ready ? "settled" : "due"}
         />
 
         {sale.tenders.length > 0 ? (
@@ -705,7 +711,7 @@ function PaymentPanel({
                       inputMode="decimal"
                       value={amount}
                       disabled={empty}
-                      placeholder={empty ? "" : sale.due}
+                      placeholder={empty ? "" : editable(sale.due)}
                       onChange={(event) => setAmount(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" && amount) tender.mutate();
@@ -717,6 +723,7 @@ function PaymentPanel({
                   value={amount}
                   onChange={setAmount}
                   disabled={empty || tender.isPending}
+                  compact
                   completeLabel="Take cash"
                   onComplete={amount ? () => tender.mutate() : undefined}
                 />
@@ -734,7 +741,7 @@ function PaymentPanel({
                       inputMode="decimal"
                       value={amount}
                       disabled={empty}
-                      placeholder={sale.due}
+                      placeholder={editable(sale.due)}
                       onChange={(event) => setAmount(event.target.value)}
                     />
                   )}

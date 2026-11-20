@@ -89,6 +89,14 @@ pending).
 | Override a price | `pos.price_override` |
 | Refund, exchange, void | `pos.refund` |
 
+A sale's journal entry is posted under the permission that authorised the sale.
+`journal.post` guards only the entries a person writes by hand (manual journals, opening
+balances, year end), so a sales person completes a sale without being able to write journals.
+
+A supervisor authorises at the cashier's register by entering their own credentials. The
+password is checked as at sign-in, lockout included, the session it opens is closed at once,
+and both names are recorded on the refund.
+
 ## Test obligations
 
 The six exit criteria of the build plan, each by an automated test and by

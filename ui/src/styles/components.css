@@ -2173,22 +2173,22 @@
 /* The closing count: denominations on the left, the reconciliation beside them. */
 
 .count {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-6);
-  align-items: start;
 }
 
 .count__sheet {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2) var(--space-5);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-2) var(--space-6);
 }
 
 .count__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 88px auto;
   align-items: center;
-  justify-content: space-between;
+  justify-content: start;
   gap: var(--space-3);
 }
 
@@ -2198,15 +2198,18 @@
 }
 
 .count__result {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr);
+  gap: var(--space-6);
+  align-items: start;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--colour-border-subtle);
 }
 
 @media (max-width: 1023px) {
   .register,
   .register--opening,
-  .count {
+  .count__result {
     grid-template-columns: minmax(0, 1fr);
   }
 }
