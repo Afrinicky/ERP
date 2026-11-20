@@ -87,11 +87,13 @@ export function Treasury() {
                 <tr key={item.id}>
                   <td>
                     <div>{item.name}</div>
-                    <div className="cell-note">
-                      {[item.institution, item.number, item.branch_name]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </div>
+                    {item.institution || item.number || item.branch_name ? (
+                      <div className="cell-note">
+                        {[item.institution, item.number, item.branch_name]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    ) : null}
                   </td>
                   <td>{item.kind_label}</td>
                   <td>{item.ledger_code}</td>

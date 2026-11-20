@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from nickland.domain.money import ZERO
+from nickland.domain.organisation import DocumentKind
 from nickland.interface.dependencies import SESSION_HEADER
 from tests.e2e.conftest import API, sign_in
 
@@ -105,7 +106,9 @@ class TestNumbering:
         self, admin_client: TestClient
     ) -> None:
         sequences = admin_client.get(f"{API}/numbering").json()
-        assert len(sequences) == 22
+        assert {item["document_kind"] for item in sequences} == {
+            kind.value for kind in DocumentKind
+        }
         quotation = next(item for item in sequences if item["document_kind"] == "quotation")
         assert quotation["preview"] == "QTN-2026-0001"
         assert quotation["document_label"] == "Quotation"

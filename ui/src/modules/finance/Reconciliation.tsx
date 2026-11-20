@@ -35,6 +35,13 @@ const LINE_TONE: Record<StatementLineRecord["state"], Tone> = {
   excluded: "neutral",
 };
 
+const LINE_LABEL: Record<StatementLineRecord["state"], string> = {
+  unmatched: "Unmatched",
+  matched: "Matched",
+  duplicate: "Duplicate",
+  excluded: "Excluded",
+};
+
 export function Reconciliation() {
   const { can } = useSession();
   const currency = useCurrency();
@@ -398,7 +405,7 @@ function StatementDialog({ statementId, onClose }: { statementId: string; onClos
                       {isNegative(line.amount) ? money(magnitude(line.amount), currency) : ""}
                     </td>
                     <td>
-                      <StatusChip tone={LINE_TONE[line.state]}>{line.state}</StatusChip>
+                      <StatusChip tone={LINE_TONE[line.state]}>{LINE_LABEL[line.state]}</StatusChip>
                     </td>
                     <td>
                       {manage && line.state === "unmatched" ? (
