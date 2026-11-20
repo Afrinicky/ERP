@@ -170,6 +170,10 @@ class SalesOrderLine(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixi
         Quantity, nullable=False, default=Decimal("0")
     )
     """Signed for by the customer, less what they later returned."""
+    quantity_invoiced: Mapped[Decimal] = mapped_column(
+        Quantity, nullable=False, default=Decimal("0"), server_default="0"
+    )
+    """Billed to the customer on an invoice."""
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
 
     unit_price: Mapped[Decimal] = mapped_column(UnitPrice, nullable=False, default=Decimal("0"))

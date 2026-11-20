@@ -26,11 +26,14 @@ from nickland.application.services.inventory import InventoryService
 from nickland.application.services.journals import JournalDraft, JournalService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.pricing_lists import PriceListService
+from nickland.application.services.receivables import ReceivablesService
 from nickland.application.services.stock import holds_stock
+from nickland.application.services.tax_postings import tax_entry_lines
 from nickland.application.services.taxation import TaxableLine, TaxContext, TaxService
 from nickland.domain.catalogue import TrackingPolicy
 from nickland.domain.documents import DocumentContext, DocumentKind, Line, TaxComponent, Totals
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
+from nickland.domain.finance import invoice_state
 from nickland.domain.inventory import COST_OF_GOODS_SOLD, MovementType, StockState
 from nickland.domain.ledger import EntryLine, JournalSource, Side, SubledgerKind
 from nickland.domain.money import ZERO, allocate, money, multiply, plain, present, suggested_tenders
@@ -56,6 +59,7 @@ from nickland.domain.pos import (
     outstanding,
 )
 from nickland.persistence.catalogue_models import Product
+from nickland.persistence.finance_models import SalesInvoice
 from nickland.persistence.inventory_models import Batch, StockMovement
 from nickland.persistence.ledger_models import JournalEntry
 from nickland.persistence.models import Business, Party, User
@@ -68,7 +72,6 @@ from nickland.persistence.pos_models import (
     PosShift,
     PosTender,
 )
-from nickland.persistence.tax_models import TaxRule
 from nickland.platform.clock import Clock, SystemClock, business_date
 from nickland.platform.ids import new_id
 
@@ -941,6 +944,20 @@ class PosService:
         sale.completed_at = self._clock.now()
         sale.completed_on = today
         sale.cashier_id = actor.user_id
+        on_account = money(
+            sum(
+                (
+                    t.amount
+                    for t in sale.tenders
+                    if t.method == TenderMethod.ON_ACCOUNT.value
+                    and t.state == TenderState.CONFIRMED.value
+                ),
+                ZERO,
+            )
+        )
+        if on_account > ZERO:
+            self._db.flush()
+            ReceivablesService(self._db, clock=self._clock).record_pos_sale(sale, on_account)
         self._db.flush()
         self._audit.record(
             actor,
@@ -1110,6 +1127,8 @@ class PosService:
         refund.journal_entry_fk = entry.id if entry is not None else None
         refund.stock_operation_id = operation.id
         sale.refunded_total = money(sale.refunded_total + refund.total)
+        if method is TenderMethod.ON_ACCOUNT:
+            self._credit_account_sale(sale, refund.total)
         every = all(line.quantity_refunded >= line.quantity for line in sale.lines)
         if kind is RefundKind.VOID and every:
             sale.state = SaleState.VOIDED.value
@@ -1410,32 +1429,23 @@ class PosService:
                 totals[code] = money(totals.get(code, ZERO) + Decimal(str(amount)))
         return self._tax_lines_for(sale, totals, side)
 
+    def _credit_account_sale(self, sale: PosSale, amount: Decimal) -> None:
+        """A refund to account reduces what the account sale still owes."""
+        invoice = self._db.scalar(select(SalesInvoice).where(SalesInvoice.pos_sale_fk == sale.id))
+        if invoice is None:
+            return
+        invoice.amount_credited = money(
+            invoice.amount_credited + min(amount, money(invoice.outstanding))
+        )
+        settled = money(
+            invoice.amount_received + invoice.amount_credited + invoice.amount_written_off
+        )
+        invoice.state = invoice_state(invoice.total, settled, invoice.amount_written_off).value
+
     def _tax_lines_for(
         self, sale: PosSale, totals: dict[str, Decimal], side: Side
     ) -> list[EntryLine]:
-        lines: list[EntryLine] = []
-        for code, amount in sorted(totals.items()):
-            if amount <= ZERO:
-                continue
-            rule = self._db.scalar(
-                select(TaxRule).where(TaxRule.business_id == sale.business_id, TaxRule.code == code)
-            )
-            if rule is None or not rule.liability_account_code:
-                raise ConflictError(
-                    f"Tax rule {code} names no liability account to post the tax to. Configure "
-                    "it under Taxation."
-                )
-            lines.append(
-                EntryLine(
-                    account_code=rule.liability_account_code,
-                    side=side,
-                    amount=amount,
-                    narration=rule.name,
-                    party_id=rule.authority_fk,
-                    subledger=SubledgerKind.AUTHORITY if rule.authority_fk else None,
-                )
-            )
-        return lines
+        return tax_entry_lines(self._db, sale.business_id, totals, side)
 
     def _returned(self, line: PosSaleLine) -> tuple[Decimal, Decimal]:
         """Net and tax already refunded against a sale line."""

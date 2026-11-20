@@ -38,6 +38,7 @@ from nickland.application.services.pos import (
     RefundDraft,
     RefundLineDraft,
 )
+from nickland.application.services.receivables import ReceiptDraft, ReceivablesService
 from nickland.application.services.units import UnitService
 from nickland.documents.service import DocumentRenderService
 from nickland.domain.errors import (
@@ -48,6 +49,7 @@ from nickland.domain.errors import (
 )
 from nickland.domain.inventory import StockState
 from nickland.domain.pos import SaleState, ShiftState, TenderState
+from nickland.persistence.finance_models import SalesInvoice
 from nickland.persistence.inventory_models import StockBalance
 from nickland.persistence.ledger_models import Account, JournalEntry, JournalLine
 from nickland.persistence.pos_models import PosTender
@@ -298,6 +300,14 @@ class TestTheCart:
             .where(JournalLine.entry_fk == sale.journal_entry_fk, Account.code == "11000")
         )
         assert line is not None and line.party_fk == world["customer"].id
+
+        receivables = ReceivablesService(db, clock=pos.clock)
+        invoice = db.scalar(select(SalesInvoice).where(SalesInvoice.pos_sale_fk == sale.id))
+        assert invoice is not None and invoice.number == sale.number
+        assert invoice.total == sale.total and invoice.origin == "pos_sale"
+        receivables.receive(admin, ReceiptDraft(customer_id=world["customer"].id, amount=D("100")))
+        assert invoice.outstanding == sale.total - D("100")
+        assert receivables.customer_balance(admin, world["customer"].id) == sale.total - D("100")
 
     def test_the_register_needs_an_open_shift(self, pos: PosService, admin: Actor) -> None:
         with pytest.raises(ConflictError, match="Open a shift"):

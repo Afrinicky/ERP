@@ -9,10 +9,13 @@ accounts. ``assert_no_income_or_expense`` holds that rule for every treasury pos
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
+from decimal import Decimal
 from enum import StrEnum
 from typing import Final
 
 from nickland.domain.errors import ValidationError
+from nickland.domain.money import ZERO, money
 
 # Accounts the module posts to, named once.
 CASH_ON_HAND: Final = "10100"
@@ -114,3 +117,109 @@ def assert_no_income_or_expense(groups: Iterable[str | None], *, what: str) -> N
         raise ValidationError(
             f"{what} moves money between balances and posts no income or expense."
         )
+
+
+# --------------------------------------------------------------------------------------
+# Receivables
+# --------------------------------------------------------------------------------------
+
+
+class InvoiceOrigin(StrEnum):
+    SALES_ORDER = "sales_order"
+    POS_SALE = "pos_sale"
+    """A register sale on account: the receivable already posted with the sale."""
+
+
+class InvoiceState(StrEnum):
+    OPEN = "open"
+    PART_SETTLED = "part_settled"
+    SETTLED = "settled"
+    WRITTEN_OFF = "written_off"
+
+    @property
+    def label(self) -> str:
+        return {
+            InvoiceState.OPEN: "Open",
+            InvoiceState.PART_SETTLED: "Part settled",
+            InvoiceState.SETTLED: "Settled",
+            InvoiceState.WRITTEN_OFF: "Written off",
+        }[self]
+
+
+def invoice_state(total: Decimal, settled: Decimal, written_off: Decimal) -> InvoiceState:
+    """Where an invoice stands from what has been received, credited and written off."""
+    if written_off > ZERO and settled + written_off >= total:
+        return InvoiceState.WRITTEN_OFF
+    if settled >= total:
+        return InvoiceState.SETTLED
+    if settled > ZERO:
+        return InvoiceState.PART_SETTLED
+    return InvoiceState.OPEN
+
+
+class DepositCondition(StrEnum):
+    """When an advance stops being owed back to the customer and may meet an invoice."""
+
+    ON_INVOICE = "on_invoice"
+    """When the goods it was paid for are invoiced."""
+    ON_DELIVERY = "on_delivery"
+    """When the goods it was paid for have been delivered and invoiced."""
+
+    @property
+    def label(self) -> str:
+        return {
+            DepositCondition.ON_INVOICE: "Applied when invoiced",
+            DepositCondition.ON_DELIVERY: "Applied when delivered",
+        }[self]
+
+
+class DepositState(StrEnum):
+    HELD = "held"
+    PART_APPLIED = "part_applied"
+    APPLIED = "applied"
+    REFUNDED = "refunded"
+
+
+def deposit_condition_met(condition: DepositCondition, *, invoiced: bool, delivered: bool) -> bool:
+    if condition is DepositCondition.ON_INVOICE:
+        return invoiced
+    return invoiced and delivered
+
+
+class CollectionNoteKind(StrEnum):
+    CONTACT = "contact"
+    PROMISE = "promise"
+    DISPUTE = "dispute"
+    RESOLVED = "resolved"
+
+    @property
+    def label(self) -> str:
+        return {
+            CollectionNoteKind.CONTACT: "Contact",
+            CollectionNoteKind.PROMISE: "Promise to pay",
+            CollectionNoteKind.DISPUTE: "Dispute raised",
+            CollectionNoteKind.RESOLVED: "Dispute resolved",
+        }[self]
+
+
+@dataclass(frozen=True, slots=True)
+class CreditPosition:
+    """What a customer owes and may still owe."""
+
+    limit: Decimal | None
+    outstanding: Decimal
+    on_hold: bool
+
+    def headroom(self) -> Decimal | None:
+        return None if self.limit is None else money(self.limit - self.outstanding)
+
+    def refuses(self, amount: Decimal) -> str | None:
+        """Why a further invoice of ``amount`` needs approval, or None."""
+        if self.on_hold:
+            return "The customer's credit is on hold."
+        if self.limit is not None and money(self.outstanding + amount) > self.limit:
+            return (
+                f"This invoice takes the customer to {money(self.outstanding + amount)} "
+                f"against a credit limit of {money(self.limit)}."
+            )
+        return None
