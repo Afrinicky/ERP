@@ -6,6 +6,32 @@
  */
 
 import type {
+  AgeingRow,
+  BankStatementRecord,
+  Cashbook,
+  CollectionNote,
+  CommandLayout,
+  CreditNoteRecord,
+  CustomerDeposit,
+  CustomerReceipt,
+  ExpenseInput,
+  ExpenseRecord,
+  FinancialAccount,
+  FinancialAccountKindName,
+  InvoiceableLine,
+  LedgerItem,
+  MeasureDrill,
+  MeasureRecord,
+  PartyStatement,
+  PaymentBatchRecord,
+  RecurringExpenseRecord,
+  SalesInvoice,
+  SourceRow,
+  StatementLineRecord,
+  TreasuryMovement,
+  TreasuryMovementKindName,
+  Widget,
+  WorklistItem,
   Account,
   AccessPolicy,
   AccessPolicyTerms,
@@ -818,6 +844,222 @@ export const api = {
       request<OrderVariance>('GET', `/orders/${orderId}/cost-variance`),
   },
 
+  treasury: {
+    accounts: (include_inactive = false) =>
+      request<FinancialAccount[]>('GET', '/treasury/accounts', undefined, { include_inactive }),
+    createAccount: (payload: {
+      kind: FinancialAccountKindName;
+      name: string;
+      institution?: string | null;
+      number?: string | null;
+      branch_name?: string | null;
+      custodian_id?: string | null;
+    }) => request<FinancialAccount>('POST', '/treasury/accounts', payload),
+    amendAccount: (
+      accountId: string,
+      payload: {
+        name?: string;
+        institution?: string | null;
+        number?: string | null;
+        branch_name?: string | null;
+        custodian_id?: string | null;
+        is_active?: boolean;
+      },
+    ) => request<FinancialAccount>('PATCH', `/treasury/accounts/${accountId}`, payload),
+    cashbook: (accountId: string, query: { start?: string; end?: string } = {}) =>
+      request<Cashbook>('GET', `/treasury/accounts/${accountId}/cashbook`, undefined, query),
+    movements: () => request<TreasuryMovement[]>('GET', '/treasury/movements'),
+    record: (payload: {
+      kind: TreasuryMovementKindName;
+      amount: string;
+      reason: string;
+      from_account_id?: string | null;
+      to_account_id?: string | null;
+      charge?: string;
+      occurred_on?: string | null;
+      reference?: string | null;
+    }) => request<TreasuryMovement>('POST', '/treasury/movements', payload),
+  },
+
+  receivables: {
+    invoiceable: (orderId: string) =>
+      request<InvoiceableLine[]>('GET', `/receivables/orders/${orderId}/invoiceable`),
+    issueInvoice: (payload: {
+      sales_order_id: string;
+      lines?: { sales_order_line_id: string; quantity: string }[];
+      basis?: 'delivered' | 'ordered';
+      customer_reference?: string | null;
+      credit_override_reason?: string | null;
+    }) => request<SalesInvoice>('POST', '/receivables/invoices', payload),
+    invoices: (query: { customer_id?: string; order_id?: string; open_only?: boolean } = {}) =>
+      request<SalesInvoice[]>('GET', '/receivables/invoices', undefined, query),
+    invoice: (invoiceId: string) =>
+      request<SalesInvoice>('GET', `/receivables/invoices/${invoiceId}`),
+    credit: (
+      invoiceId: string,
+      payload: { lines: { invoice_line_id: string; quantity: string }[]; reason: string },
+    ) => request<CreditNoteRecord>('POST', `/receivables/invoices/${invoiceId}/credit`, payload),
+    provide: (invoiceId: string, amount: string, reason: string) =>
+      request<SalesInvoice>('POST', `/receivables/invoices/${invoiceId}/provision`, {
+        amount,
+        reason,
+      }),
+    writeOff: (invoiceId: string, reason: string) =>
+      request<SalesInvoice>('POST', `/receivables/invoices/${invoiceId}/write-off`, { reason }),
+    receive: (payload: {
+      customer_id: string;
+      amount: string;
+      financial_account_id?: string | null;
+      received_on?: string | null;
+      reference?: string | null;
+      allocations?: { invoice_id: string; amount: string }[] | null;
+      notes?: string | null;
+    }) => request<CustomerReceipt>('POST', '/receivables/receipts', payload),
+    receipts: (customer_id?: string) =>
+      request<CustomerReceipt[]>('GET', '/receivables/receipts', undefined, { customer_id }),
+    allocate: (receiptId: string, invoice_id: string, amount: string) =>
+      request<CustomerReceipt>('POST', `/receivables/receipts/${receiptId}/allocate`, {
+        invoice_id,
+        amount,
+      }),
+    refundCredit: (
+      receiptId: string,
+      payload: { amount: string; reason: string; financial_account_id?: string | null },
+    ) => request<CustomerReceipt>('POST', `/receivables/receipts/${receiptId}/refund`, payload),
+    takeDeposit: (payload: {
+      customer_id: string;
+      amount: string;
+      financial_account_id?: string | null;
+      sales_order_id?: string | null;
+      condition?: 'on_invoice' | 'on_delivery';
+      reference?: string | null;
+    }) => request<CustomerDeposit>('POST', '/receivables/deposits', payload),
+    deposits: (query: { customer_id?: string; held_only?: boolean } = {}) =>
+      request<CustomerDeposit[]>('GET', '/receivables/deposits', undefined, query),
+    applyDeposit: (depositId: string, invoice_id: string, amount?: string | null) =>
+      request<CustomerDeposit>('POST', `/receivables/deposits/${depositId}/apply`, {
+        invoice_id,
+        amount,
+      }),
+    refundDeposit: (
+      depositId: string,
+      payload: { amount: string; reason: string; financial_account_id?: string | null },
+    ) => request<CustomerDeposit>('POST', `/receivables/deposits/${depositId}/refund`, payload),
+    ageing: () => request<AgeingRow[]>('GET', '/receivables/ageing'),
+    worklist: () => request<WorklistItem[]>('GET', '/receivables/worklist'),
+    addNote: (
+      customerId: string,
+      payload: {
+        kind: CollectionNote['kind'];
+        note: string;
+        invoice_id?: string | null;
+        promised_on?: string | null;
+        promised_amount?: string | null;
+      },
+    ) => request<CollectionNote>('POST', `/receivables/customers/${customerId}/notes`, payload),
+    notes: (customerId: string) =>
+      request<CollectionNote[]>('GET', `/receivables/customers/${customerId}/notes`),
+    statement: (customerId: string, start: string, end?: string) =>
+      request<PartyStatement>('GET', `/receivables/customers/${customerId}/statement`, undefined, {
+        start,
+        end,
+      }),
+  },
+
+  expenses: {
+    list: (state?: string) => request<ExpenseRecord[]>('GET', '/expenses', undefined, { state }),
+    record: (payload: ExpenseInput) => request<ExpenseRecord>('POST', '/expenses', payload),
+    approve: (expenseId: string) =>
+      request<ExpenseRecord>('POST', `/expenses/${expenseId}/approve`),
+    reject: (expenseId: string, reason: string) =>
+      request<ExpenseRecord>('POST', `/expenses/${expenseId}/reject`, { reason }),
+    settle: (expenseId: string, financial_account_id: string) =>
+      request<ExpenseRecord>('POST', `/expenses/${expenseId}/settle`, { financial_account_id }),
+    threshold: () => request<{ amount: string | null }>('GET', '/expenses/threshold'),
+    setThreshold: (amount: string | null) =>
+      request<{ amount: string | null }>('PUT', '/expenses/threshold', { amount }),
+    recurring: () => request<RecurringExpenseRecord[]>('GET', '/expenses/recurring'),
+    schedule: (payload: {
+      name: string;
+      payee_name: string;
+      category_code: string;
+      description: string;
+      net: string;
+      frequency: 'weekly' | 'monthly' | 'quarterly';
+      next_due: string;
+      settlement?: 'paid' | 'on_credit';
+      financial_account_id?: string | null;
+    }) => request<RecurringExpenseRecord>('POST', '/expenses/recurring', payload),
+    raiseDue: () => request<ExpenseRecord[]>('POST', '/expenses/recurring/raise'),
+  },
+
+  reconciliation: {
+    statements: (account_id?: string) =>
+      request<BankStatementRecord[]>('GET', '/reconciliation/statements', undefined, {
+        account_id,
+      }),
+    importStatement: (payload: {
+      financial_account_id: string;
+      content: string;
+      closing_balance: string;
+      reference: string;
+    }) => request<BankStatementRecord>('POST', '/reconciliation/statements', payload),
+    statement: (statementId: string) =>
+      request<BankStatementRecord>('GET', `/reconciliation/statements/${statementId}`),
+    autoMatch: (statementId: string) =>
+      request<{ matched: number }>('POST', `/reconciliation/statements/${statementId}/auto-match`),
+    complete: (statementId: string) =>
+      request<BankStatementRecord>('POST', `/reconciliation/statements/${statementId}/complete`),
+    suggestions: (lineId: string) =>
+      request<{ item: LedgerItem; score: number }[]>(
+        'GET',
+        `/reconciliation/lines/${lineId}/suggestions`,
+      ),
+    match: (lineId: string, journal_line_ids: string[]) =>
+      request<StatementLineRecord>('POST', `/reconciliation/lines/${lineId}/match`, {
+        journal_line_ids,
+      }),
+    unmatch: (lineId: string) =>
+      request<StatementLineRecord>('POST', `/reconciliation/lines/${lineId}/unmatch`),
+    exclude: (lineId: string, reason: string) =>
+      request<StatementLineRecord>('POST', `/reconciliation/lines/${lineId}/exclude`, { reason }),
+    post: (lineId: string, kind: TreasuryMovementKindName, reason: string) =>
+      request<StatementLineRecord>('POST', `/reconciliation/lines/${lineId}/post`, {
+        kind,
+        reason,
+      }),
+    unreconciled: (accountId: string) =>
+      request<LedgerItem[]>('GET', `/reconciliation/accounts/${accountId}/unreconciled`),
+    sources: (start: string, end: string) =>
+      request<SourceRow[]>('GET', '/reconciliation/sources', undefined, { start, end }),
+  },
+
+  commandCentre: {
+    measures: (start: string, end: string) =>
+      request<MeasureRecord[]>('GET', '/command-centre/measures', undefined, { start, end }),
+    drill: (code: string, start: string, end: string) =>
+      request<MeasureDrill>('GET', `/command-centre/measures/${code}/lines`, undefined, {
+        start,
+        end,
+      }),
+    revenue: (dimension: string, start: string, end: string) =>
+      request<{ key: string; label: string; amount: string }[]>(
+        'GET',
+        `/command-centre/revenue/${dimension}`,
+        undefined,
+        { start, end },
+      ),
+    layout: () => request<CommandLayout>('GET', '/command-centre/layout'),
+    saveLayout: (widgets: Widget[], preset: string, role_code?: string | null) =>
+      request<CommandLayout>('PUT', '/command-centre/layout', { widgets, preset, role_code }),
+    resetLayout: () => request<CommandLayout>('POST', '/command-centre/layout/reset'),
+    presets: () =>
+      request<{ code: string; label: string; widgets: Widget[] }[]>(
+        'GET',
+        '/command-centre/presets',
+      ),
+  },
+
   purchases: {
     suggest: (salesOrderId: string) =>
       request<SuggestedOrder[]>('GET', `/purchases/orders/suggest/${salesOrderId}`),
@@ -865,6 +1107,30 @@ export const api = {
 
     payables: (query: { as_at?: string; supplier_id?: string } = {}) =>
       request<PayablesRegister>('GET', '/purchases/payables', undefined, query),
+    setPriority: (invoiceId: string, priority: 'urgent' | 'normal' | 'hold', reason: string) =>
+      request<unknown>('POST', `/purchases/payables/invoices/${invoiceId}/priority`, {
+        priority,
+        reason,
+      }),
+    supplierStatement: (supplierId: string, start: string, end?: string) =>
+      request<PartyStatement>(
+        'GET',
+        `/purchases/payables/suppliers/${supplierId}/statement`,
+        undefined,
+        { start, end },
+      ),
+    batches: () => request<PaymentBatchRecord[]>('GET', '/purchases/payables/batches'),
+    prepareBatch: (payload: {
+      financial_account_id: string;
+      items: { supplier_id: string; amount: string; invoice_ids?: string[] }[];
+      pay_on?: string | null;
+    }) => request<PaymentBatchRecord>('POST', '/purchases/payables/batches', payload),
+    approveBatch: (batchId: string) =>
+      request<PaymentBatchRecord>('POST', `/purchases/payables/batches/${batchId}/approve`),
+    rejectBatch: (batchId: string, reason: string) =>
+      request<PaymentBatchRecord>('POST', `/purchases/payables/batches/${batchId}/reject`, {
+        reason,
+      }),
     pay: (payload: PaymentInput) => request<SupplierPayment>('POST', '/purchases/payments', payload),
     payments: (query: { supplier_id?: string; limit?: number } = {}) =>
       request<SupplierPayment[]>('GET', '/purchases/payments', undefined, query),
