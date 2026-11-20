@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from nickland.interface.dependencies import Runtime
 from nickland.interface.errors import install_error_handlers
 from nickland.interface.routers import (
+    access,
     appearance,
     attachments,
     catalogue,
@@ -134,6 +135,7 @@ def create_application(
         setup.router,
         session.router,
         users.router,
+        access.router,
         organisation.router,
         appearance.router,
         custom_fields.router,

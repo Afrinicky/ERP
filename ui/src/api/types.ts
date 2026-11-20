@@ -152,6 +152,54 @@ export interface Role {
   is_read_only: boolean;
   is_system: boolean;
   permissions: string[];
+  holders: number;
+}
+
+export interface AccessException {
+  permission_code: string;
+  effect: 'grant' | 'withhold';
+  reason: string;
+  set_at: string;
+  set_by: string | null;
+}
+
+export interface UserAccess {
+  user_id: string;
+  full_name: string;
+  username: string;
+  is_administrator: boolean;
+  roles: string[];
+  role_names: string[];
+  from_roles: string[];
+  exceptions: AccessException[];
+  effective: string[];
+}
+
+export interface UserSession {
+  id: string;
+  issued_at: string;
+  last_seen_at: string;
+  expires_at: string;
+  device: string | null;
+  address: string | null;
+}
+
+export interface AccessPolicyTerms {
+  minimum_length: number;
+  require_uppercase: boolean;
+  require_lowercase: boolean;
+  require_digit: boolean;
+  require_symbol: boolean;
+  reuse_window: number;
+  lockout_threshold: number;
+  lockout_minutes: number;
+  idle_minutes: number;
+  absolute_hours: number;
+}
+
+export interface AccessPolicy extends AccessPolicyTerms {
+  is_default: boolean;
+  requirements: string[];
 }
 
 export interface Permission {

@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import StrEnum
 
 from nickland.domain.errors import ValidationError
 from nickland.platform.passwords import normalise as normalise_password
@@ -198,3 +199,100 @@ def validate_username(username: str) -> str:
             field="username",
         )
     return candidate
+
+
+# --------------------------------------------------------------------------------------
+# Access control: per-user exceptions and the business's sign-in policy
+# --------------------------------------------------------------------------------------
+
+
+class OverrideEffect(StrEnum):
+    """What an exception does to a user's access beyond their roles."""
+
+    GRANT = "grant"
+    WITHHOLD = "withhold"
+
+
+@dataclass(frozen=True, slots=True)
+class AccessPolicyTerms:
+    """The administrator's sign-in policy, in the units a person sets it in."""
+
+    minimum_length: int
+    require_uppercase: bool
+    require_lowercase: bool
+    require_digit: bool
+    require_symbol: bool
+    reuse_window: int
+    lockout_threshold: int
+    lockout_minutes: int
+    idle_minutes: int
+    absolute_hours: int
+
+    def validate(self) -> None:
+        """Refuse a policy that would be insecure or would lock everyone out."""
+        bounds = (
+            ("minimum_length", 8, 64, "Passwords must be between 8 and 64 characters long."),
+            ("reuse_window", 0, 24, "Between 0 and 24 earlier passwords may be refused."),
+            (
+                "lockout_threshold",
+                3,
+                20,
+                "An account locks after between 3 and 20 failed attempts.",
+            ),
+            ("lockout_minutes", 1, 1440, "A lockout lasts between 1 minute and 24 hours."),
+            (
+                "idle_minutes",
+                5,
+                480,
+                "An idle session expires after between 5 minutes and 8 hours.",
+            ),
+            ("absolute_hours", 1, 24, "A session lasts between 1 and 24 hours."),
+        )
+        for name, low, high, message in bounds:
+            value = getattr(self, name)
+            if not low <= value <= high:
+                raise ValidationError(message, field=name)
+        if self.idle_minutes > self.absolute_hours * 60:
+            raise ValidationError(
+                "An idle session cannot outlast the session itself.", field="idle_minutes"
+            )
+
+    @property
+    def password(self) -> PasswordPolicy:
+        return PasswordPolicy(
+            minimum_length=self.minimum_length,
+            require_uppercase=self.require_uppercase,
+            require_lowercase=self.require_lowercase,
+            require_digit=self.require_digit,
+            require_symbol=self.require_symbol,
+            reuse_window=self.reuse_window,
+        )
+
+    @property
+    def lockout(self) -> LockoutPolicy:
+        return LockoutPolicy(
+            threshold=self.lockout_threshold, duration=timedelta(minutes=self.lockout_minutes)
+        )
+
+    @property
+    def session(self) -> SessionPolicy:
+        return SessionPolicy(
+            idle=timedelta(minutes=self.idle_minutes), absolute=timedelta(hours=self.absolute_hours)
+        )
+
+    @classmethod
+    def of(
+        cls, password: PasswordPolicy, lockout: LockoutPolicy, session: SessionPolicy
+    ) -> AccessPolicyTerms:
+        return cls(
+            minimum_length=password.minimum_length,
+            require_uppercase=password.require_uppercase,
+            require_lowercase=password.require_lowercase,
+            require_digit=password.require_digit,
+            require_symbol=password.require_symbol,
+            reuse_window=password.reuse_window,
+            lockout_threshold=lockout.threshold,
+            lockout_minutes=int(lockout.duration.total_seconds() // 60),
+            idle_minutes=int(session.idle.total_seconds() // 60),
+            absolute_hours=int(session.absolute.total_seconds() // 3600),
+        )

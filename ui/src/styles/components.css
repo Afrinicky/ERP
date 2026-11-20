@@ -2213,3 +2213,129 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ------------------------------------------------------------------ Access control */
+
+.access {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.access__people {
+  display: flex;
+  flex-direction: column;
+}
+
+.access__person {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: var(--control-height-touch);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--colour-border-subtle);
+  background: none;
+  color: var(--colour-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.access__person:last-child {
+  border-bottom: 0;
+}
+
+.access__person:hover {
+  background: var(--colour-surface-sunken);
+}
+
+.access__person[aria-selected="true"] {
+  background: var(--colour-accent-primary-surface);
+}
+
+.access__person-name {
+  font-weight: var(--weight-medium);
+}
+
+.access__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.access__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.access__group-row th {
+  padding-top: var(--space-4);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--colour-text-secondary);
+  background: var(--colour-surface-sunken);
+}
+
+.access__save {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.access__save > :first-child {
+  flex: 1;
+  max-width: 520px;
+}
+
+.access__exceptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--size-sm);
+}
+
+.access__policy {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.access__group .fieldset__legend {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.access__held {
+  font-size: var(--size-xs);
+  font-weight: var(--weight-regular);
+  color: var(--colour-text-secondary);
+}
+
+.access__count {
+  margin-right: auto;
+}
+
+@media (max-width: 1023px) {
+  .access,
+  .access__toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .access__save {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

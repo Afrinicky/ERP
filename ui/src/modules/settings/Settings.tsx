@@ -10,7 +10,8 @@ import { CustomFields } from '@/modules/settings/CustomFields';
 import { DataImport } from '@/modules/settings/DataImport';
 import { Numbering } from '@/modules/settings/Numbering';
 import { AuditTrail, BackupSettings, SystemHealth } from '@/modules/settings/Platform';
-import { Roles, Users } from '@/modules/settings/Users';
+import { AccessControl } from '@/modules/settings/AccessControl';
+import { Users } from '@/modules/settings/Users';
 import { useSession } from '@/lib/session';
 
 interface Area {
@@ -23,7 +24,7 @@ interface Area {
 const AREAS: Area[] = [
   { path: '', label: 'Business', permission: 'business.view', element: <BusinessSettings /> },
   { path: 'users', label: 'Users', permission: 'user.view', element: <Users /> },
-  { path: 'roles', label: 'Roles and permissions', permission: 'user.view', element: <Roles /> },
+  { path: 'access', label: 'Access control', permission: 'user.view', element: <AccessControl /> },
   { path: 'appearance', label: 'Appearance', permission: 'business.view', element: <Appearance /> },
   { path: 'numbering', label: 'Document numbering', permission: 'business.view', element: <Numbering /> },
   { path: 'custom-fields', label: 'Custom fields', permission: 'business.view', element: <CustomFields /> },

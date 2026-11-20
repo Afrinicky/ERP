@@ -15,6 +15,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
+from nickland.application.services.access import AccessControlService
 from nickland.application.services.accounts import AccountService
 from nickland.application.services.assembly import AssemblyService
 from nickland.application.services.attachments import AttachmentService
@@ -149,6 +150,15 @@ def get_identity_service(session: SessionDependency, runtime: RuntimeDependency)
 
 
 IdentityDependency = Annotated[IdentityService, Depends(get_identity_service)]
+
+
+def get_access_control(
+    session: SessionDependency, runtime: RuntimeDependency, identity: IdentityDependency
+) -> AccessControlService:
+    return AccessControlService(session, clock=runtime.clock, identity=identity)
+
+
+AccessDependency = Annotated[AccessControlService, Depends(get_access_control)]
 
 
 def get_actor(

@@ -171,6 +171,7 @@ class RoleReply(Reply):
     is_read_only: bool
     is_system: bool
     permissions: list[str] = Field(default_factory=list)
+    holders: int = 0
 
 
 class SetRolePermissionsContract(Contract):

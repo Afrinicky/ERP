@@ -36,6 +36,10 @@ class AuditAction(StrEnum):
     ROLE_WITHDRAWN = "role_withdrawn"
     ROLE_AMENDED = "role_amended"
     PERMISSION_AMENDED = "permission_amended"
+    ROLE_CREATED = "role_created"
+    ROLE_REMOVED = "role_removed"
+    ACCESS_OVERRIDDEN = "access_overridden"
+    ACCESS_POLICY_AMENDED = "access_policy_amended"
     # Configuration
     BUSINESS_CREATED = "business_created"
     BUSINESS_AMENDED = "business_amended"

@@ -19,7 +19,9 @@ from nickland.domain.errors import (
     ValidationError,
 )
 from nickland.domain.identity import (
+    AccessPolicyTerms,
     LockoutPolicy,
+    OverrideEffect,
     PasswordPolicy,
     SessionPolicy,
     validate_password,
@@ -28,10 +30,12 @@ from nickland.domain.identity import (
 from nickland.domain.permissions import require_registered
 from nickland.persistence.base import as_dict
 from nickland.persistence.models import (
+    AccessPolicy,
     PasswordHistory,
     Role,
     RolePermission,
     User,
+    UserPermissionOverride,
     UserRole,
 )
 from nickland.persistence.models import (
@@ -78,6 +82,28 @@ class IdentityService:
         self.lockout_policy = lockout_policy or LockoutPolicy()
         self.session_policy = session_policy or SessionPolicy()
 
+    def terms(self, business_id: uuid.UUID) -> AccessPolicyTerms:
+        """The sign-in policy in force: the business's own, or the installation's default."""
+        stored = self._db.scalar(
+            select(AccessPolicy).where(AccessPolicy.business_id == business_id)
+        )
+        if stored is None:
+            return AccessPolicyTerms.of(
+                self.password_policy, self.lockout_policy, self.session_policy
+            )
+        return AccessPolicyTerms(
+            minimum_length=stored.minimum_length,
+            require_uppercase=stored.require_uppercase,
+            require_lowercase=stored.require_lowercase,
+            require_digit=stored.require_digit,
+            require_symbol=stored.require_symbol,
+            reuse_window=stored.reuse_window,
+            lockout_threshold=stored.lockout_threshold,
+            lockout_minutes=stored.lockout_minutes,
+            idle_minutes=stored.idle_minutes,
+            absolute_hours=stored.absolute_hours,
+        )
+
     # -- authentication ---------------------------------------------------------------
 
     def sign_in(
@@ -108,9 +134,10 @@ class IdentityService:
             self._persist_failure()
             raise AuthenticationError(_GENERIC_FAILURE)
 
-        if self.lockout_policy.is_locked(user.locked_until, now):
+        terms = self.terms(business_id)
+        if terms.lockout.is_locked(user.locked_until, now):
             assert user.locked_until is not None
-            raise AccountLockedError(self.lockout_policy.minutes_remaining(user.locked_until, now))
+            raise AccountLockedError(terms.lockout.minutes_remaining(user.locked_until, now))
 
         if not user.is_active:
             self._record_failure(business_id, candidate, device, "account inactive")
@@ -118,7 +145,7 @@ class IdentityService:
 
         if not verify_password(password, user.password_hash):
             user.failed_attempts += 1
-            locked_until = self.lockout_policy.lock_until(user.failed_attempts, now)
+            locked_until = terms.lockout.lock_until(user.failed_attempts, now)
             if locked_until is not None:
                 user.locked_until = locked_until
                 user.failed_attempts = 0
@@ -145,7 +172,7 @@ class IdentityService:
             token_hash=hash_token(token),
             issued_at=now,
             last_seen_at=now,
-            expires_at=self.session_policy.expires_at(now),
+            expires_at=terms.session.expires_at(now),
             device=device,
             address=address,
         )
@@ -176,7 +203,9 @@ class IdentityService:
         )
         if record is None or record.revoked_at is not None:
             raise AuthenticationError("Session is not valid.")
-        if not self.session_policy.is_valid(record.issued_at, record.last_seen_at, now):
+        if not self.terms(record.business_id).session.is_valid(
+            record.issued_at, record.last_seen_at, now
+        ):
             record.revoked_at = now
             raise AuthenticationError("Session has expired. Sign in again.")
 
@@ -244,9 +273,10 @@ class IdentityService:
         reason: str | None = None,
         force_change: bool = False,
     ) -> None:
-        validate_password(new_password, self.password_policy, username=user.username)
+        policy = self.terms(user.business_id).password
+        validate_password(new_password, policy, username=user.username)
 
-        window = self.password_policy.reuse_window
+        window = policy.reuse_window
         if window > 0:
             # Autoflush is off, so pending history rows must be flushed to be visible.
             self._db.flush()
@@ -317,7 +347,7 @@ class IdentityService:
         if existing is not None:
             raise ConflictError(f"Username {candidate!r} is already in use.")
 
-        validate_password(password, self.password_policy, username=candidate)
+        validate_password(password, self.terms(actor.business_id).password, username=candidate)
 
         user = User(
             business_id=actor.business_id,
@@ -549,6 +579,10 @@ class IdentityService:
             )
         )
 
+    def actor_for(self, user: User) -> Actor:
+        """What a user may do now: their roles, with their own exceptions applied."""
+        return self._build_actor(user, session_id=None, device=None)
+
     def _build_actor(
         self, user: User, *, session_id: uuid.UUID | None, device: str | None
     ) -> Actor:
@@ -572,6 +606,19 @@ class IdentityService:
             is_administrator = is_administrator or bool(administrator)
             if permission_code is not None:
                 permissions.add(permission_code)
+
+        # A person's own exceptions apply over their roles, except to an administrator,
+        # who holds everything by definition.
+        if not is_administrator:
+            for code, effect in self._db.execute(
+                select(UserPermissionOverride.permission_code, UserPermissionOverride.effect).where(
+                    UserPermissionOverride.user_fk == user.id
+                )
+            ).all():
+                if effect == OverrideEffect.GRANT:
+                    permissions.add(code)
+                else:
+                    permissions.discard(code)
 
         return Actor(
             user_id=user.id,

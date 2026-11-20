@@ -258,7 +258,7 @@ class PasswordHistory(Base, IdentifiedMixin, BusinessScopedMixin):
 
 
 class Role(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
-    """A role. Eight are seeded per PRD 3; each is editable and more may be created."""
+    """A role. Two are seeded; each is editable and more may be created."""
 
     __tablename__ = "roles"
 
@@ -310,6 +310,51 @@ class UserRole(Base, IdentifiedMixin, BusinessScopedMixin):
     assigned_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
 
     __table_args__ = (UniqueConstraint("user_fk", "role_fk", name=None),)
+
+
+class UserPermissionOverride(Base, IdentifiedMixin, BusinessScopedMixin):
+    """A permission granted to, or withheld from, one user beyond what their roles give.
+
+    For the exception rather than the rule: the one sales person trusted with discounts,
+    the cashier kept off refunds. Each carries its reason and who set it.
+    """
+
+    __tablename__ = "user_permission_overrides"
+
+    user_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    permission_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    effect: Mapped[str] = mapped_column(String(16), nullable=False)
+    """``grant`` or ``withhold``."""
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    set_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+    set_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+    __table_args__ = (UniqueConstraint("user_fk", "permission_code", name=None),)
+
+
+class AccessPolicy(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """The business's sign-in policy: passwords, lockout and session expiry, per PRD 9.6.
+
+    Absent, the installation's defaults apply.
+    """
+
+    __tablename__ = "access_policies"
+
+    minimum_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    require_uppercase: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    require_lowercase: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    require_digit: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    require_symbol: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    reuse_window: Mapped[int] = mapped_column(Integer, nullable=False)
+    lockout_threshold: Mapped[int] = mapped_column(Integer, nullable=False)
+    lockout_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    idle_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    absolute_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    amended_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+    __table_args__ = (UniqueConstraint("business_id", name=None),)
 
 
 class Session(Base, IdentifiedMixin, BusinessScopedMixin):

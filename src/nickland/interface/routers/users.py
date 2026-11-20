@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from nickland.domain.permissions import REGISTRY
 from nickland.interface.dependencies import (
+    AccessDependency,
     ActorDependency,
     IdentityDependency,
     SessionDependency,
@@ -155,8 +156,11 @@ def withdraw_role(
 
 
 @router.get("/roles", response_model=list[RoleReply], summary="List roles")
-def list_roles(actor: ActorDependency, db: SessionDependency) -> list[RoleReply]:
+def list_roles(
+    actor: ActorDependency, db: SessionDependency, access: AccessDependency
+) -> list[RoleReply]:
     actor.require("user.view")
+    holders = access.holders(actor)
     roles = db.scalars(
         select(Role).where(Role.business_id == actor.business_id).order_by(Role.name)
     ).all()
@@ -170,6 +174,7 @@ def list_roles(actor: ActorDependency, db: SessionDependency) -> list[RoleReply]
             is_read_only=role.is_read_only,
             is_system=role.is_system,
             permissions=sorted(item.permission_code for item in role.permissions),
+            holders=holders.get(role.id, 0),
         )
         for role in roles
     ]

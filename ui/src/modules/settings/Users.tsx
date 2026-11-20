@@ -1,10 +1,10 @@
 /** Users, roles and permissions. */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
-import type { Permission, Role, User } from '@/api/types';
+import type { Role, User } from '@/api/types';
 import {
   Alert,
   Button,
@@ -71,7 +71,7 @@ export function Users() {
     <div className="settings__panel">
       <SectionHeader
         title="Users"
-        detail="Each user holds one or more roles. Permissions are enforced by the service, not by the interface."
+        detail="Each user holds one or more roles. Exceptions for an individual are set under Access control."
         actions={
           can('user.manage') ? (
             <Button tone="primary" size="compact" onClick={() => setCreating(true)}>
@@ -427,183 +427,3 @@ function ResetPasswordDialog({
     </Dialog>
   );
 }
-
-export function Roles() {
-  const { can } = useSession();
-  const client = useQueryClient();
-  const toast = useToast();
-
-  const roles = useQuery({ queryKey: ['roles'], queryFn: api.roles.list });
-  const permissions = useQuery({ queryKey: ['permissions'], queryFn: api.permissions.list });
-
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [granted, setGranted] = useState<Set<string>>(new Set());
-  const [reason, setReason] = useState('');
-
-  const selected = roles.data?.find((role) => role.code === selectedCode) ?? null;
-
-  const grouped = useMemo(() => {
-    const result = new Map<string, Permission[]>();
-    for (const permission of permissions.data ?? []) {
-      const list = result.get(permission.group) ?? [];
-      list.push(permission);
-      result.set(permission.group, list);
-    }
-    return result;
-  }, [permissions.data]);
-
-  const save = useMutation({
-    mutationFn: () =>
-      api.roles.setPermissions(selected!.code, Array.from(granted), reason),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['roles'] });
-      setSelectedCode(null);
-      setReason('');
-      toast.show('success', 'Role permissions saved.');
-    },
-    onError: (error) => toast.show('error', describe(error).message),
-  });
-
-  function open(role: Role) {
-    setSelectedCode(role.code);
-    setGranted(new Set(role.permissions));
-    setReason('');
-  }
-
-  if (!can('user.view')) {
-    return <EmptyState title="Role administration is restricted" />;
-  }
-
-  return (
-    <div className="settings__panel">
-      <SectionHeader
-        title="Roles and permissions"
-        detail="The eight roles of the requirements are supplied and may be amended. A permission is a verb against a resource."
-      />
-
-      <Card flush>
-        {roles.isLoading ? (
-          <div style={{ padding: 'var(--space-5)' }}>
-            <Skeleton rows={5} height={16} />
-          </div>
-        ) : (
-          <div className="table-frame">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ width: '22%' }}>Role</th>
-                  <th>Responsibilities</th>
-                  <th style={{ width: '12%' }} className="numeric">
-                    Permissions
-                  </th>
-                  <th style={{ width: '12%' }}>Standing</th>
-                  {can('role.manage') ? <th style={{ width: '10%' }} /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {(roles.data ?? []).map((role) => (
-                  <tr key={role.code}>
-                    <td>{role.name}</td>
-                    <td className="table__cell--wrap muted">{role.description}</td>
-                    <td className="numeric">{role.permissions.length}</td>
-                    <td>
-                      {role.is_administrator ? (
-                        <StatusChip tone="accent">Administrator</StatusChip>
-                      ) : role.is_read_only ? (
-                        <StatusChip tone="info">Read only</StatusChip>
-                      ) : (
-                        <StatusChip tone="neutral">Standard</StatusChip>
-                      )}
-                    </td>
-                    {can('role.manage') ? (
-                      <td>
-                        <div className="table__actions">
-                          <Button tone="plain" size="compact" onClick={() => open(role)}>
-                            {role.is_administrator ? 'View' : 'Amend'}
-                          </Button>
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {selected ? (
-        <Dialog
-          title={`Permissions — ${selected.name}`}
-          size="lg"
-          onClose={() => setSelectedCode(null)}
-          footer={
-            <>
-              <Button tone="plain" onClick={() => setSelectedCode(null)}>
-                Cancel
-              </Button>
-              <Button
-                tone="primary"
-                busy={save.isPending}
-                disabled={selected.is_administrator || !reason.trim()}
-                onClick={() => save.mutate()}
-              >
-                Save permissions
-              </Button>
-            </>
-          }
-        >
-          <div className="stack gap-4">
-            {selected.is_administrator ? (
-              <Alert tone="info" title="The administrator role cannot be narrowed">
-                This role holds every permission by definition. To grant a restricted set of
-                capabilities, create a separate role.
-              </Alert>
-            ) : (
-              <Field label="Reason" required hint="Recorded in the audit trail.">
-                {(id, describedBy) => (
-                  <TextInput
-                    id={id}
-                    aria-describedby={describedBy}
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                  />
-                )}
-              </Field>
-            )}
-
-            {Array.from(grouped.entries()).map(([group, items]) => (
-              <fieldset className="fieldset" key={group}>
-                <legend className="fieldset__legend">{group}</legend>
-                <div className="form-grid">
-                  {items.map((permission) => (
-                    <Checkbox
-                      key={permission.code}
-                      label={permission.name}
-                      hint={
-                        permission.sensitive
-                          ? `${permission.description} Sensitive.`
-                          : permission.description
-                      }
-                      checked={granted.has(permission.code)}
-                      disabled={selected.is_administrator}
-                      onChange={(checked) =>
-                        setGranted((current) => {
-                          const next = new Set(current);
-                          if (checked) next.add(permission.code);
-                          else next.delete(permission.code);
-                          return next;
-                        })
-                      }
-                    />
-                  ))}
-                </div>
-              </fieldset>
-            ))}
-          </div>
-        </Dialog>
-      ) : null}
-    </div>
-  );
-}
-

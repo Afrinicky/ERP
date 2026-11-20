@@ -176,9 +176,3 @@ def suggested_tenders(
         if candidate != exact:
             rounded.add(candidate)
     return [exact, *sorted(rounded)][:limit]
-    largest = max(denominations) if denominations else Decimal("100")
-    bundles = (exact / largest).to_integral_value(rounding=ROUND_CEILING)
-    bundle = present(bundles * largest, precision)
-    if bundle not in offered and len(offered) < limit:
-        offered.append(bundle)
-    return offered

@@ -7,6 +7,10 @@
 
 import type {
   Account,
+  AccessPolicy,
+  AccessPolicyTerms,
+  UserAccess,
+  UserSession,
   PosCountPreview,
   PosRefund,
   PosRefundInput,
@@ -444,12 +448,33 @@ export const api = {
       request<void>('POST', `/users/${id}/roles`, { role_code }),
     withdrawRole: (id: string, roleCode: string) =>
       request<void>('DELETE', `/users/${id}/roles/${roleCode}`),
+    access: (id: string) => request<UserAccess>('GET', `/users/${id}/access`),
+    setExceptions: (
+      id: string,
+      exceptions: { permission_code: string; effect: 'grant' | 'withhold' }[],
+      reason: string,
+    ) => request<UserAccess>('PUT', `/users/${id}/access`, { exceptions, reason }),
+    sessions: (id: string) => request<UserSession[]>('GET', `/users/${id}/sessions`),
+    endSessions: (id: string, reason: string) =>
+      request<{ ended: number }>('POST', `/users/${id}/sessions/end`, { reason }),
   },
 
   roles: {
     list: () => request<Role[]>('GET', '/roles'),
     setPermissions: (code: string, permission_codes: string[], reason: string) =>
       request<Role>('PUT', `/roles/${code}/permissions`, { permission_codes, reason }),
+    create: (payload: { name: string; description?: string | null; copy_from?: string | null }) =>
+      request<Role>('POST', '/roles', payload),
+    amend: (code: string, payload: { name: string; description?: string | null }) =>
+      request<Role>('PATCH', `/roles/${code}`, payload),
+    remove: (code: string, reason: string) =>
+      request<void>('POST', `/roles/${code}/remove`, { reason }),
+  },
+
+  accessPolicy: {
+    get: () => request<AccessPolicy>('GET', '/access-policy'),
+    set: (terms: AccessPolicyTerms, reason: string) =>
+      request<AccessPolicy>('PUT', '/access-policy', { ...terms, reason }),
   },
 
   permissions: {
