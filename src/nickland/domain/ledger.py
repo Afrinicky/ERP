@@ -138,6 +138,8 @@ class JournalSource(StrEnum):
     OPENING_BALANCE = "opening_balance"
     YEAR_END = "year_end"
     REVERSAL = "reversal"
+    TREASURY = "treasury"
+    EXPENSE = "expense"
 
 
 class SubledgerKind(StrEnum):

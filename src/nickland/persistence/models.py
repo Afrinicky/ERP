@@ -670,6 +670,7 @@ __all__ = [
     "DocumentTemplate",
     "DocumentType",
     "DocumentTypeField",
+    "FinancialAccount",
     "GoodsReceipt",
     "GoodsReceiptLine",
     "ImportRun",
@@ -756,9 +757,14 @@ __all__ = [
     "TaxRuleCondition",
     "TaxRuleVersion",
     "ThemeProfile",
+    "TreasuryMovement",
     "UnitConversionRow",
     "UnitOfMeasure",
     "User",
     "UserRole",
     "Warehouse",
 ]
+from nickland.persistence.finance_models import (  # noqa: E402
+    FinancialAccount,
+    TreasuryMovement,
+)

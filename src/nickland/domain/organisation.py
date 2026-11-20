@@ -35,6 +35,7 @@ class DocumentKind(StrEnum):
     STOCK_TRANSFER = "stock_transfer"
     LOAN_AGREEMENT = "loan_agreement"
     EXPENSE = "expense"
+    TREASURY_MOVEMENT = "treasury_movement"
 
 
 DOCUMENT_KIND_LABELS: dict[DocumentKind, tuple[str, str]] = {
@@ -60,6 +61,7 @@ DOCUMENT_KIND_LABELS: dict[DocumentKind, tuple[str, str]] = {
     DocumentKind.STOCK_TRANSFER: ("Stock transfer", "TRF"),
     DocumentKind.LOAN_AGREEMENT: ("Loan agreement", "LN"),
     DocumentKind.EXPENSE: ("Expense", "EXP"),
+    DocumentKind.TREASURY_MOVEMENT: ("Treasury movement", "TRM"),
 }
 
 

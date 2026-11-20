@@ -80,6 +80,9 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
         SubledgerKind.CUSTOMER,
         manual=False,
     ),
+    SeededAccount(
+        "11010", "Allowance for doubtful debts", "CA", CashFlowCategory.OPERATING, manual=False
+    ),
     SeededAccount("11100", "Other receivables", "CA", CashFlowCategory.OPERATING),
     SeededAccount(
         "11200",
@@ -140,6 +143,14 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
         "CL",
         CashFlowCategory.OPERATING,
         SubledgerKind.AFFILIATE,
+        manual=False,
+    ),
+    SeededAccount(
+        "20400",
+        "Staff claims payable",
+        "CL",
+        CashFlowCategory.OPERATING,
+        control=SubledgerKind.EMPLOYEE,
         manual=False,
     ),
     SeededAccount(
