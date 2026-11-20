@@ -8,8 +8,10 @@ accounts. ``assert_no_income_or_expense`` holds that rule for every treasury pos
 
 from __future__ import annotations
 
+from calendar import monthrange
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Final
@@ -223,3 +225,82 @@ class CreditPosition:
                 f"against a credit limit of {money(self.limit)}."
             )
         return None
+
+
+# --------------------------------------------------------------------------------------
+# Expenses
+# --------------------------------------------------------------------------------------
+
+
+class ExpenseSettlement(StrEnum):
+    PAID = "paid"
+    """Paid at once from a financial account: cash, petty cash, bank or wallet."""
+    ON_CREDIT = "on_credit"
+    """Owed to the payee and paid later."""
+    STAFF_CLAIM = "staff_claim"
+    """Paid by a member of staff from their own pocket, and owed back to them."""
+
+    @property
+    def label(self) -> str:
+        return {
+            ExpenseSettlement.PAID: "Paid",
+            ExpenseSettlement.ON_CREDIT: "On credit",
+            ExpenseSettlement.STAFF_CLAIM: "Staff claim",
+        }[self]
+
+
+class ExpenseState(StrEnum):
+    AWAITING_APPROVAL = "awaiting_approval"
+    RECOGNISED = "recognised"
+    """Posted: the cost is in the accounts; for credit and claims, still owed."""
+    SETTLED = "settled"
+    REJECTED = "rejected"
+
+    @property
+    def label(self) -> str:
+        return {
+            ExpenseState.AWAITING_APPROVAL: "Awaiting approval",
+            ExpenseState.RECOGNISED: "Recognised",
+            ExpenseState.SETTLED: "Settled",
+            ExpenseState.REJECTED: "Rejected",
+        }[self]
+
+
+class ExpenseClass(StrEnum):
+    OPERATING = "operating"
+    CAPITAL = "capital"
+
+
+class Frequency(StrEnum):
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+
+
+def advance(on: date, frequency: Frequency) -> date:
+    """The next due date after ``on``. Month ends hold: 31 January is followed by the last
+    day of February, then 31 March."""
+    if frequency is Frequency.WEEKLY:
+        return on + timedelta(days=7)
+    months = 1 if frequency is Frequency.MONTHLY else 3
+    year, month = divmod(on.month - 1 + months, 12)
+    target_year, target_month = on.year + year, month + 1
+    last = monthrange(target_year, target_month)[1]
+    return date(target_year, target_month, min(on.day, last))
+
+
+EXPENSE_GROUPS: Final = frozenset({"COS", "OPEX", "OTH"})
+CAPITAL_GROUPS: Final = frozenset({"NCA"})
+
+
+def assert_classified(classification: ExpenseClass, group: str | None) -> None:
+    """A capital purchase is an asset; an operating cost is an expense. Never the other way."""
+    if classification is ExpenseClass.CAPITAL and group not in CAPITAL_GROUPS:
+        raise ValidationError(
+            "A capital purchase is recorded to a non-current asset account, such as 15000.",
+            field="category_code",
+        )
+    if classification is ExpenseClass.OPERATING and group not in EXPENSE_GROUPS:
+        raise ValidationError(
+            "An operating expense is recorded to an expense account.", field="category_code"
+        )

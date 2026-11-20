@@ -341,3 +341,73 @@ class DebtProvision(Base, IdentifiedMixin, BusinessScopedMixin):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     journal_entry_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+
+# -- expenses -----------------------------------------------------------------------------
+
+
+class Expense(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin, BranchScopedMixin):
+    """A cost incurred: what it was, who was paid, and how it was settled."""
+
+    __tablename__ = "expenses"
+
+    number: Mapped[str] = mapped_column(String(40), nullable=False)
+    payee_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    payee_party_fk: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("parties.id", ondelete="RESTRICT")
+    )
+    employee_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    """For a staff claim: who is owed."""
+    category_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    classification: Mapped[str] = mapped_column(String(12), nullable=False, default="operating")
+    net: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    input_tax: Mapped[Decimal] = mapped_column(Money, nullable=False, default=Decimal("0"))
+    total: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    incurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    payee_reference: Mapped[str | None] = mapped_column(String(120))
+    settlement: Mapped[str] = mapped_column(String(16), nullable=False)
+    financial_account_fk: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("financial_accounts.id", ondelete="RESTRICT")
+    )
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    submitted_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    approved_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    decided_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    duplicate_of_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    duplicate_reason: Mapped[str | None] = mapped_column(Text)
+    recurring_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    evidence_attachment_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    journal_entry_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    settled_on: Mapped[date | None] = mapped_column(Date)
+    settled_from_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    settlement_journal_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+    __table_args__ = (
+        UniqueConstraint("business_id", "number", name=None),
+        CheckConstraint("net > 0", name="net_positive"),
+        CheckConstraint("input_tax >= 0", name="input_tax_non_negative"),
+    )
+
+
+class RecurringExpense(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """A cost that recurs — rent, a subscription, a service contract — raised when due."""
+
+    __tablename__ = "recurring_expenses"
+
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    payee_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    payee_party_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    category_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    net: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    input_tax: Mapped[Decimal] = mapped_column(Money, nullable=False, default=Decimal("0"))
+    settlement: Mapped[str] = mapped_column(String(16), nullable=False)
+    financial_account_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    frequency: Mapped[str] = mapped_column(String(12), nullable=False)
+    next_due: Mapped[date] = mapped_column(Date, nullable=False)
+    ends_on: Mapped[date | None] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (UniqueConstraint("business_id", "name", name=None),)
