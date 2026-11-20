@@ -66,6 +66,8 @@ from nickland.persistence.tax_models import (
 )
 from nickland.platform.clock import Clock, SystemClock, business_date
 
+TAX_PAID_AWAITING_ALLOCATION = "11400"
+
 # --------------------------------------------------------------------------------------
 # What a caller hands the engine
 # --------------------------------------------------------------------------------------
@@ -1170,6 +1172,7 @@ class TaxService:
         )
         self._db.add(payment)
         self._db.flush()
+        self._post_payment(actor, payment, options.get("financial_account_id"))
 
         if allocations:
             self.allocate(actor, payment.id, allocations)
@@ -1195,21 +1198,22 @@ class TaxService:
 
         now = self._clock.now()
         touched: set[uuid.UUID | None] = set()
+        fresh: list[tuple[TaxPaymentAllocation, TaxObligation]] = []
         for obligation_id, amount in allocations:
             if amount <= ZERO:
                 raise ValidationError("An allocation is above zero.", field="amount")
             obligation = self._db.get(TaxObligation, obligation_id)
             if obligation is None or obligation.business_id != payment.business_id:
                 raise NotFoundError("Tax obligation not found.")
-            payment.allocations.append(
-                TaxPaymentAllocation(
-                    business_id=payment.business_id,
-                    obligation_fk=obligation_id,
-                    amount=money(amount),
-                    allocated_at=now,
-                    allocated_by_id=actor.user_id,
-                )
+            allocation = TaxPaymentAllocation(
+                business_id=payment.business_id,
+                obligation_fk=obligation_id,
+                amount=money(amount),
+                allocated_at=now,
+                allocated_by_id=actor.user_id,
             )
+            payment.allocations.append(allocation)
+            fresh.append((allocation, obligation))
             touched.add(obligation_id)
 
         applied = money(sum((item.amount for item in payment.allocations), ZERO))
@@ -1221,6 +1225,8 @@ class TaxService:
             )
         payment.allocated = applied
         self._db.flush()
+        for allocation, obligation in fresh:
+            self._post_allocation(actor, payment, allocation, obligation)
         self._refresh_obligations(payment.business_id, touched)
 
         self._audit.record(
@@ -1232,6 +1238,126 @@ class TaxService:
             after={"allocated": str(applied), "obligations": len(allocations)},
         )
         return payment
+
+    def _post_payment(
+        self, actor: AnyActor, payment: TaxPayment, account_id: uuid.UUID | None
+    ) -> None:
+        """Money paid to the authority: Dr tax paid awaiting allocation, Cr the account paid
+        from. It meets the liability when it is applied to an obligation."""
+        from nickland.application.services.journals import JournalDraft, JournalService
+        from nickland.application.services.treasury import TreasuryService
+        from nickland.domain.finance import FinancialAccountKind
+        from nickland.domain.ledger import EntryLine, JournalSource, Side, SubledgerKind
+
+        treasury = TreasuryService(self._db, clock=self._clock)
+        account = (
+            treasury.require(actor, account_id)
+            if account_id is not None
+            else treasury.default_for(payment.business_id, FinancialAccountKind.BANK)
+        )
+        authority = payment.authority_fk or self._default_authority(payment.business_id)
+        business = self._db.get(Business, payment.business_id)
+        entry = (
+            JournalService(self._db, clock=self._clock)
+            .post(
+                actor,
+                JournalDraft(
+                    posting_date=payment.paid_on,
+                    narration=f"Tax payment {payment.reference}",
+                    lines=[
+                        EntryLine(
+                            TAX_PAID_AWAITING_ALLOCATION,
+                            Side.DEBIT,
+                            payment.amount,
+                            payment.reference,
+                            party_id=authority,
+                            subledger=SubledgerKind.AUTHORITY,
+                        ),
+                        EntryLine(
+                            treasury.ledger_code(account),
+                            Side.CREDIT,
+                            payment.amount,
+                            payment.bank_reference or payment.reference,
+                        ),
+                    ],
+                    source=JournalSource.TAXATION,
+                    source_reference=payment.reference,
+                    source_id=payment.id,
+                    idempotency_key=f"tax_payment:{payment.id}",
+                    currency_code=business.base_currency if business else None,
+                    branch_id=actor.branch_id,
+                ),
+            )
+            .entry
+        )
+        payment.financial_account_fk = account.id
+        payment.journal_entry_fk = entry.id
+        if payment.authority_fk is None:
+            payment.authority_fk = authority
+        self._db.flush()
+
+    def _post_allocation(
+        self,
+        actor: AnyActor,
+        payment: TaxPayment,
+        allocation: TaxPaymentAllocation,
+        obligation: TaxObligation,
+    ) -> None:
+        """Applied to an obligation: Dr the tax's liability, Cr tax paid awaiting allocation."""
+        from nickland.application.services.journals import JournalDraft, JournalService
+        from nickland.domain.ledger import EntryLine, JournalSource, Side, SubledgerKind
+
+        rule = self._db.get(TaxRule, obligation.rule_fk)
+        if rule is None or not rule.liability_account_code:
+            raise ConflictError(
+                f"{obligation.label} names no liability account for the payment to settle."
+            )
+        business = self._db.get(Business, payment.business_id)
+        entry = (
+            JournalService(self._db, clock=self._clock)
+            .post(
+                actor,
+                JournalDraft(
+                    posting_date=max(payment.paid_on, self._today(payment.business_id)),
+                    narration=f"Tax payment {payment.reference} applied to {obligation.label}",
+                    lines=[
+                        EntryLine(
+                            rule.liability_account_code,
+                            Side.DEBIT,
+                            allocation.amount,
+                            obligation.label,
+                            party_id=obligation.authority_fk or rule.authority_fk,
+                            subledger=SubledgerKind.AUTHORITY,
+                        ),
+                        EntryLine(
+                            TAX_PAID_AWAITING_ALLOCATION,
+                            Side.CREDIT,
+                            allocation.amount,
+                            payment.reference,
+                            party_id=payment.authority_fk,
+                            subledger=SubledgerKind.AUTHORITY,
+                        ),
+                    ],
+                    source=JournalSource.TAXATION,
+                    source_reference=payment.reference,
+                    source_id=allocation.id,
+                    idempotency_key=f"tax_payment_allocation:{allocation.id}",
+                    currency_code=business.base_currency if business else None,
+                    branch_id=actor.branch_id,
+                ),
+            )
+            .entry
+        )
+        allocation.journal_entry_fk = entry.id
+        self._db.flush()
+
+    def _default_authority(self, business_id: uuid.UUID) -> uuid.UUID | None:
+        return self._db.scalar(
+            select(TaxAuthority.id)
+            .where(TaxAuthority.business_id == business_id)
+            .order_by(TaxAuthority.code)
+            .limit(1)
+        )
 
     def payments(self, actor: AnyActor, *, limit: int = 100) -> list[TaxPayment]:
         actor.require("tax.view")

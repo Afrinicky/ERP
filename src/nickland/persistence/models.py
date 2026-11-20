@@ -652,6 +652,7 @@ __all__ = [
     "Attachment",
     "AuditEvent",
     "BackupRecord",
+    "BankStatement",
     "Barcode",
     "Batch",
     "Branch",
@@ -724,6 +725,7 @@ __all__ = [
     "QuotationRequestLine",
     "QuotationSnapshot",
     "ReceiptAllocation",
+    "ReconciliationMatch",
     "RecurringExpense",
     "Role",
     "RolePermission",
@@ -735,6 +737,7 @@ __all__ = [
     "Setting",
     "Shipment",
     "ShipmentLine",
+    "StatementLine",
     "StockBalance",
     "StockBin",
     "StockCount",
@@ -776,6 +779,7 @@ __all__ = [
     "Warehouse",
 ]
 from nickland.persistence.finance_models import (  # noqa: E402
+    BankStatement,
     CollectionNote,
     CustomerCreditNote,
     CustomerDeposit,
@@ -785,8 +789,10 @@ from nickland.persistence.finance_models import (  # noqa: E402
     Expense,
     FinancialAccount,
     ReceiptAllocation,
+    ReconciliationMatch,
     RecurringExpense,
     SalesInvoice,
     SalesInvoiceLine,
+    StatementLine,
     TreasuryMovement,
 )

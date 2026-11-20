@@ -344,6 +344,9 @@ class TaxPayment(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
     note: Mapped[str | None] = mapped_column(Text)
 
     recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    financial_account_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    """The account it was paid from."""
+    journal_entry_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
 
     allocations: Mapped[list[TaxPaymentAllocation]] = relationship(
         back_populates="payment", cascade="all, delete-orphan", lazy="selectin"
@@ -369,6 +372,7 @@ class TaxPaymentAllocation(Base, IdentifiedMixin, BusinessScopedMixin):
     amount: Mapped[Decimal] = mapped_column(PostedAmount, nullable=False)
     allocated_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
     allocated_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    journal_entry_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
 
     payment: Mapped[TaxPayment] = relationship(back_populates="allocations")
 

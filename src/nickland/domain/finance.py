@@ -8,11 +8,14 @@ accounts. ``assert_no_income_or_expense`` holds that rule for every treasury pos
 
 from __future__ import annotations
 
+import csv
+import hashlib
+import io
 from calendar import monthrange
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, timedelta
-from decimal import Decimal
+from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Final
 
@@ -304,3 +307,118 @@ def assert_classified(classification: ExpenseClass, group: str | None) -> None:
         raise ValidationError(
             "An operating expense is recorded to an expense account.", field="category_code"
         )
+
+
+# --------------------------------------------------------------------------------------
+# Statement import
+# --------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedLine:
+    line_date: date
+    description: str
+    reference: str | None
+    amount: Decimal
+    """Money in is positive; money out is negative."""
+
+    @property
+    def fingerprint(self) -> str:
+        """The same line imported twice carries the same fingerprint."""
+        text = "|".join(
+            (
+                self.line_date.isoformat(),
+                format(money(self.amount), "f"),
+                (self.reference or "").strip().lower(),
+                " ".join(self.description.lower().split()),
+            )
+        )
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+_HEADERS: Final = {
+    "date": ("date", "transaction date", "value date", "posting date", "txn date"),
+    "description": ("description", "narration", "details", "particulars", "remarks"),
+    "reference": ("reference", "ref", "ref.", "cheque no", "transaction id", "reference no"),
+    "amount": ("amount", "value"),
+    "debit": ("debit", "withdrawal", "withdrawals", "money out", "paid out", "dr"),
+    "credit": ("credit", "deposit", "deposits", "money in", "paid in", "cr"),
+}
+
+_DATE_FORMATS: Final = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d-%b-%Y", "%d.%m.%Y")
+
+
+def parse_statement(text: str) -> list[ParsedLine]:
+    """Read a statement exported as CSV: a date, a description, a reference, and either
+    one signed amount or a debit and a credit column. Debits are money out."""
+    rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    if not rows:
+        raise ValidationError("The statement is empty.", field="content")
+    header = [cell.strip().lower() for cell in rows[0]]
+    columns: dict[str, int] = {}
+    for key, names in _HEADERS.items():
+        for index, heading in enumerate(header):
+            if heading in names:
+                columns[key] = index
+                break
+    if "date" not in columns or "description" not in columns:
+        raise ValidationError(
+            "The first row names the columns: a date and a description, and an amount or "
+            "a debit and a credit.",
+            field="content",
+        )
+    if "amount" not in columns and not ("debit" in columns and "credit" in columns):
+        raise ValidationError(
+            "The statement needs an amount column, or a debit and a credit column.",
+            field="content",
+        )
+    parsed: list[ParsedLine] = []
+    for number, row in enumerate(rows[1:], start=2):
+        if not any(cell.strip() for cell in row):
+            continue
+
+        def cell(key: str, row: list[str] = row) -> str:
+            index = columns.get(key)
+            return row[index].strip() if index is not None and index < len(row) else ""
+
+        try:
+            if "amount" in columns:
+                amount = _amount(cell("amount"))
+            else:
+                amount = money(_amount(cell("credit") or "0") - _amount(cell("debit") or "0"))
+            when = _date(cell("date"))
+        except ValueError as error:
+            raise ValidationError(f"Row {number}: {error}", field="content") from error
+        parsed.append(
+            ParsedLine(
+                line_date=when,
+                description=cell("description")[:300] or "(no description)",
+                reference=cell("reference")[:120] or None,
+                amount=amount,
+            )
+        )
+    if not parsed:
+        raise ValidationError("The statement has no lines.", field="content")
+    return parsed
+
+
+def _amount(text: str) -> Decimal:
+    cleaned = text.replace(",", "").replace("GH₵", "").replace("GHS", "").strip()
+    negative = cleaned.startswith("(") and cleaned.endswith(")")
+    cleaned = cleaned.strip("()").strip()
+    if not cleaned:
+        return ZERO
+    try:
+        value = Decimal(cleaned)
+    except InvalidOperation as error:
+        raise ValueError(f"{text!r} is not an amount.") from error
+    return money(-value if negative else value)
+
+
+def _date(text: str) -> date:
+    for pattern in _DATE_FORMATS:
+        try:
+            return datetime.strptime(text, pattern).date()  # noqa: DTZ007 - a date, no time
+        except ValueError:
+            continue
+    raise ValueError(f"{text!r} is not a date this import reads.")

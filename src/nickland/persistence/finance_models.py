@@ -411,3 +411,72 @@ class RecurringExpense(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMi
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (UniqueConstraint("business_id", "name", name=None),)
+
+
+# -- reconciliation -----------------------------------------------------------------------
+
+
+class BankStatement(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin):
+    """A statement from a bank or Mobile Money provider, imported for one account."""
+
+    __tablename__ = "bank_statements"
+
+    financial_account_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("financial_accounts.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    reference: Mapped[str] = mapped_column(String(120), nullable=False)
+    starts_on: Mapped[date] = mapped_column(Date, nullable=False)
+    ends_on: Mapped[date] = mapped_column(Date, nullable=False)
+    closing_balance: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    imported_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+    imported_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    reconciled_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    reconciled_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+    lines: Mapped[list[StatementLine]] = relationship(
+        back_populates="statement",
+        cascade="all, delete-orphan",
+        order_by="StatementLine.position",
+        lazy="selectin",
+    )
+
+
+class StatementLine(Base, IdentifiedMixin, BusinessScopedMixin):
+    """One line of a statement: money in is positive, money out negative."""
+
+    __tablename__ = "statement_lines"
+
+    statement_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("bank_statements.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    financial_account_fk: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    line_date: Mapped[date] = mapped_column(Date, nullable=False)
+    description: Mapped[str] = mapped_column(String(300), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(120))
+    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="unmatched")
+    """``unmatched``, ``matched``, ``duplicate`` or ``excluded``."""
+    duplicate_of_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    note: Mapped[str | None] = mapped_column(Text)
+
+    statement: Mapped[BankStatement] = relationship(back_populates="lines")
+
+
+class ReconciliationMatch(Base, IdentifiedMixin, BusinessScopedMixin):
+    """A statement line, and the ledger line it is the same money as."""
+
+    __tablename__ = "reconciliation_matches"
+
+    statement_line_fk: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("statement_lines.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    journal_line_fk: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    """Unique: a posting is matched to one statement line at most."""
+    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    """``suggested``, ``manual`` or ``posted`` (posted from the statement line)."""
+    matched_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+    matched_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
