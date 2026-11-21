@@ -36,4 +36,6 @@ The following are already specified in full and require no further module docume
 - Inventory, receiving and assembly — [module specification](inventory.md), written at the commencement of Phase 8
 - Dispatch and proof of delivery — [module specification](dispatch.md), written at the commencement of Phase 9
 - Point of sale — [module specification](pos.md), written at the commencement of Phase 10
+- Financial management — [module specification](finance.md), written at the commencement of Phase 11
+- Debt, loans and financing — [module specification](financing.md), written at the commencement of Phase 12
 - Access control — [module specification](access-control.md): roles, individual exceptions, sessions and the sign-in policy

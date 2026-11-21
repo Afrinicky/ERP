@@ -28,8 +28,15 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 | 3.5 — Brand Identity and Document Rendering | **Delivered** | `tools/verify_phase_3_5.py` |
 | 4 — Tax and Statutory Engine | **Delivered** | `tools/verify_phase_4.py` |
 | 5 — Quotation, Costing and Pricing | **Delivered** | `tools/verify_phase_5.py` |
-| 6 — Document Designer and Rendering | Next | The renderer arrived in Phase 3.5; the editor is what remains |
-| 7 to 16 | Not started | |
+| 6 — Document Designer and Rendering | **Delivered** | `tools/verify_phase_6.py` |
+| 7 — Sales Orders and Procurement | **Delivered** | `tools/verify_phase_7.py` |
+| 8 — Inventory, Receiving and Assembly | **Delivered** | `tools/verify_phase_8.py` |
+| 9 — Dispatch and Proof of Delivery | **Delivered** | `tools/verify_phase_9.py` |
+| 10 — Point of Sale | **Delivered** | `tools/verify_phase_10.py` |
+| 11 — Financial Management Core | **Delivered** | `tools/verify_phase_11.py` |
+| 12 — Debt, Loans and Financing | **Delivered** | `tools/verify_phase_12.py` |
+| 13 — Budgets, Forecasting and Profitability | Next | |
+| 14 to 16 | Not started | |
 
 Each verifier exercises its phase's exit criteria against a live database rather than
 asserting that the code was written. 1,321 tests pass and 10 are skipped, in under
