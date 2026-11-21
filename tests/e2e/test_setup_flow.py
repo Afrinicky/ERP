@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from nickland.domain.organisation import DocumentKind
 from nickland.interface.dependencies import LOCAL_HEADER, SESSION_HEADER
 from tests.e2e.conftest import API, SETUP_PAYLOAD
 
@@ -39,7 +40,7 @@ def test_provisioning_creates_the_business(client: TestClient) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["roles_created"] == 2
-    assert body["sequences_created"] == 22
+    assert body["sequences_created"] == len(DocumentKind)
     assert client.get(f"{API}/setup").json()["setup_required"] is False
 
 
