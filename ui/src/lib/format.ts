@@ -149,3 +149,29 @@ export function editable(value: string | null | undefined): string {
   const text = String(value);
   return text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
 }
+
+/**
+ * A report figure, written exactly as the PDF export writes it: grouped with a space,
+ * money to two places with negatives in parentheses, the currency stated once in the
+ * report header. Mirrors `present()` in `documents/report_export.py`.
+ */
+export function figure(
+  value: string | number | null | undefined,
+  kind: 'text' | 'money' | 'quantity' | 'count' | 'percent' | 'date' | 'days',
+): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (kind === 'text') return String(value);
+  if (kind === 'date') return date(String(value));
+  const text = String(value);
+  const negative = text.startsWith('-');
+  const [whole = '0', part = ''] = text.replace('-', '').split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  if (kind === 'money') {
+    const body = `${grouped}.${part.padEnd(2, '0').slice(0, 2)}`;
+    return negative ? `(${body})` : body;
+  }
+  if (kind === 'count') return `${negative ? '-' : ''}${grouped}`;
+  const trimmed = part.replace(/0+$/, '');
+  const body = `${negative ? '-' : ''}${grouped}${trimmed ? `.${trimmed}` : ''}`;
+  return kind === 'percent' ? `${body}%` : body;
+}

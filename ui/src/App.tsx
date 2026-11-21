@@ -21,7 +21,7 @@ import { Sales } from '@/modules/sales/Sales';
 import { Dispatch } from '@/modules/dispatch/Dispatch';
 import { Inventory } from '@/modules/inventory/Inventory';
 import { Purchases } from '@/modules/purchases/Purchases';
-import { Placeholder } from '@/modules/Placeholder';
+import { Reports } from '@/modules/reports/Reports';
 import { Register } from '@/modules/pos/Register';
 import { SetupWizard } from '@/modules/setup/SetupWizard';
 import { SignIn } from '@/modules/session/SignIn';
@@ -96,25 +96,7 @@ function Entry() {
 
         <Route path="/documents/*" element={<Documents />} />
 
-        <Route
-          path="/reports/*"
-          element={
-            <Placeholder
-              title="Reports"
-              phase="Phase 14"
-              stage="Financial Command"
-              purpose="Operational and management reporting, with period close."
-              depends="Every preceding phase, since a report presents what they record."
-              contents={[
-                'The twelve operational reports of the requirements',
-                'Monthly management pack with executive summary and statements',
-                'Comparison against prior period, budget and year',
-                'Export to PDF, Excel and CSV',
-                'Month-end and year-end close with reconciliation gates',
-              ]}
-            />
-          }
-        />
+        <Route path="/reports/*" element={<Reports />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
