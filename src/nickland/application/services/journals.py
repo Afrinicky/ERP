@@ -195,6 +195,7 @@ class JournalService:
                     narration=spec.narration,
                     party_fk=_as_uuid(spec.party_id),
                     subledger=_subledger_of(spec, account),
+                    analysis_code_fk=_as_uuid(spec.analysis_code_id),
                     posting_date=draft.posting_date,
                     state=state,
                 )
@@ -385,6 +386,7 @@ class JournalService:
                     narration=line.narration,
                     party_fk=line.party_fk,
                     subledger=line.subledger,
+                    analysis_code_fk=line.analysis_code_fk,
                     posting_date=posting_date,
                     state=JournalState.POSTED.value,
                 )

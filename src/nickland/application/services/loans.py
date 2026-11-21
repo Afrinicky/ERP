@@ -1051,6 +1051,10 @@ class LoanService:
         principal = self.position(agreement, when).principal_outstanding
         return self._quote(agreement, when, principal)
 
+    def quote_for(self, agreement: LoanAgreement, on: date) -> SettlementQuote:
+        """The settlement quotation on a date, for a reader that already holds the agreement."""
+        return self._quote(agreement, on, self.position(agreement, on).principal_outstanding)
+
     def _quote(self, agreement: LoanAgreement, when: date, principal: Decimal) -> SettlementQuote:
         rows = self.open_instalments(agreement)
         due = [row for row in rows if row.due_on <= when]

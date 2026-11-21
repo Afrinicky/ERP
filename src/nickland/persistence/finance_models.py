@@ -383,6 +383,9 @@ class Expense(Base, IdentifiedMixin, TimestampedMixin, BusinessScopedMixin, Bran
     settled_on: Mapped[date | None] = mapped_column(Date)
     settled_from_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     settlement_journal_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    analysis_code_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    hold_reason: Mapped[str | None] = mapped_column(Text)
+    """Why it waits for approval: its size, or a budget it would exceed."""
 
     __table_args__ = (
         UniqueConstraint("business_id", "number", name=None),

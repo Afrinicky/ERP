@@ -214,6 +214,7 @@ class EntryLine:
     party_id: object | None = None
     subledger: SubledgerKind | None = None
     branch_id: object | None = None
+    analysis_code_id: object | None = None
 
     def __post_init__(self) -> None:
         if self.amount <= ZERO:

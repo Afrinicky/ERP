@@ -214,6 +214,8 @@ class JournalLine(Base, IdentifiedMixin, BusinessScopedMixin, BranchScopedMixin)
     narration: Mapped[str | None] = mapped_column(Text)
     party_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
     subledger: Mapped[str | None] = mapped_column(String(16))
+    analysis_code_fk: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    """The department, project or cost centre the line is charged to, if any."""
 
     posting_date: Mapped[date] = mapped_column(Date, nullable=False)
     """Copied from the entry, so an account's activity reads without a join."""

@@ -62,6 +62,7 @@ class ExpenseDraft:
     financial_account_id: uuid.UUID | None = None
     duplicate_reason: str | None = None
     evidence_attachment_id: uuid.UUID | None = None
+    analysis_code_id: uuid.UUID | None = None
 
 
 @dataclass(slots=True)
@@ -218,11 +219,32 @@ class ExpenseService:
             duplicate_reason=reason if duplicate else None,
             recurring_fk=recurring_id,
             evidence_attachment_fk=draft.evidence_attachment_id,
+            analysis_code_fk=draft.analysis_code_id,
         )
         self._db.add(expense)
         self._db.flush()
         threshold = self.threshold(business_id)
-        if threshold is None or expense.total < threshold:
+        holds: list[str] = []
+        if threshold is not None and expense.total >= threshold:
+            holds.append(f"At or above the approval threshold of {money(threshold):,.2f}.")
+        from nickland.application.services.budgets import BudgetService
+
+        budgets = BudgetService(self._db, clock=self._clock)
+        over = budgets.check_spend(
+            business_id,
+            account_code=category.code,
+            on=incurred_on,
+            amount=net,
+            branch_id=actor.branch_id,
+            analysis_code_id=draft.analysis_code_id,
+        )
+        if over is not None:
+            request = budgets.hold_for(actor, over, expense.id, net)
+            holds.append(request.reason)
+        if holds:
+            expense.hold_reason = " ".join(holds)
+            self._db.flush()
+        else:
             self._recognise(actor, expense)
         self._audit.record(
             actor,
@@ -241,13 +263,30 @@ class ExpenseService:
         )
         return expense
 
-    def approve(self, actor: AnyActor, expense_id: uuid.UUID) -> Expense:
+    def approve(
+        self, actor: AnyActor, expense_id: uuid.UUID, *, budget_cleared: bool = False
+    ) -> Expense:
         actor.require("expense.approve")
         expense = self.require(actor, expense_id)
         if expense.state != ExpenseState.AWAITING_APPROVAL.value:
             raise ConflictError(f"{expense.number} is not awaiting approval.")
         if expense.submitted_by_id == actor.user_id and not actor.is_administrator:
             raise ConflictError("An expense is approved by someone other than whoever recorded it.")
+        if not budget_cleared:
+            from nickland.persistence.planning_models import BudgetRequest
+
+            pending = self._db.scalar(
+                select(BudgetRequest).where(
+                    BudgetRequest.expense_fk == expense.id, BudgetRequest.state == "pending"
+                )
+            )
+            if pending is not None:
+                # Spending beyond a budget is a budget decision as well as an expense one.
+                actor.require("budget.approve")
+                pending.state = "approved"
+                pending.decided_by_id = actor.user_id
+                pending.decided_at = self._clock.now()
+                pending.decision_note = "Approved with the expense."
         expense.approved_by_id = actor.user_id
         expense.decided_at = self._clock.now()
         self._recognise(actor, expense)
@@ -448,7 +487,13 @@ class ExpenseService:
     def _recognise(self, actor: AnyActor, expense: Expense) -> None:
         """Dr the cost (and recoverable tax), Cr the account paid from or the payee owed."""
         lines = [
-            EntryLine(expense.category_code, Side.DEBIT, expense.net, expense.description[:200])
+            EntryLine(
+                expense.category_code,
+                Side.DEBIT,
+                expense.net,
+                expense.description[:200],
+                analysis_code_id=expense.analysis_code_fk,
+            )
         ]
         if expense.input_tax > ZERO:
             lines.append(
