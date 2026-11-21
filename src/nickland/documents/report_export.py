@@ -380,7 +380,8 @@ body {{ font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 8.
             border-bottom: 2pt solid {BRAND_NAVY}; padding-bottom: 8pt; margin-bottom: 10pt; }}
 @page {{ @bottom-left {{ font-family: "Inter", "Helvetica Neue", Arial, sans-serif; }}
          @bottom-right {{ font-family: "Inter", "Helvetica Neue", Arial, sans-serif; }} }}
-.masthead h1 {{ white-space: nowrap; font-size: 17pt; margin: 0; color: {BRAND_NAVY}; letter-spacing: -0.01em;
+.masthead h1 {{ white-space: nowrap; font-size: 17pt; margin: 0; color: {BRAND_NAVY};
+               letter-spacing: -0.01em;
                string-set: reportname content(); }}
 .masthead .business {{ font-size: 9.5pt; font-weight: 600; color: {BRAND_TEAL}; }}
 .masthead .period {{ font-size: 11pt; font-weight: 600; text-align: right; }}
