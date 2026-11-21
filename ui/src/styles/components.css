@@ -2443,3 +2443,42 @@
   font-family: var(--font-mono);
   font-size: var(--size-lg);
 }
+
+/* ------------------------------------------------------------- Debt and loans */
+
+.debt__sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+
+.debt__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.debt__side .measure-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.debt__heading {
+  margin: 0;
+  font-size: var(--size-md);
+  font-weight: var(--weight-semibold);
+  color: var(--colour-text-primary);
+}
+
+.debt__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .debt__sides,
+  .debt__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

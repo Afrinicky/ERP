@@ -24,6 +24,7 @@ from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.command_centre import CommandCentreService
 from nickland.application.services.commissions import CommissionService
 from nickland.application.services.custom_fields import CustomFieldService
+from nickland.application.services.debts import DebtService
 from nickland.application.services.designer import DesignerService
 from nickland.application.services.dispatch import DispatchService
 from nickland.application.services.documents import DocumentRecordService
@@ -35,6 +36,7 @@ from nickland.application.services.inventory import InventoryService
 from nickland.application.services.inventory_reports import InventoryReportService
 from nickland.application.services.journals import JournalService
 from nickland.application.services.ledger_reports import LedgerReportService
+from nickland.application.services.loans import LoanService
 from nickland.application.services.orders import SalesOrderService
 from nickland.application.services.organisation import OrganisationService
 from nickland.application.services.parties import PartyService
@@ -368,6 +370,14 @@ def get_expenses(session: SessionDependency, runtime: RuntimeDependency) -> Expe
     return ExpenseService(session, clock=runtime.clock)
 
 
+def get_loans(session: SessionDependency, runtime: RuntimeDependency) -> LoanService:
+    return LoanService(session, clock=runtime.clock)
+
+
+def get_debts(session: SessionDependency, runtime: RuntimeDependency) -> DebtService:
+    return DebtService(session, clock=runtime.clock)
+
+
 def get_reconciliation(
     session: SessionDependency, runtime: RuntimeDependency
 ) -> ReconciliationService:
@@ -383,6 +393,8 @@ def get_command_centre(
 TreasuryDependency = Annotated[TreasuryService, Depends(get_treasury)]
 ReceivablesDependency = Annotated[ReceivablesService, Depends(get_receivables)]
 ExpenseDependency = Annotated[ExpenseService, Depends(get_expenses)]
+LoanDependency = Annotated[LoanService, Depends(get_loans)]
+DebtDependency = Annotated[DebtService, Depends(get_debts)]
 ReconciliationDependency = Annotated[ReconciliationService, Depends(get_reconciliation)]
 CommandCentreDependency = Annotated[CommandCentreService, Depends(get_command_centre)]
 DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]

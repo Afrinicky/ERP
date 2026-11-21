@@ -1,7 +1,7 @@
 /**
  * Financial Management.
  *
- * The command centre, treasury, receivables, expenses and reconciliation, and the
+ * The command centre, treasury, receivables, expenses, debt and loans, reconciliation, and the
  * ledger's own views: the position, the chart, the journal, the statements and the
  * accounting calendar. Each reads from the same posted entries, so no figure here is
  * maintained separately from the record it summarises.
@@ -16,6 +16,7 @@ import { useSession } from '@/lib/session';
 import { ChartOfAccounts } from './ChartOfAccounts';
 import { CommandCentre } from './CommandCentre';
 import { Expenses } from './Expenses';
+import { Financing } from './Financing';
 import { Receivables } from './Receivables';
 import { Reconciliation } from './Reconciliation';
 import { Treasury } from './Treasury';
@@ -30,6 +31,7 @@ type View =
   | 'treasury'
   | 'receivables'
   | 'expenses'
+  | 'financing'
   | 'reconciliation'
   | 'accounts'
   | 'journal'
@@ -42,6 +44,7 @@ const VIEWS: { id: View; label: string; permission?: string }[] = [
   { id: 'treasury', label: 'Treasury', permission: 'journal.view' },
   { id: 'receivables', label: 'Receivables', permission: 'receivable.view' },
   { id: 'expenses', label: 'Expenses', permission: 'expense.manage' },
+  { id: 'financing', label: 'Debt and loans', permission: 'loan.view' },
   { id: 'reconciliation', label: 'Reconciliation', permission: 'reconciliation.manage' },
   { id: 'accounts', label: 'Chart of accounts', permission: 'account.view' },
   { id: 'journal', label: 'Journal', permission: 'journal.view' },
@@ -54,6 +57,8 @@ const DETAIL: Record<View, string> = {
   treasury: 'Cash, bank and Mobile Money accounts, the money moved between them, and each cashbook.',
   receivables: 'What customers owe, what they have paid and paid ahead, and what is being collected.',
   expenses: 'Costs incurred, the approvals they wait for, and the debts they leave.',
+  financing:
+    'What is owed to the business and what it owes, the loans behind them, and what falls due.',
   reconciliation: 'Statements matched to the ledger, and every source of money against its postings.',
   overview: 'The position as the ledger records it, and anything awaiting attention.',
   accounts: 'Every account, its classification and the balance it carries.',
@@ -110,6 +115,7 @@ export function Finance() {
         {view === 'treasury' ? <Treasury /> : null}
         {view === 'receivables' ? <Receivables /> : null}
         {view === 'expenses' ? <Expenses /> : null}
+        {view === 'financing' ? <Financing /> : null}
         {view === 'reconciliation' ? <Reconciliation /> : null}
         {view === 'accounts' ? (
           <ChartOfAccounts requested={request} onHandled={() => setRequest(false)} />

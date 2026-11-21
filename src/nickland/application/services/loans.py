@@ -2018,6 +2018,10 @@ class LoanService:
                 each.closed = True
             self._db.flush()
 
+    def number_of(self, agreement_id: uuid.UUID) -> str | None:
+        row = self._db.get(LoanAgreement, agreement_id)
+        return row.number if row else None
+
     def today(self, business_id: uuid.UUID) -> date:
         return self._today(business_id)
 

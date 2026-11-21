@@ -2974,3 +2974,409 @@ export interface PaymentBatchRecord {
   approved_by: string | null;
   rejection_reason: string | null;
 }
+
+// -- debt, loans and financing (PRD §25) --------------------------------------------------
+
+export type LoanDirection = 'borrowing' | 'lending';
+export type LoanTypeName =
+  | 'term_loan'
+  | 'overdraft'
+  | 'revolving_credit'
+  | 'asset_finance'
+  | 'staff_advance'
+  | 'related_party'
+  | 'other';
+export type InterestModelName =
+  | 'none'
+  | 'fixed'
+  | 'flat'
+  | 'reducing_balance'
+  | 'interest_only'
+  | 'balloon'
+  | 'custom';
+export type RepaymentFrequencyName =
+  | 'daily'
+  | 'weekly'
+  | 'fortnightly'
+  | 'monthly'
+  | 'quarterly'
+  | 'semi_annual'
+  | 'annual';
+export type RevisionKindName =
+  | 'reschedule'
+  | 'payment_holiday'
+  | 'deferment'
+  | 'interest_change'
+  | 'restructure';
+
+export interface LoanInput {
+  direction: LoanDirection;
+  loan_type: LoanTypeName;
+  counterparty_name: string;
+  principal: string;
+  agreement_date: string;
+  model: InterestModelName;
+  frequency: RepaymentFrequencyName;
+  instalments: number;
+  first_due_on: string;
+  annual_rate?: string;
+  compounding?: RepaymentFrequencyName | null;
+  grace_periods?: number;
+  interest_only_periods?: number;
+  balloon?: string;
+  periodic_fee?: string;
+  fixed_interest?: string;
+  upfront_fee?: string;
+  penalty_rate?: string;
+  early_settlement_percent?: string;
+  prepayment_allowed?: boolean;
+  allocation_order?: string[];
+  counterparty_party_id?: string | null;
+  counterparty_employee_id?: string | null;
+  agreement_reference?: string | null;
+  purpose?: string | null;
+  financial_account_id?: string | null;
+  responsible_id?: string | null;
+  notes?: string | null;
+}
+
+export interface ScheduleRow {
+  id: string | null;
+  sequence: number;
+  due_on: string;
+  opening: string;
+  interest: string;
+  fees: string;
+  principal: string;
+  capitalised: string;
+  penalty: string;
+  total: string;
+  closing: string;
+  paid: string;
+  arrears: boolean;
+  state: string;
+  state_label: string;
+}
+
+export interface ScheduleSummary {
+  principal: string;
+  interest: string;
+  fees: string;
+  capitalised: string;
+  total: string;
+  instalments: number;
+  final_due_on: string | null;
+}
+
+export interface SchedulePreview {
+  rows: ScheduleRow[];
+  summary: ScheduleSummary;
+}
+
+export interface LoanPosition {
+  principal_agreed: string;
+  principal_drawn: string;
+  undrawn: string;
+  capitalised: string;
+  principal_repaid: string;
+  principal_outstanding: string;
+  interest_due: string;
+  fees_due: string;
+  penalties_due: string;
+  total_outstanding: string;
+  arrears: string;
+  next_due_on: string | null;
+  next_due_amount: string;
+  days_overdue: number;
+  settlement_today: string;
+  ledger_principal: string;
+  ledger_accrued: string;
+  agrees_with_ledger: boolean;
+}
+
+export interface LoanSummary {
+  id: string;
+  number: string;
+  direction: LoanDirection;
+  direction_label: string;
+  loan_type: LoanTypeName;
+  loan_type_label: string;
+  counterparty_name: string;
+  agreement_reference: string | null;
+  principal: string;
+  annual_rate: string;
+  model: InterestModelName;
+  model_label: string;
+  frequency: RepaymentFrequencyName;
+  frequency_label: string;
+  agreement_date: string;
+  maturity_date: string | null;
+  state: string;
+  state_label: string;
+  disputed: boolean;
+  outstanding: string;
+  charges: string;
+  next_due_on: string | null;
+  next_due_amount: string;
+  days_overdue: number;
+  revision_pending: boolean;
+}
+
+export interface ScheduleVersion {
+  id: string;
+  version: number;
+  kind: string;
+  kind_label: string;
+  state: string;
+  reason: string | null;
+  effective_on: string;
+  principal_basis: string;
+  annual_rate: string;
+  instalments: number;
+  proposed_by: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  rows: ScheduleRow[];
+  summary: ScheduleSummary;
+}
+
+export interface LoanTransactionRecord {
+  id: string;
+  kind: string;
+  kind_label: string;
+  occurred_on: string;
+  amount: string;
+  fee: string;
+  account: string | null;
+  reference: string | null;
+  note: string | null;
+  recorded_by: string | null;
+  principal: string;
+  interest: string;
+  fees: string;
+  penalty: string;
+  journal_entry_id: string | null;
+}
+
+export interface LoanSecurityRecord {
+  id: string;
+  kind: string;
+  kind_label: string;
+  description: string;
+  party_name: string | null;
+  value: string | null;
+  review_on: string | null;
+  released_on: string | null;
+}
+
+export interface LoanDetail extends LoanSummary {
+  counterparty_party_id: string | null;
+  counterparty_employee_id: string | null;
+  purpose: string | null;
+  currency_code: string;
+  disbursement_date: string | null;
+  compounding: string | null;
+  instalments: number;
+  first_due_on: string;
+  grace_periods: number;
+  interest_only_periods: number;
+  balloon: string;
+  periodic_fee: string;
+  fixed_interest: string;
+  upfront_fee: string;
+  penalty_rate: string;
+  early_settlement_percent: string;
+  prepayment_allowed: boolean;
+  allocation_order: string[];
+  financial_account_id: string | null;
+  account: string | null;
+  responsible_id: string | null;
+  responsible: string | null;
+  created_by: string | null;
+  submitted_by: string | null;
+  approved_by: string | null;
+  approval_note: string | null;
+  rejection_reason: string | null;
+  refinances: string | null;
+  refinanced_by: string | null;
+  closed_on: string | null;
+  closing_note: string | null;
+  notes: string | null;
+  position: LoanPosition;
+  current: ScheduleVersion;
+  proposed: ScheduleVersion | null;
+  versions: ScheduleVersion[];
+  transactions: LoanTransactionRecord[];
+  securities: LoanSecurityRecord[];
+}
+
+export interface SettlementQuote {
+  on: string;
+  principal: string;
+  interest_due: string;
+  interest_accrued: string;
+  fees_due: string;
+  penalties_due: string;
+  early_settlement_fee: string;
+  total: string;
+}
+
+export interface LoanMovementInput {
+  amount: string;
+  on?: string | null;
+  financial_account_id?: string | null;
+  fee?: string;
+  reference?: string | null;
+}
+
+export interface RevisionInput {
+  kind: RevisionKindName;
+  reason: string;
+  effective_on: string;
+  first_due_on: string;
+  instalments: number;
+  annual_rate?: string | null;
+  model?: InterestModelName | null;
+  frequency?: RepaymentFrequencyName | null;
+  grace_periods?: number;
+  interest_only_periods?: number;
+  balloon?: string;
+  periodic_fee?: string | null;
+}
+
+export interface SecurityInput {
+  kind: 'collateral' | 'guarantor' | 'covenant';
+  description: string;
+  party_name?: string | null;
+  value?: string | null;
+  review_on?: string | null;
+}
+
+export interface DebtLineRecord {
+  kind: string;
+  kind_label: string;
+  source_type: string;
+  source_id: string;
+  reference: string;
+  counterparty: string;
+  counterparty_id: string | null;
+  description: string;
+  original: string;
+  settled: string;
+  outstanding: string;
+  charges: string;
+  issued_on: string;
+  due_on: string | null;
+  standing: string;
+  standing_label: string;
+  bucket: string;
+  responsible: string | null;
+}
+
+export interface DebtSplit {
+  code: string;
+  label: string;
+  amount: string;
+  count: number;
+}
+
+export interface DebtCounterparty {
+  name: string;
+  amount: string;
+  count: number;
+}
+
+export interface LoanBook {
+  principal: string;
+  charges: string;
+  total: string;
+  count: number;
+}
+
+export interface DebtTrendPoint {
+  month: string;
+  collected: string;
+  settled: string;
+  borrowed: string;
+  lent: string;
+}
+
+export interface DebtSummary {
+  on: string;
+  receivables: string;
+  receivables_by_kind: DebtSplit[];
+  payables: string;
+  payables_by_kind: DebtSplit[];
+  loans_receivable: LoanBook;
+  loans_payable: LoanBook;
+  receivable_due_soon: string;
+  receivable_overdue: string;
+  payable_due_soon: string;
+  payable_overdue: string;
+  collected: string;
+  repaid: string;
+  receivable_ageing: DebtSplit[];
+  payable_ageing: DebtSplit[];
+  largest_debtors: DebtCounterparty[];
+  largest_creditors: DebtCounterparty[];
+  debt_service: string;
+  cash_available: string;
+  coverage: string | null;
+  window_days: number;
+  period_start: string;
+  period_end: string;
+  trend: DebtTrendPoint[];
+}
+
+export interface CommitmentRecord {
+  due_on: string;
+  inward: boolean;
+  kind: string;
+  kind_label: string;
+  reference: string;
+  counterparty: string;
+  amount: string;
+  source_type: string;
+  source_id: string;
+}
+
+export interface MaturityRecord {
+  code: string;
+  label: string;
+  borrowed: string;
+  lent: string;
+}
+
+export interface CashClassRecord {
+  code: string;
+  label: string;
+  category: string;
+  inflow: string;
+  outflow: string;
+  net: string;
+}
+
+export interface OtherDebtInput {
+  owed_to_us: boolean;
+  counterparty_name: string;
+  description: string;
+  amount: string;
+  financial_account_id: string;
+  issued_on?: string | null;
+  due_on?: string | null;
+  reference?: string | null;
+}
+
+export interface OtherDebtRecord {
+  id: string;
+  number: string;
+  owed_to_us: boolean;
+  counterparty_name: string;
+  description: string;
+  original: string;
+  settled: string;
+  outstanding: string;
+  issued_on: string;
+  due_on: string | null;
+}

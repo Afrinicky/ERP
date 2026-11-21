@@ -6,37 +6,106 @@
  */
 
 import type {
-  AgeingRow,
-  BankStatementRecord,
-  Cashbook,
-  CollectionNote,
-  CommandLayout,
-  CreditNoteRecord,
-  CustomerDeposit,
-  CustomerReceipt,
-  ExpenseInput,
-  ExpenseRecord,
-  FinancialAccount,
-  FinancialAccountKindName,
-  InvoiceableLine,
-  LedgerItem,
-  MeasureDrill,
-  MeasureRecord,
-  PartyStatement,
-  PaymentBatchRecord,
-  RecurringExpenseRecord,
-  SalesInvoice,
-  SourceRow,
-  StatementLineRecord,
-  TreasuryMovement,
-  TreasuryMovementKindName,
-  Widget,
-  WorklistItem,
-  Account,
+  Acceptance,
   AccessPolicy,
   AccessPolicyTerms,
-  UserAccess,
-  UserSession,
+  Account,
+  AccountGroup,
+  AccountLedger,
+  AccountingBasis,
+  AccountingPeriod,
+  Acknowledgement,
+  Actor,
+  AffiliateProfile,
+  AgeingRow,
+  ApiError,
+  ApprovalThreshold,
+  AssemblyStepInput,
+  AssemblyWorkspace,
+  Attachment,
+  Attribute,
+  AuditEvent,
+  Backup,
+  BalanceSheet,
+  BankStatementRecord,
+  Barcode,
+  Branch,
+  Business,
+  CashClassRecord,
+  CashFlow,
+  Cashbook,
+  Category,
+  CloseReadiness,
+  CollectionNote,
+  CommandLayout,
+  CommissionAccrual,
+  CommissionTotals,
+  CommitmentRecord,
+  Comparison,
+  ComposedDefinition,
+  Contact,
+  Costing,
+  Credit,
+  CreditNote,
+  CreditNoteRecord,
+  CustomField,
+  CustomerDeposit,
+  CustomerReceipt,
+  DebtLineRecord,
+  DebtSummary,
+  DeliveryInput,
+  DiscountLimit,
+  DispatchInput,
+  DocumentTemplate,
+  DocumentType,
+  DocumentTypeField,
+  Draft,
+  DraftLine,
+  ExpenseInput,
+  ExpenseRecord,
+  ExpressionCheck,
+  FinancialAccount,
+  FinancialAccountKindName,
+  GoodsReceipt,
+  Health,
+  ImportReport,
+  ImportRun,
+  InspectionInput,
+  InstalmentPlan,
+  InventorySettings,
+  InvoiceInput,
+  InvoiceableLine,
+  IssuedDocument,
+  JournalApproval,
+  JournalEntry,
+  JournalPage,
+  LandedCharge,
+  LedgerItem,
+  LedgerSummary,
+  LoanDetail,
+  LoanInput,
+  LoanMovementInput,
+  LoanSecurityRecord,
+  LoanSummary,
+  MarginPolicy,
+  MatchVariance,
+  MaturityRecord,
+  MeasureDrill,
+  MeasureRecord,
+  OperatorInfo,
+  OrderVariance,
+  OtherDebtInput,
+  OtherDebtRecord,
+  Page,
+  PageFormatCode,
+  PageFormatInfo,
+  PaletteField,
+  Party,
+  PartyStatement,
+  PayablesRegister,
+  PaymentBatchRecord,
+  PaymentInput,
+  Permission,
   PosCountPreview,
   PosRefund,
   PosRefundInput,
@@ -45,20 +114,48 @@ import type {
   PosShift,
   PosShiftSummary,
   PosSupervisor,
-  TenderMethodName,
-  DeliveryInput,
-  DispatchInput,
+  PostingOutcome,
+  Preset,
+  PriceList,
+  PriceListLine,
+  Product,
+  ProfitAndLoss,
+  PurchaseOrder,
+  PurchaseOrderInput,
+  Quotation,
+  QuotationPage,
+  QuotationRequest,
+  QuotationSnapshot,
+  ReceiptInput,
+  RecordedAssessment,
+  RecurringExpenseRecord,
+  RequestPage,
+  ResolvedPrice,
+  RevisionInput,
+  Role,
+  SalesInvoice,
+  SalesOrder,
+  SalesSummary,
+  Schedule,
+  SchedulePreview,
+  SectionKindInfo,
+  SecurityInput,
+  Sequence,
+  SettlementQuote,
+  SetupPayload,
+  SetupResult,
+  SetupStatus,
   Shipment,
   ShippableLine,
-  AssemblyStepInput,
-  AssemblyWorkspace,
-  InspectionInput,
-  InventorySettings,
-  LandedCharge,
+  SignInResult,
+  SourceRow,
+  StatementLineRecord,
   StockBatch,
+  StockBin,
   StockCountSheet,
   StockInspection,
   StockLineInput,
+  StockLocation,
   StockMovementRow,
   StockOperation,
   StockPosition,
@@ -67,99 +164,10 @@ import type {
   StockTransfer,
   StockValuation,
   StockWarehouse,
-  StockLocation,
-  StockBin,
-  AccountGroup,
-  AccountLedger,
-  AccountingBasis,
-  AccountingPeriod,
-  Acceptance,
-  Acknowledgement,
-  Actor,
-  Attachment,
-  AffiliateProfile,
-  ApiError,
-  ApprovalThreshold,
-  Attribute,
-  AuditEvent,
-  Backup,
-  BalanceSheet,
-  Barcode,
-  Branch,
-  Business,
-  CashFlow,
-  Category,
-  CloseReadiness,
-  CommissionAccrual,
-  CommissionTotals,
-  Comparison,
-  ComposedDefinition,
-  Contact,
-  Costing,
-  CreditNote,
-  GoodsReceipt,
-  InvoiceInput,
-  OrderVariance,
-  PayablesRegister,
-  PaymentInput,
-  PurchaseOrder,
-  PurchaseOrderInput,
-  ReceiptInput,
-  SalesOrder,
+  SubledgerVariance,
   SuggestedOrder,
   SupplierInvoice,
   SupplierPayment,
-  Tolerance,
-  Credit,
-  CustomField,
-  DiscountLimit,
-  DocumentTemplate,
-  DocumentType,
-  DocumentTypeField,
-  Draft,
-  DraftLine,
-  ExpressionCheck,
-  Health,
-  ImportReport,
-  ImportRun,
-  InstalmentPlan,
-  IssuedDocument,
-  JournalApproval,
-  JournalEntry,
-  JournalPage,
-  LedgerSummary,
-  MarginPolicy,
-  MatchVariance,
-  OperatorInfo,
-  Page,
-  PageFormatCode,
-  PageFormatInfo,
-  PaletteField,
-  Party,
-  Permission,
-  PostingOutcome,
-  Preset,
-  PriceList,
-  PriceListLine,
-  Product,
-  ProfitAndLoss,
-  Quotation,
-  QuotationPage,
-  QuotationRequest,
-  QuotationSnapshot,
-  RecordedAssessment,
-  RequestPage,
-  ResolvedPrice,
-  Role,
-  SalesSummary,
-  Schedule,
-  SectionKindInfo,
-  Sequence,
-  SetupPayload,
-  SetupResult,
-  SetupStatus,
-  SignInResult,
-  SubledgerVariance,
   SupplierProduct,
   SupplierQuotation,
   SupplierRequest,
@@ -173,13 +181,21 @@ import type {
   TaxSummary,
   TaxableLineInput,
   TemplateDefinition,
+  TenderMethodName,
   Theme,
   ThemePreview,
   ThermalPreview,
+  Tolerance,
+  TreasuryMovement,
+  TreasuryMovementKindName,
   TrialBalance,
   Unit,
   User,
+  UserAccess,
+  UserSession,
   Warehouse,
+  Widget,
+  WorklistItem,
   YearEndOutcome,
 } from './types';
 
@@ -213,9 +229,7 @@ export class ServiceError extends Error {
 /** Raised when the service cannot be reached at all. */
 export class ServiceUnreachableError extends Error {
   constructor(cause: unknown) {
-    super(
-      'The application service is not responding. It may still be starting.',
-    );
+    super('The application service is not responding. It may still be starting.');
     this.name = 'ServiceUnreachableError';
     this.cause = cause;
   }
@@ -512,16 +526,14 @@ export const api = {
     active: () => request<Theme>('GET', '/appearance'),
     preview: (preset_code: string, overrides: Record<string, string>) =>
       request<ThemePreview>('POST', '/appearance/preview', { preset_code, overrides }),
-    apply: (
-      preset_code: string,
-      overrides: Record<string, string>,
-      dark_mode_enabled?: boolean,
-    ) => request<Theme>('PUT', '/appearance', { preset_code, overrides, dark_mode_enabled }),
+    apply: (preset_code: string, overrides: Record<string, string>, dark_mode_enabled?: boolean) =>
+      request<Theme>('PUT', '/appearance', { preset_code, overrides, dark_mode_enabled }),
     reset: () => request<Theme>('POST', '/appearance/reset'),
   },
 
   customFields: {
-    catalogue: () => request<{ targets: string[]; types: string[] }>('GET', '/custom-fields/targets'),
+    catalogue: () =>
+      request<{ targets: string[]; types: string[] }>('GET', '/custom-fields/targets'),
     list: (target: string, includeInactive = false) =>
       request<CustomField[]>('GET', `/custom-fields/${target}`, undefined, {
         include_inactive: includeInactive,
@@ -632,8 +644,7 @@ export const api = {
       request<SupplierProduct>('PUT', '/supplier-products', payload),
     setCustomerPrice: (payload: Record<string, unknown>) =>
       request<{ id: string; price: string }>('PUT', '/customer-prices', payload),
-    affiliateProfile: (id: string) =>
-      request<AffiliateProfile>('GET', `/parties/${id}/affiliate`),
+    affiliateProfile: (id: string) => request<AffiliateProfile>('GET', `/parties/${id}/affiliate`),
     setAffiliateProfile: (payload: Record<string, unknown>) =>
       request<AffiliateProfile>('PUT', '/affiliate-profiles', payload),
   },
@@ -649,13 +660,15 @@ export const api = {
 
   ledger: {
     groups: () => request<AccountGroup[]>('GET', '/ledger/groups'),
-    accounts: (params: {
-      term?: string;
-      kind?: string;
-      include_inactive?: boolean;
-      with_balances?: boolean;
-      as_at?: string;
-    } = {}) => request<Account[]>('GET', '/ledger/accounts', undefined, params),
+    accounts: (
+      params: {
+        term?: string;
+        kind?: string;
+        include_inactive?: boolean;
+        with_balances?: boolean;
+        as_at?: string;
+      } = {},
+    ) => request<Account[]>('GET', '/ledger/accounts', undefined, params),
     account: (id: string) => request<Account>('GET', `/ledger/accounts/${id}`),
     createAccount: (payload: {
       code: string;
@@ -686,22 +699,23 @@ export const api = {
     closeYear: (financial_year: number, note?: string) =>
       request<YearEndOutcome>('POST', '/ledger/year-end', { financial_year, note }),
 
-    subledgers: () =>
-      request<SubledgerVariance[]>('GET', '/ledger/reconciliation/subledgers'),
+    subledgers: () => request<SubledgerVariance[]>('GET', '/ledger/reconciliation/subledgers'),
   },
 
   journals: {
-    list: (params: {
-      term?: string;
-      state?: string;
-      source?: string;
-      account_id?: string;
-      party_id?: string;
-      start?: string;
-      end?: string;
-      offset?: number;
-      limit?: number;
-    } = {}) => request<JournalPage>('GET', '/journals', undefined, params),
+    list: (
+      params: {
+        term?: string;
+        state?: string;
+        source?: string;
+        account_id?: string;
+        party_id?: string;
+        start?: string;
+        end?: string;
+        offset?: number;
+        limit?: number;
+      } = {},
+    ) => request<JournalPage>('GET', '/journals', undefined, params),
     read: (id: string) => request<JournalEntry>('GET', `/journals/${id}`),
     post: (payload: {
       posting_date: string;
@@ -736,13 +750,7 @@ export const api = {
     accountLedger: (
       accountId: string,
       params: { start?: string; end?: string; basis?: AccountingBasis; limit?: number } = {},
-    ) =>
-      request<AccountLedger>(
-        'GET',
-        `/reports/ledger/accounts/${accountId}`,
-        undefined,
-        params,
-      ),
+    ) => request<AccountLedger>('GET', `/reports/ledger/accounts/${accountId}`, undefined, params),
     profitAndLoss: (start: string, end: string, basis: AccountingBasis = 'accrual') =>
       request<ProfitAndLoss>('GET', '/reports/ledger/profit-and-loss', undefined, {
         start,
@@ -772,12 +780,9 @@ export const api = {
     preview: (typeId: string, page?: PageFormatCode) =>
       requestFile(`/documents/types/${typeId}/preview`, { page }),
     previewThermal: (typeId: string, width = 42) =>
-      request<ThermalPreview>(
-        'GET',
-        `/documents/types/${typeId}/preview/thermal`,
-        undefined,
-        { width },
-      ),
+      request<ThermalPreview>('GET', `/documents/types/${typeId}/preview/thermal`, undefined, {
+        width,
+      }),
     issue: (payload: {
       type_code: string;
       source_type?: string;
@@ -790,11 +795,7 @@ export const api = {
     acknowledgements: (documentId: string) =>
       request<Acknowledgement[]>('GET', `/documents/issued/${documentId}/acknowledgements`),
     acknowledge: (documentId: string, payload: Record<string, unknown>) =>
-      request<Acknowledgement>(
-        'POST',
-        `/documents/issued/${documentId}/acknowledgements`,
-        payload,
-      ),
+      request<Acknowledgement>('POST', `/documents/issued/${documentId}/acknowledgements`, payload),
   },
 
   attachments: {
@@ -829,8 +830,10 @@ export const api = {
     ) => request<Acceptance>('POST', `/orders/quotations/${quotationId}/acceptance`, payload),
     acceptances: (quotationId: string) =>
       request<Acceptance[]>('GET', `/orders/quotations/${quotationId}/acceptance`),
-    convert: (quotationId: string, payload: { required_by?: string | null; notes?: string | null }) =>
-      request<SalesOrder>('POST', `/orders/quotations/${quotationId}/convert`, payload),
+    convert: (
+      quotationId: string,
+      payload: { required_by?: string | null; notes?: string | null },
+    ) => request<SalesOrder>('POST', `/orders/quotations/${quotationId}/convert`, payload),
     list: (state?: string, limit = 50) =>
       request<SalesOrder[]>('GET', '/orders', undefined, { state, limit }),
     read: (orderId: string) => request<SalesOrder>('GET', `/orders/${orderId}`),
@@ -838,8 +841,11 @@ export const api = {
       request<SalesOrder>('POST', `/orders/${orderId}/lines/${lineId}/cancel`, payload),
     cancel: (orderId: string, reason: string) =>
       request<SalesOrder>('POST', `/orders/${orderId}/cancel`, { reason }),
-    substitute: (orderId: string, lineId: string, payload: { product_id: string; reason: string }) =>
-      request<SalesOrder>('POST', `/orders/${orderId}/lines/${lineId}/substitute`, payload),
+    substitute: (
+      orderId: string,
+      lineId: string,
+      payload: { product_id: string; reason: string },
+    ) => request<SalesOrder>('POST', `/orders/${orderId}/lines/${lineId}/substitute`, payload),
     costVariance: (orderId: string) =>
       request<OrderVariance>('GET', `/orders/${orderId}/cost-variance`),
   },
@@ -1034,6 +1040,88 @@ export const api = {
       request<SourceRow[]>('GET', '/reconciliation/sources', undefined, { start, end }),
   },
 
+  financing: {
+    loans: (direction?: string, state?: string) =>
+      request<LoanSummary[]>('GET', '/financing/loans', undefined, { direction, state }),
+    preview: (payload: LoanInput) =>
+      request<SchedulePreview>('POST', '/financing/loans/preview', payload),
+    create: (payload: LoanInput) => request<LoanDetail>('POST', '/financing/loans', payload),
+    loan: (loanId: string) => request<LoanDetail>('GET', `/financing/loans/${loanId}`),
+    amend: (loanId: string, payload: LoanInput) =>
+      request<LoanDetail>('PUT', `/financing/loans/${loanId}`, payload),
+    submit: (loanId: string) => request<LoanDetail>('POST', `/financing/loans/${loanId}/submit`),
+    approve: (loanId: string, note: string | null) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/approve`, { note }),
+    reject: (loanId: string, reason: string) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/reject`, { reason }),
+    drawdown: (loanId: string, payload: LoanMovementInput) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/drawdowns`, payload),
+    repay: (loanId: string, payload: LoanMovementInput) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/repayments`, payload),
+    quote: (loanId: string, on?: string) =>
+      request<SettlementQuote>('GET', `/financing/loans/${loanId}/quote`, undefined, { on }),
+    settle: (
+      loanId: string,
+      payload: {
+        on?: string | null;
+        financial_account_id?: string | null;
+        reference?: string | null;
+      },
+    ) => request<LoanDetail>('POST', `/financing/loans/${loanId}/settle`, payload),
+    refinance: (loanId: string, replacement_id: string, on?: string | null) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/refinance`, { replacement_id, on }),
+    writeOff: (loanId: string, reason: string) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/write-off`, { reason }),
+    penalty: (loanId: string, reason: string, amount?: string | null) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/penalty`, { reason, amount }),
+    propose: (loanId: string, payload: RevisionInput) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/revisions`, payload),
+    decide: (loanId: string, approve: boolean, note: string | null) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/revisions/decision`, {
+        approve,
+        note,
+      }),
+    addSecurity: (loanId: string, payload: SecurityInput) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/securities`, payload),
+    releaseSecurity: (securityId: string) =>
+      request<LoanSecurityRecord>('POST', `/financing/securities/${securityId}/release`),
+    dispute: (loanId: string, disputed: boolean, note: string) =>
+      request<LoanDetail>('POST', `/financing/loans/${loanId}/dispute`, { disputed, note }),
+    accrue: (as_of?: string | null) =>
+      request<{ accrued: number }>('POST', '/financing/accrue', { as_of }),
+    threshold: () => request<{ amount: string | null }>('GET', '/financing/threshold'),
+    setThreshold: (amount: string | null) =>
+      request<{ amount: string | null }>('PUT', '/financing/threshold', { amount }),
+    register: (params: {
+      side: 'receivable' | 'payable';
+      kind?: string;
+      standing?: string;
+      counterparty?: string;
+      due_from?: string;
+      due_to?: string;
+      include_settled?: boolean;
+    }) =>
+      request<DebtLineRecord[]>('GET', '/financing/register', undefined, {
+        ...params,
+        include_settled: params.include_settled ? 'true' : undefined,
+      }),
+    summary: (window_days = 30) =>
+      request<DebtSummary>('GET', '/financing/summary', undefined, {
+        window_days: String(window_days),
+      }),
+    calendar: (days = 90) =>
+      request<CommitmentRecord[]>('GET', '/financing/calendar', undefined, { days: String(days) }),
+    maturity: () => request<MaturityRecord[]>('GET', '/financing/maturity'),
+    cashFlow: (start: string, end: string) =>
+      request<CashClassRecord[]>('GET', '/financing/cash-flow', undefined, { start, end }),
+    recordOther: (payload: OtherDebtInput) =>
+      request<OtherDebtRecord>('POST', '/financing/other-debts', payload),
+    settleOther: (
+      debtId: string,
+      payload: { amount: string; financial_account_id: string; on?: string | null },
+    ) => request<OtherDebtRecord>('POST', `/financing/other-debts/${debtId}/settlements`, payload),
+  },
+
   commandCentre: {
     measures: (start: string, end: string) =>
       request<MeasureRecord[]>('GET', '/command-centre/measures', undefined, { start, end }),
@@ -1070,10 +1158,12 @@ export const api = {
     order: (orderId: string) => request<PurchaseOrder>('GET', `/purchases/orders/${orderId}`),
     approve: (orderId: string) =>
       request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/approve`),
-    issue: (orderId: string) => request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/issue`),
+    issue: (orderId: string) =>
+      request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/issue`),
     cancelOrder: (orderId: string, reason: string) =>
       request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/cancel`, { reason }),
-    close: (orderId: string) => request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/close`),
+    close: (orderId: string) =>
+      request<PurchaseOrder>('POST', `/purchases/orders/${orderId}/close`),
 
     receive: (payload: ReceiptInput) =>
       request<GoodsReceipt>('POST', '/purchases/receipts', payload),
@@ -1081,7 +1171,8 @@ export const api = {
       request<GoodsReceipt[]>('GET', '/purchases/receipts', undefined, query),
 
     tolerance: () => request<Tolerance>('GET', '/purchases/tolerance'),
-    setTolerance: (payload: Tolerance) => request<Tolerance>('PUT', '/purchases/tolerance', payload),
+    setTolerance: (payload: Tolerance) =>
+      request<Tolerance>('PUT', '/purchases/tolerance', payload),
     recordInvoice: (payload: InvoiceInput) =>
       request<SupplierInvoice>('POST', '/purchases/invoices', payload),
     invoices: (query: { state?: string; supplier_id?: string; limit?: number } = {}) =>
@@ -1131,7 +1222,8 @@ export const api = {
       request<PaymentBatchRecord>('POST', `/purchases/payables/batches/${batchId}/reject`, {
         reason,
       }),
-    pay: (payload: PaymentInput) => request<SupplierPayment>('POST', '/purchases/payments', payload),
+    pay: (payload: PaymentInput) =>
+      request<SupplierPayment>('POST', '/purchases/payments', payload),
     payments: (query: { supplier_id?: string; limit?: number } = {}) =>
       request<SupplierPayment[]>('GET', '/purchases/payments', undefined, query),
   },
@@ -1154,13 +1246,21 @@ export const api = {
     batches: (productId: string) =>
       request<StockBatch[]>('GET', `/inventory/products/${productId}/batches`),
     movements: (
-      query: { product_id?: string; warehouse_id?: string; operation_id?: string; limit?: number } = {},
+      query: {
+        product_id?: string;
+        warehouse_id?: string;
+        operation_id?: string;
+        limit?: number;
+      } = {},
     ) => request<StockMovementRow[]>('GET', '/inventory/movements', undefined, query),
     valuation: () => request<StockValuation>('GET', '/inventory/valuation'),
     reconciliation: () => request<StockReconciliation>('GET', '/inventory/reconciliation'),
 
-    opening: (payload: { warehouse_id: string; lines: StockLineInput[]; reference?: string | null }) =>
-      request<StockOperation>('POST', '/inventory/opening', payload),
+    opening: (payload: {
+      warehouse_id: string;
+      lines: StockLineInput[];
+      reference?: string | null;
+    }) => request<StockOperation>('POST', '/inventory/opening', payload),
     adjust: (payload: {
       warehouse_id: string;
       kind: 'gain' | 'loss' | 'damage' | 'expiry';
@@ -1236,8 +1336,11 @@ export const api = {
       }),
 
     counts: () => request<StockCountSheet[]>('GET', '/inventory/counts'),
-    openCount: (payload: { warehouse_id: string; location_id?: string | null; notes?: string | null }) =>
-      request<StockCountSheet>('POST', '/inventory/counts', payload),
+    openCount: (payload: {
+      warehouse_id: string;
+      location_id?: string | null;
+      notes?: string | null;
+    }) => request<StockCountSheet>('POST', '/inventory/counts', payload),
     count: (countId: string) => request<StockCountSheet>('GET', `/inventory/counts/${countId}`),
     recordCount: (
       countId: string,
@@ -1263,11 +1366,23 @@ export const api = {
     assembly: (orderId: string) =>
       request<AssemblyWorkspace>('GET', `/inventory/assembly/${orderId}`),
     assemblyReserve: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
-      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/reserve`, payload),
+      request<AssemblyWorkspace>(
+        'POST',
+        `/inventory/assembly/${orderId}/lines/${lineId}/reserve`,
+        payload,
+      ),
     assemblyRelease: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
-      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/release`, payload),
+      request<AssemblyWorkspace>(
+        'POST',
+        `/inventory/assembly/${orderId}/lines/${lineId}/release`,
+        payload,
+      ),
     assemble: (orderId: string, lineId: string, payload: AssemblyStepInput) =>
-      request<AssemblyWorkspace>('POST', `/inventory/assembly/${orderId}/lines/${lineId}/assemble`, payload),
+      request<AssemblyWorkspace>(
+        'POST',
+        `/inventory/assembly/${orderId}/lines/${lineId}/assemble`,
+        payload,
+      ),
   },
 
   dispatch: {
@@ -1297,7 +1412,11 @@ export const api = {
       lineId: string,
       payload: { quantity: string; reason: string; replacement_owed: boolean; serials?: string[] },
     ) =>
-      request<Shipment>('POST', `/dispatch/shipments/${shipmentId}/lines/${lineId}/return`, payload),
+      request<Shipment>(
+        'POST',
+        `/dispatch/shipments/${shipmentId}/lines/${lineId}/return`,
+        payload,
+      ),
     issueDocument: (
       shipmentId: string,
       kind: 'pick_list' | 'packing_list' | 'waybill' | 'delivery_note',
@@ -1320,34 +1439,28 @@ export const api = {
       request<Draft>('PUT', `/designer/types/${typeId}/classification`, { classification }),
 
     openDraft: (typeId: string) => request<Draft>('GET', `/designer/types/${typeId}/draft`),
-    readVersion: (templateId: string) =>
-      request<Draft>('GET', `/designer/templates/${templateId}`),
+    readVersion: (templateId: string) => request<Draft>('GET', `/designer/templates/${templateId}`),
     save: (templateId: string, definition: ComposedDefinition) =>
       request<Draft>('PUT', `/designer/templates/${templateId}`, { definition }),
     publish: (templateId: string) =>
       request<Draft>('POST', `/designer/templates/${templateId}/publish`),
-    revert: (templateId: string) =>
-      request<void>('DELETE', `/designer/templates/${templateId}`),
+    revert: (templateId: string) => request<void>('DELETE', `/designer/templates/${templateId}`),
     duplicate: (templateId: string, name: string) =>
       request<Draft>('POST', `/designer/templates/${templateId}/duplicate`, { name }),
 
     addSection: (templateId: string, kind: string, title = '') =>
       request<Draft>('POST', `/designer/templates/${templateId}/sections`, { kind, title }),
     moveSection: (templateId: string, sectionId: string, offset: number) =>
-      request<Draft>(
-        'POST',
-        `/designer/templates/${templateId}/sections/${sectionId}/move`,
-        { offset },
-      ),
+      request<Draft>('POST', `/designer/templates/${templateId}/sections/${sectionId}/move`, {
+        offset,
+      }),
     removeSection: (templateId: string, sectionId: string) =>
       request<Draft>('DELETE', `/designer/templates/${templateId}/sections/${sectionId}`),
 
     addColumn: (templateId: string, sectionId: string, binding: string) =>
-      request<Draft>(
-        'POST',
-        `/designer/templates/${templateId}/sections/${sectionId}/columns`,
-        { binding },
-      ),
+      request<Draft>('POST', `/designer/templates/${templateId}/sections/${sectionId}/columns`, {
+        binding,
+      }),
     moveColumn: (templateId: string, sectionId: string, columnId: string, offset: number) =>
       request<Draft>(
         'POST',
@@ -1372,11 +1485,9 @@ export const api = {
       ),
 
     addElement: (templateId: string, sectionId: string, element: Record<string, unknown>) =>
-      request<Draft>(
-        'POST',
-        `/designer/templates/${templateId}/sections/${sectionId}/elements`,
-        { element },
-      ),
+      request<Draft>('POST', `/designer/templates/${templateId}/sections/${sectionId}/elements`, {
+        element,
+      }),
     amendElement: (
       templateId: string,
       sectionId: string,
@@ -1409,7 +1520,11 @@ export const api = {
     acceptImport: (typeId: string, payload: Record<string, unknown>) =>
       request<Draft>('POST', `/designer/types/${typeId}/import`, { payload }),
 
-    previewHtml: (templateId: string, page?: PageFormatCode, source?: { type: string; id: string }) =>
+    previewHtml: (
+      templateId: string,
+      page?: PageFormatCode,
+      source?: { type: string; id: string },
+    ) =>
       requestText(`/documents/templates/${templateId}/preview`, {
         page,
         source_type: source?.type,
@@ -1449,14 +1564,16 @@ export const api = {
       is_import?: boolean;
     }) => request<TaxEvaluation>('POST', '/taxation/evaluate', payload),
 
-    assessments: (params: {
-      rule_id?: string;
-      source_type?: string;
-      source_id?: string;
-      start?: string;
-      end?: string;
-      limit?: number;
-    } = {}) => request<RecordedAssessment[]>('GET', '/taxation/assessments', undefined, params),
+    assessments: (
+      params: {
+        rule_id?: string;
+        source_type?: string;
+        source_id?: string;
+        start?: string;
+        end?: string;
+        limit?: number;
+      } = {},
+    ) => request<RecordedAssessment[]>('GET', '/taxation/assessments', undefined, params),
     override: (
       assessmentId: string,
       payload: { amount: string; reason: string; evidence_reference?: string | null },
@@ -1491,77 +1608,46 @@ export const api = {
     createRequest: (payload: Record<string, unknown>) =>
       request<QuotationRequest>('POST', '/sourcing/requests', payload),
     setRequestState: (requestId: string, state: string, reason?: string) =>
-      request<QuotationRequest>(
-        'POST',
-        `/sourcing/requests/${requestId}/state`,
-        {
-          state,
-          reason,
-        },
-      ),
+      request<QuotationRequest>('POST', `/sourcing/requests/${requestId}/state`, {
+        state,
+        reason,
+      }),
     comparison: (requestId: string) =>
-      request<Comparison[]>(
-        'GET',
-        `/sourcing/requests/${requestId}/comparison`,
-      ),
+      request<Comparison[]>('GET', `/sourcing/requests/${requestId}/comparison`),
     supplierRequests: (requestId?: string) =>
-      request<SupplierRequest[]>(
-        'GET',
-        '/sourcing/supplier-requests',
-        undefined,
-        {
-          request_id: requestId,
-        },
-      ),
+      request<SupplierRequest[]>('GET', '/sourcing/supplier-requests', undefined, {
+        request_id: requestId,
+      }),
     createSupplierRequest: (payload: Record<string, unknown>) =>
       request<SupplierRequest>('POST', '/sourcing/supplier-requests', payload),
     issueSupplierRequest: (supplierRequestId: string) =>
-      request<SupplierRequest>(
-        'POST',
-        `/sourcing/supplier-requests/${supplierRequestId}/issue`,
-      ),
+      request<SupplierRequest>('POST', `/sourcing/supplier-requests/${supplierRequestId}/issue`),
     supplierQuotations: (requestId?: string) =>
-      request<SupplierQuotation[]>(
-        'GET',
-        '/sourcing/supplier-quotations',
-        undefined,
-        {
-          request_id: requestId,
-        },
-      ),
+      request<SupplierQuotation[]>('GET', '/sourcing/supplier-quotations', undefined, {
+        request_id: requestId,
+      }),
     recordSupplierQuotation: (payload: Record<string, unknown>) =>
-      request<SupplierQuotation>(
-        'POST',
-        '/sourcing/supplier-quotations',
-        payload,
-      ),
+      request<SupplierQuotation>('POST', '/sourcing/supplier-quotations', payload),
   },
 
   quotations: {
-    list: (params: {
-      state?: string;
-      customer_id?: string;
-      limit?: number;
-      offset?: number;
-    } = {}) => request<QuotationPage>('GET', '/quotations', undefined, params),
+    list: (
+      params: {
+        state?: string;
+        customer_id?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+    ) => request<QuotationPage>('GET', '/quotations', undefined, params),
     summary: () => request<SalesSummary>('GET', '/quotations/summary'),
-    read: (quotationId: string) =>
-      request<Quotation>('GET', `/quotations/${quotationId}`),
+    read: (quotationId: string) => request<Quotation>('GET', `/quotations/${quotationId}`),
     create: (payload: Record<string, unknown>) =>
       request<Quotation>('POST', '/quotations', payload),
     fromRequest: (requestId: string, payload?: Record<string, unknown>) =>
-      request<Quotation>(
-        'POST',
-        `/quotations/from-request/${requestId}`,
-        payload,
-      ),
-    costing: (quotationId: string) =>
-      request<Costing>('GET', `/quotations/${quotationId}/costing`),
+      request<Quotation>('POST', `/quotations/from-request/${requestId}`, payload),
+    costing: (quotationId: string) => request<Costing>('GET', `/quotations/${quotationId}/costing`),
     snapshots: (quotationId: string) =>
-      request<QuotationSnapshot[]>(
-        'GET',
-        `/quotations/${quotationId}/snapshots`,
-      ),
+      request<QuotationSnapshot[]>('GET', `/quotations/${quotationId}/snapshots`),
     setSources: (lineId: string, sources: Record<string, unknown>[]) =>
       request<Quotation>('PUT', `/quotations/lines/${lineId}/sources`, {
         sources,
@@ -1571,17 +1657,9 @@ export const api = {
         expenses,
       }),
     setPaymentPlan: (quotationId: string, payload: Record<string, unknown>) =>
-      request<Quotation>(
-        'PUT',
-        `/quotations/${quotationId}/payment-plan`,
-        payload,
-      ),
+      request<Quotation>('PUT', `/quotations/${quotationId}/payment-plan`, payload),
     recordActualCost: (lineId: string, payload: Record<string, unknown>) =>
-      request<Quotation>(
-        'POST',
-        `/quotations/lines/${lineId}/actual-cost`,
-        payload,
-      ),
+      request<Quotation>('POST', `/quotations/lines/${lineId}/actual-cost`, payload),
     submit: (quotationId: string) =>
       request<Quotation>('POST', `/quotations/${quotationId}/submit`),
     approve: (quotationId: string) =>
@@ -1599,35 +1677,21 @@ export const api = {
     schedule: (quotationId: string) =>
       request<Schedule>('GET', `/quotations/${quotationId}/schedule`),
     reschedule: (quotationId: string, payload: Record<string, unknown>) =>
-      request<Schedule>(
-        'POST',
-        `/quotations/${quotationId}/reschedule`,
-        payload,
-      ),
+      request<Schedule>('POST', `/quotations/${quotationId}/reschedule`, payload),
 
-    marginPolicies: () =>
-      request<MarginPolicy[]>('GET', '/quotations/policy/margins'),
+    marginPolicies: () => request<MarginPolicy[]>('GET', '/quotations/policy/margins'),
     setMarginPolicy: (payload: Record<string, unknown>) =>
       request<MarginPolicy>('PUT', '/quotations/policy/margins', payload),
     withdrawMarginPolicy: (policyId: string) =>
       request<void>('DELETE', `/quotations/policy/margins/${policyId}`),
-    discountLimits: () =>
-      request<DiscountLimit[]>('GET', '/quotations/policy/discount-limits'),
+    discountLimits: () => request<DiscountLimit[]>('GET', '/quotations/policy/discount-limits'),
     setDiscountLimit: (payload: Record<string, unknown>) =>
-      request<DiscountLimit>(
-        'PUT',
-        '/quotations/policy/discount-limits',
-        payload,
-      ),
+      request<DiscountLimit>('PUT', '/quotations/policy/discount-limits', payload),
     plans: () => request<InstalmentPlan[]>('GET', '/quotations/policy/plans'),
     createPlan: (payload: Record<string, unknown>) =>
       request<InstalmentPlan>('POST', '/quotations/policy/plans', payload),
     setBands: (planId: string, bands: Record<string, unknown>[]) =>
-      request<InstalmentPlan>(
-        'PUT',
-        `/quotations/policy/plans/${planId}/bands`,
-        { bands },
-      ),
+      request<InstalmentPlan>('PUT', `/quotations/policy/plans/${planId}/bands`, { bands }),
   },
 
   commissions: {
@@ -1639,32 +1703,17 @@ export const api = {
     approve: (accrualId: string) =>
       request<CommissionAccrual>('POST', `/commissions/${accrualId}/approve`),
     recordCollection: (accrualId: string, paid_fraction: string) =>
-      request<CommissionAccrual>(
-        'POST',
-        `/commissions/${accrualId}/collection`,
-        {
-          paid_fraction,
-        },
-      ),
-    pay: (
-      accrualId: string,
-      payload: { amount: string; reference?: string | null },
-    ) =>
-      request<CommissionAccrual>(
-        'POST',
-        `/commissions/${accrualId}/pay`,
-        payload,
-      ),
+      request<CommissionAccrual>('POST', `/commissions/${accrualId}/collection`, {
+        paid_fraction,
+      }),
+    pay: (accrualId: string, payload: { amount: string; reference?: string | null }) =>
+      request<CommissionAccrual>('POST', `/commissions/${accrualId}/pay`, payload),
     cancel: (accrualId: string, reason: string) =>
       request<CommissionAccrual>('POST', `/commissions/${accrualId}/cancel`, {
         reason,
       }),
     override: (accrualId: string, payload: { rate: string; reason: string }) =>
-      request<CommissionAccrual>(
-        'POST',
-        `/commissions/${accrualId}/override`,
-        payload,
-      ),
+      request<CommissionAccrual>('POST', `/commissions/${accrualId}/override`, payload),
   },
 
   pos: {
