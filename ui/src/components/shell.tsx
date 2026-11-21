@@ -22,7 +22,7 @@ interface Destination {
   group: string;
 }
 
-/** The fourteen top-level destinations of PRD 7.3 and PRD 23. */
+/** The top-level destinations of PRD 7.3 and PRD 23. */
 const DESTINATIONS: Destination[] = [
   { to: '/', label: 'Dashboard', icon: 'dashboard', group: 'Overview' },
   { to: '/sales', label: 'Sales', icon: 'sales', permission: 'quotation.view', group: 'Commerce' },
@@ -35,6 +35,7 @@ const DESTINATIONS: Destination[] = [
   { to: '/affiliates', label: 'Affiliates', icon: 'affiliates', permission: 'affiliate.view', group: 'Operations' },
   { to: '/taxation', label: 'Taxation', icon: 'taxation', permission: 'tax.view', group: 'Financial' },
   { to: '/finance', label: 'Financial Management', icon: 'finance', permission: 'account.view', group: 'Financial' },
+  { to: '/planning', label: 'Planning and Analysis', icon: 'planning', permission: 'report.view', group: 'Financial' },
   { to: '/documents', label: 'Documents', icon: 'documents', permission: 'document.view', group: 'Records' },
   { to: '/reports', label: 'Reports', icon: 'reports', permission: 'report.view', group: 'Records' },
   { to: '/settings', label: 'Settings', icon: 'settings', permission: 'business.view', group: 'Administration' },

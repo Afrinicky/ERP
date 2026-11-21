@@ -98,6 +98,8 @@ class LineComparison:
     branch_id: uuid.UUID | None
     cells: list[Cell]
     total: Cell
+    to_date: Cell
+    """The periods begun so far: the budget for them against what has been posted."""
     forecast: Decimal
     """Actual to date plus the budget for the periods still to come."""
 
@@ -109,6 +111,8 @@ class Comparison:
     lines: list[LineComparison]
     income: Cell
     costs: Cell
+    income_to_date: Cell
+    costs_to_date: Cell
     as_of: date
     bases: dict[str, str]
 
@@ -485,6 +489,10 @@ class BudgetService:
         today = as_of or self._today(budget.business_id)
         periods = self.periods(budget)
         rows: list[LineComparison] = []
+        begun: dict[Nature, dict[str, Decimal]] = {
+            Nature.INCOME: {"o": ZERO, "b": ZERO, "a": ZERO, "p": ZERO},
+            Nature.COST: {"o": ZERO, "b": ZERO, "a": ZERO, "p": ZERO},
+        }
         totals: dict[Nature, dict[str, Decimal]] = {
             Nature.INCOME: {"o": ZERO, "b": ZERO, "a": ZERO, "p": ZERO},
             Nature.COST: {"o": ZERO, "b": ZERO, "a": ZERO, "p": ZERO},
@@ -525,6 +533,19 @@ class BudgetService:
             }
             for key, value in sums.items():
                 totals[nature][key] += value
+            started = [
+                cell
+                for cell, period in zip(cells, periods, strict=True)
+                if period.starts_on <= today
+            ]
+            early = {
+                "o": sum((cell.original for cell in started), ZERO),
+                "b": sum((cell.budget for cell in started), ZERO),
+                "a": sum((cell.actual for cell in started), ZERO),
+                "p": sum((cell.prior for cell in started), ZERO),
+            }
+            for key, value in early.items():
+                begun[nature][key] += value
             rows.append(
                 LineComparison(
                     line_id=line.id,
@@ -542,12 +563,20 @@ class BudgetService:
                         sums["p"],
                         variance(sums["a"], sums["b"], nature),
                     ),
+                    to_date=Cell(
+                        "to_date",
+                        early["o"],
+                        early["b"],
+                        early["a"],
+                        early["p"],
+                        variance(early["a"], early["b"], nature),
+                    ),
                     forecast=outturn(forecast, ZERO),
                 )
             )
 
-        def summary(nature: Nature) -> Cell:
-            figures = totals[nature]
+        def summary(nature: Nature, source: dict[Nature, dict[str, Decimal]] = totals) -> Cell:
+            figures = source[nature]
             return Cell(
                 "total",
                 figures["o"],
@@ -563,6 +592,8 @@ class BudgetService:
             lines=rows,
             income=summary(Nature.INCOME),
             costs=summary(Nature.COST),
+            income_to_date=summary(Nature.INCOME, begun),
+            costs_to_date=summary(Nature.COST, begun),
             as_of=today,
             bases={
                 "budget": Basis.BUDGET.label,

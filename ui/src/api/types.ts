@@ -3500,10 +3500,13 @@ export interface BudgetComparison {
     analysis: string | null;
     cells: ComparisonCell[];
     total: ComparisonCell;
+    to_date: ComparisonCell;
     forecast: string;
   }[];
   income: ComparisonCell;
   costs: ComparisonCell;
+  income_to_date: ComparisonCell;
+  costs_to_date: ComparisonCell;
   bases: Record<string, string>;
 }
 

@@ -12,6 +12,7 @@ import { Shell } from '@/components/shell';
 import { Products } from '@/modules/catalogue/Products';
 import { Documents } from '@/modules/documents/Documents';
 import { Finance } from '@/modules/finance/Finance';
+import { Planning } from '@/modules/planning/Planning';
 import { Taxation } from '@/modules/taxation/Taxation';
 import { Dashboard } from '@/modules/dashboard/Dashboard';
 import { Affiliates } from '@/modules/affiliates/Affiliates';
@@ -90,6 +91,8 @@ function Entry() {
         <Route path="/taxation/*" element={<Taxation />} />
 
         <Route path="/finance/*" element={<Finance />} />
+
+        <Route path="/planning/*" element={<Planning />} />
 
         <Route path="/documents/*" element={<Documents />} />
 

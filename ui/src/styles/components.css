@@ -2497,3 +2497,197 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ------------------------------------------------------------------- Charts */
+
+.viz {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.viz__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.viz__tools {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.viz__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--size-sm);
+  color: var(--colour-text-secondary);
+}
+
+.viz__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.viz__legend--heading {
+  margin-top: var(--space-2);
+}
+
+.viz__basis {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--colour-border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--size-xs);
+  color: var(--colour-text-secondary);
+}
+
+.viz__plot {
+  position: relative;
+  width: 100%;
+}
+
+.viz__svg {
+  display: block;
+  overflow: visible;
+}
+
+.viz__svg--live,
+.viz__band--live {
+  cursor: pointer;
+}
+
+.viz__grid {
+  stroke: var(--colour-chart-grid);
+  stroke-width: 1;
+}
+
+.viz__zero {
+  stroke: var(--colour-chart-axis);
+  stroke-width: 1;
+}
+
+.viz__crosshair {
+  stroke: var(--colour-chart-axis);
+  stroke-width: 1;
+}
+
+.viz__tick {
+  font-size: var(--size-xs);
+  fill: var(--colour-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz__label {
+  font-size: var(--size-sm);
+  fill: var(--colour-text-primary);
+}
+
+.viz__value {
+  font-size: var(--size-sm);
+  fill: var(--colour-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz__dot {
+  stroke: var(--colour-surface-raised);
+  stroke-width: 2;
+}
+
+.viz__hit {
+  fill: transparent;
+}
+
+.viz__band--live:hover .viz__hit {
+  fill: var(--colour-surface-sunken);
+}
+
+.viz__tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 200px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--colour-border-default);
+  border-radius: var(--radius-md);
+  background: var(--colour-surface-raised);
+  box-shadow: var(--elevation-overlay);
+  font-size: var(--size-sm);
+  pointer-events: none;
+}
+
+.viz__tooltip strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--colour-text-primary);
+}
+
+.viz__tooltip-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--colour-text-secondary);
+}
+
+.viz__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .viz-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (forced-colors: active) {
+  .viz__svg path,
+  .viz__svg rect:not(.viz__hit) {
+    forced-color-adjust: none;
+  }
+}
+
+/* ------------------------------------------------------------ Planning */
+
+.alerts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.alerts__item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--colour-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--colour-surface-raised);
+}
+
+.budget__cell {
+  width: 7.5rem;
+}
+
+.variance {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}

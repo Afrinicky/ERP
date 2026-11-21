@@ -404,9 +404,7 @@ class AnalyticsService:
                 Series("collected", "Output tax charged", Basis.ACTUAL),
                 Series("recoverable", "Input tax recoverable", Basis.ACTUAL, "supporting"),
                 Series("paid", "Paid to the authority", Basis.ACTUAL, "supporting"),
-                Series(
-                    "outstanding", "Net owed at the end of the period", Basis.ACTUAL, "comparison"
-                ),
+                Series("outstanding", "Net owed at the end of the period", Basis.ACTUAL, "level"),
             ],
             points,
         )

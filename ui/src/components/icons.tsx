@@ -102,6 +102,12 @@ export const Icons = {
       <path d="M3 21h18" />
     </Glyph>
   ),
+  planning: () => (
+    <Glyph>
+      <path d="M3 17l5-5 4 3 6-7 3 3" />
+      <path d="M3 21h18" />
+    </Glyph>
+  ),
   documents: () => (
     <Glyph>
       <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7Z" />

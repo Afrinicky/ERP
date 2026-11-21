@@ -184,6 +184,7 @@ class LineComparisonReply(Reply):
     analysis: str | None
     cells: list[CellReply]
     total: CellReply
+    to_date: CellReply
     forecast: Decimal
 
 
@@ -194,6 +195,8 @@ class ComparisonReply(Reply):
     lines: list[LineComparisonReply]
     income: CellReply
     costs: CellReply
+    income_to_date: CellReply
+    costs_to_date: CellReply
     bases: dict[str, str]
 
 

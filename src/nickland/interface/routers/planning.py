@@ -229,12 +229,15 @@ def comparison(
                 analysis=line.analysis,
                 cells=[_cell(cell) for cell in line.cells],
                 total=_cell(line.total),
+                to_date=_cell(line.to_date),
                 forecast=line.forecast,
             )
             for line in made.lines
         ],
         income=_cell(made.income),
         costs=_cell(made.costs),
+        income_to_date=_cell(made.income_to_date),
+        costs_to_date=_cell(made.costs_to_date),
         bases=made.bases,
     )
 
