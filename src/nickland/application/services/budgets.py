@@ -851,6 +851,22 @@ class BudgetService:
 
     # -- internals --------------------------------------------------------------------------
 
+    def window_figures(
+        self, budget: Budget, line: BudgetLine, start: date, end: date
+    ) -> tuple[Decimal, Decimal]:
+        """Budget and actual for a line over any window. A budget period partly inside the
+        window counts in proportion to its days within it."""
+        effective = self._effective(line)
+        planned = ZERO
+        for period in self.periods(budget):
+            first, last = max(period.starts_on, start), min(period.ends_on, end)
+            if last < first:
+                continue
+            amount = money(effective.get(period.key, "0"))
+            planned += amount * ((last - first).days + 1) / period.days
+        first, last = max(budget.starts_on, start), min(budget.ends_on, end)
+        return cents(planned), self._actual(budget, line, first, last)
+
     def _effective(self, line: BudgetLine) -> dict[str, str]:
         """The planned amounts with approved transfers in and out."""
         amounts = {key: money(value) for key, value in line.amounts.items()}

@@ -715,7 +715,9 @@ __all__ = [
     "Party",
     "PasswordHistory",
     "PaymentBatch",
+    "PeriodChecklistItem",
     "PeriodCloseCheck",
+    "PeriodReopenRequest",
     "PlannedCashItem",
     "PosCashMovement",
     "PosRefund",
@@ -744,6 +746,9 @@ __all__ = [
     "ReceiptAllocation",
     "ReconciliationMatch",
     "RecurringExpense",
+    "ReportDelivery",
+    "ReportRun",
+    "ReportSchedule",
     "Role",
     "RolePermission",
     "SalesInvoice",
@@ -833,4 +838,11 @@ from nickland.persistence.planning_models import (  # noqa: E402
     BudgetRequest,
     ForecastScenario,
     PlannedCashItem,
+)
+from nickland.persistence.reporting_models import (  # noqa: E402
+    PeriodChecklistItem,
+    PeriodReopenRequest,
+    ReportDelivery,
+    ReportRun,
+    ReportSchedule,
 )

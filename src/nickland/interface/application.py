@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -43,6 +45,7 @@ from nickland.interface.routers import (
     quotations,
     receivables,
     reconciliation,
+    reporting,
     session,
     setup,
     sourcing,
@@ -109,6 +112,33 @@ class InterfaceFiles(StaticFiles):
             return await super().get_response("index.html", scope)
 
 
+SCHEDULE_INTERVAL_SECONDS = 60
+
+
+async def _run_report_schedules(runtime: Runtime) -> None:
+    """Scheduled reports, generated in the background and delivered to inboxes.
+
+    Each pass is one unit of work in a worker thread, so a slow report never holds up a
+    request, and a failure is logged and tried again on the next pass.
+    """
+    from nickland.application.services.report_runs import run_schedules
+    from nickland.persistence.engine import unit_of_work
+
+    def one_pass() -> int:
+        with unit_of_work(runtime.session_factory) as session:
+            return run_schedules(session, clock=runtime.clock)
+
+    await asyncio.sleep(15)
+    while True:
+        try:
+            produced = await asyncio.to_thread(one_pass)
+            if produced:
+                logger.info("Scheduled reports generated: %d", produced)
+        except Exception:
+            logger.exception("Scheduled reports could not be generated")
+        await asyncio.sleep(SCHEDULE_INTERVAL_SECONDS)
+
+
 def create_application(
     settings: Settings | None = None,
     *,
@@ -133,7 +163,16 @@ def create_application(
             active.environment.value,
         )
         _apply_staged_restore(active)
+        runner = (
+            asyncio.create_task(_run_report_schedules(resolved_runtime))
+            if active.environment is not Environment.TEST
+            else None
+        )
         yield
+        if runner is not None:
+            runner.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await runner
         resolved_runtime.engine.dispose()
         logger.info("Service stopped")
 
@@ -190,6 +229,7 @@ def create_application(
         expenses.router,
         financing.router,
         planning.router,
+        reporting.router,
         reconciliation.router,
         command_centre.router,
         taxation.router,

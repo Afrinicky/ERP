@@ -122,7 +122,7 @@ export interface Sequence {
   document_label: string;
   prefix: string;
   pattern: string;
-  reset_cadence: 'never' | 'annually' | 'monthly';
+  reset_cadence: "never" | "annually" | "monthly";
   period_key: string;
   next_value: number;
   is_active: boolean;
@@ -157,7 +157,7 @@ export interface Role {
 
 export interface AccessException {
   permission_code: string;
-  effect: 'grant' | 'withhold';
+  effect: "grant" | "withhold";
   reason: string;
   set_at: string;
   set_by: string | null;
@@ -250,7 +250,7 @@ export interface CustomField {
   show_on_documents: boolean;
 }
 
-export type HealthState = 'ok' | 'degraded' | 'failed' | 'unavailable';
+export type HealthState = "ok" | "degraded" | "failed" | "unavailable";
 
 export interface HealthCheck {
   name: string;
@@ -351,7 +351,7 @@ export interface Product {
   sku: string;
   name: string;
   description: string | null;
-  item_class: 'stocked' | 'non_stock' | 'service' | 'bundle';
+  item_class: "stocked" | "non_stock" | "service" | "bundle";
   category_fk: string | null;
   parent_fk: string | null;
   is_variant_parent: boolean;
@@ -360,7 +360,7 @@ export interface Product {
   stock_unit_fk: string;
   sales_unit_fk: string | null;
   purchase_unit_fk: string | null;
-  tracking_policy: 'none' | 'batch' | 'serial';
+  tracking_policy: "none" | "batch" | "serial";
   requires_expiry: boolean;
   shelf_life_days: number | null;
   valuation_policy: string;
@@ -398,7 +398,7 @@ export interface Party {
   code: string;
   name: string;
   legal_name: string | null;
-  party_type: 'organisation' | 'individual';
+  party_type: "organisation" | "individual";
   is_customer: boolean;
   is_supplier: boolean;
   is_affiliate: boolean;
@@ -507,7 +507,7 @@ export interface AffiliateProfile {
 
 export interface RowReport {
   line: number;
-  outcome: 'create' | 'amend' | 'reject';
+  outcome: "create" | "amend" | "reject";
   reference: string;
   message: string;
   field: string | null;
@@ -544,13 +544,8 @@ export interface ImportRun {
 
 // -- the ledger ------------------------------------------------------------------------
 
-export type AccountingBasis = 'accrual' | 'cash';
-export type JournalState =
-  | 'draft'
-  | 'pending_approval'
-  | 'posted'
-  | 'reversed'
-  | 'rejected';
+export type AccountingBasis = "accrual" | "cash";
+export type JournalState = "draft" | "pending_approval" | "posted" | "reversed" | "rejected";
 
 export interface AccountGroup {
   id: string;
@@ -578,7 +573,7 @@ export interface Account {
   permits_manual_posting: boolean;
   display_order: number;
   balance: string;
-  presented_side: 'debit' | 'credit';
+  presented_side: "debit" | "credit";
 }
 
 export interface AccountingPeriod {
@@ -588,7 +583,7 @@ export interface AccountingPeriod {
   label: string;
   starts_on: string;
   ends_on: string;
-  state: 'open' | 'closed' | 'reopened';
+  state: "open" | "closed" | "reopened";
   closed_at: string | null;
   reopened_at: string | null;
   reopen_reason: string | null;
@@ -687,7 +682,7 @@ export interface ApprovalThreshold {
 
 export interface DraftLine {
   account_code: string;
-  side: 'debit' | 'credit';
+  side: "debit" | "credit";
   amount: string;
   narration?: string | null;
   party_id?: string | null;
@@ -737,7 +732,7 @@ export interface AccountLedger {
   total_debit: string;
   total_credit: string;
   closing_balance: string;
-  presented_side: 'debit' | 'credit';
+  presented_side: "debit" | "credit";
 }
 
 export interface StatementLine {
@@ -825,7 +820,7 @@ export interface LedgerSummary {
 
 // -- documents -------------------------------------------------------------------------
 
-export type PageFormatCode = 'a4' | 'a5' | 'letter' | 'legal' | 'roll_80' | 'roll_58';
+export type PageFormatCode = "a4" | "a5" | "letter" | "legal" | "roll_80" | "roll_58";
 
 export interface PageFormatInfo {
   code: PageFormatCode;
@@ -840,7 +835,7 @@ export interface DocumentType {
   code: string;
   name: string;
   kind: string;
-  classification: 'customer_facing' | 'internal';
+  classification: "customer_facing" | "internal";
   sequence_kind: string | null;
   is_system: boolean;
   is_active: boolean;
@@ -917,12 +912,7 @@ export interface ThermalPreview {
 
 // -- taxation --------------------------------------------------------------------------
 
-export type TaxOutcome =
-  | 'applied'
-  | 'not_applicable'
-  | 'exempt'
-  | 'needs_review'
-  | 'overridden';
+export type TaxOutcome = "applied" | "not_applicable" | "exempt" | "needs_review" | "overridden";
 
 export interface TaxAuthority {
   id: string;
@@ -1047,7 +1037,7 @@ export interface TaxObligation {
   adjustments: string;
   paid: string;
   carried_forward: string;
-  state: 'outstanding' | 'part_paid' | 'paid' | 'written_off';
+  state: "outstanding" | "part_paid" | "paid" | "written_off";
   currency_code: string;
   net_payable: string;
 }
@@ -1077,7 +1067,7 @@ export interface TaxFiling {
   obligation_fk: string;
   authority_fk: string | null;
   reference: string | null;
-  state: 'due' | 'prepared' | 'submitted' | 'accepted' | 'rejected';
+  state: "due" | "prepared" | "submitted" | "accepted" | "rejected";
   due_on: string;
   submitted_at: string | null;
   acknowledgement_reference: string | null;
@@ -1152,13 +1142,7 @@ export interface InstalmentPlan {
   bands: InstalmentBand[];
 }
 
-export type RequestState =
-  | "draft"
-  | "open"
-  | "sourcing"
-  | "quoted"
-  | "closed"
-  | "cancelled";
+export type RequestState = "draft" | "open" | "sourcing" | "quoted" | "closed" | "cancelled";
 
 export interface RequestLine {
   id: string;
@@ -1280,13 +1264,7 @@ export interface Comparison {
 }
 
 export type QuotationState =
-  | "draft"
-  | "pending_approval"
-  | "issued"
-  | "accepted"
-  | "rejected"
-  | "expired"
-  | "superseded";
+  "draft" | "pending_approval" | "issued" | "accepted" | "rejected" | "expired" | "superseded";
 
 export interface QuotationLine {
   id: string;
@@ -1474,12 +1452,7 @@ export interface SalesSummary {
   acceptance_rate: string;
 }
 
-export type CommissionState =
-  | "accrued"
-  | "approved"
-  | "payable"
-  | "paid"
-  | "cancelled";
+export type CommissionState = "accrued" | "approved" | "payable" | "paid" | "cancelled";
 
 export interface CommissionAccrual {
   id: string;
@@ -1541,8 +1514,8 @@ export interface TemplateCondition {
 }
 
 export interface TemplateVisibility {
-  mode: 'always' | 'never' | 'conditional';
-  join: 'all' | 'any';
+  mode: "always" | "never" | "conditional";
+  join: "all" | "any";
   conditions: TemplateCondition[];
 }
 
@@ -1562,7 +1535,7 @@ export interface TemplateColumn {
   binding: string | null;
   expression: string;
   width_percent: number;
-  alignment: 'left' | 'centre' | 'right';
+  alignment: "left" | "centre" | "right";
   format: TemplateFormat;
   visibility: TemplateVisibility;
   subtotal: boolean;
@@ -1576,7 +1549,7 @@ export interface TemplateElement {
   text: string;
   expression: string;
   format: TemplateFormat;
-  alignment: 'left' | 'centre' | 'right';
+  alignment: "left" | "centre" | "right";
   width_percent: number;
   emphasis: boolean;
   visibility: TemplateVisibility;
@@ -1695,7 +1668,7 @@ export interface Acceptance {
   recorded_by_id: string | null;
 }
 
-export type SalesOrderState = 'open' | 'partially_fulfilled' | 'fulfilled' | 'cancelled';
+export type SalesOrderState = "open" | "partially_fulfilled" | "fulfilled" | "cancelled";
 
 export interface SalesOrderLine {
   id: string;
@@ -1703,12 +1676,12 @@ export interface SalesOrderLine {
   product_fk: string | null;
   description: string;
   specification: string | null;
-  source_kind: 'stock' | 'supplier';
+  source_kind: "stock" | "supplier";
   quantity_ordered: string;
   quantity_cancelled: string;
   quantity_procured: string;
   quantity_received: string;
-  state: 'open' | 'backordered' | 'fulfilled' | 'cancelled';
+  state: "open" | "backordered" | "fulfilled" | "cancelled";
   unit_price: string;
   line_total: string;
   tax_amount: string;
@@ -1762,13 +1735,7 @@ export interface OrderVariance {
 }
 
 export type PurchaseOrderState =
-  | 'draft'
-  | 'approved'
-  | 'issued'
-  | 'partially_received'
-  | 'received'
-  | 'closed'
-  | 'cancelled';
+  "draft" | "approved" | "issued" | "partially_received" | "received" | "closed" | "cancelled";
 
 export interface PurchaseLineInput {
   description: string;
@@ -1789,7 +1756,7 @@ export interface PurchaseOrderInput {
   sales_order_id?: string | null;
   supplier_quotation_id?: string | null;
   warehouse_id?: string | null;
-  purpose?: 'order' | 'replenishment';
+  purpose?: "order" | "replenishment";
   currency_code?: string | null;
   exchange_rate?: string;
   expected_on?: string | null;
@@ -1835,7 +1802,7 @@ export interface PurchaseOrder {
   sales_order_number: string | null;
   supplier_quotation_fk: string | null;
   warehouse_fk: string | null;
-  purpose: 'order' | 'replenishment';
+  purpose: "order" | "replenishment";
   state: PurchaseOrderState;
   ordered_on: string;
   expected_on: string | null;
@@ -1897,7 +1864,7 @@ export interface GoodsReceipt {
   supplier_fk: string;
   supplier_name: string | null;
   warehouse_fk: string | null;
-  state: 'draft' | 'posted';
+  state: "draft" | "posted";
   received_on: string;
   delivery_reference: string | null;
   inspection_pending: boolean;
@@ -1908,13 +1875,7 @@ export interface GoodsReceipt {
 }
 
 export type SupplierInvoiceState =
-  | 'draft'
-  | 'variance'
-  | 'matched'
-  | 'posted'
-  | 'partially_paid'
-  | 'paid'
-  | 'cancelled';
+  "draft" | "variance" | "matched" | "posted" | "partially_paid" | "paid" | "cancelled";
 
 export interface InvoiceLineInput {
   purchase_order_line_id: string;
@@ -1951,11 +1912,11 @@ export interface MatchVariance {
   id: string;
   invoice_fk: string;
   invoice_line_fk: string;
-  kind: 'quantity' | 'price';
+  kind: "quantity" | "price";
   expected: string;
   actual: string;
   amount_at_stake: string;
-  state: 'pending' | 'approved' | 'rejected';
+  state: "pending" | "approved" | "rejected";
   decided_at: string | null;
   reason: string | null;
 }
@@ -2008,7 +1969,7 @@ export interface CreditNote {
 export interface PaymentInput {
   supplier_id: string;
   amount: string;
-  method?: 'cash' | 'bank' | 'mobile_money';
+  method?: "cash" | "bank" | "mobile_money";
   withheld?: string;
   paid_on?: string | null;
   reference?: string | null;
@@ -2045,7 +2006,7 @@ export interface PayableRow {
   paid: string;
   credited: string;
   outstanding: string;
-  bucket: 'current' | '1_30' | '31_60' | '61_90' | 'over_90';
+  bucket: "current" | "1_30" | "31_60" | "61_90" | "over_90";
   days_overdue: number;
 }
 
@@ -2060,11 +2021,11 @@ export interface PayablesRegister {
 
 // -- Inventory --------------------------------------------------------------------------
 
-export type StockStateName = 'usable' | 'quarantine' | 'rejected' | 'in_transit' | 'reserved';
-export type ExpiryStatusName = 'none' | 'good' | 'near' | 'expired';
+export type StockStateName = "usable" | "quarantine" | "rejected" | "in_transit" | "reserved";
+export type ExpiryStatusName = "none" | "good" | "near" | "expired";
 
 export interface InventorySettings {
-  valuation_policy: 'weighted_average' | 'fifo';
+  valuation_policy: "weighted_average" | "fifo";
   expiry_warning_days: number;
 }
 
@@ -2079,7 +2040,7 @@ export interface StockLocation {
   id: string;
   code: string;
   name: string;
-  kind: 'storage' | 'quarantine' | 'assembly';
+  kind: "storage" | "quarantine" | "assembly";
   is_active: boolean;
   bins: StockBin[];
 }
@@ -2109,7 +2070,7 @@ export interface StockPosition {
   value: string | null;
   unit_cost: string | null;
   reorder_level: string | null;
-  tracking: 'none' | 'batch' | 'serial';
+  tracking: "none" | "batch" | "serial";
 }
 
 export interface StockBatch {
@@ -2200,7 +2161,7 @@ export interface StockTransfer {
   number: string | null;
   from_warehouse: string;
   to_warehouse: string;
-  state: 'draft' | 'dispatched' | 'received' | 'cancelled';
+  state: "draft" | "dispatched" | "received" | "cancelled";
   requested_on: string;
   dispatched_on: string | null;
   received_on: string | null;
@@ -2257,7 +2218,7 @@ export interface StockReservation {
   quantity: string;
   quantity_consumed: string;
   quantity_released: string;
-  state: 'active' | 'consumed' | 'released';
+  state: "active" | "consumed" | "released";
   created_at: string;
 }
 
@@ -2266,7 +2227,7 @@ export interface StockCountSheet {
   number: string | null;
   warehouse: string;
   location: string | null;
-  state: 'open' | 'submitted' | 'posted' | 'cancelled';
+  state: "open" | "submitted" | "posted" | "cancelled";
   counted_on: string;
   notes: string | null;
   lines: {
@@ -2287,7 +2248,7 @@ export interface StockCountSheet {
 export interface LandedCharge {
   id: string;
   category: string;
-  method: 'by_value' | 'by_quantity';
+  method: "by_value" | "by_quantity";
   reference: string | null;
   amount: string;
   to_inventory: string;
@@ -2301,7 +2262,7 @@ export interface AssemblyLine {
   description: string;
   product_id: string | null;
   sku: string | null;
-  tracking: 'none' | 'batch' | 'serial';
+  tracking: "none" | "batch" | "serial";
   holds_stock: boolean;
   required: string;
   available: string;
@@ -2335,22 +2296,22 @@ export interface AssemblyStepInput {
 // -- Dispatch ---------------------------------------------------------------------------
 
 export type ShipmentStateName =
-  | 'prepared'
-  | 'packed'
-  | 'dispatched'
-  | 'delivered'
-  | 'partially_delivered'
-  | 'failed'
-  | 'cancelled';
+  | "prepared"
+  | "packed"
+  | "dispatched"
+  | "delivered"
+  | "partially_delivered"
+  | "failed"
+  | "cancelled";
 
-export type DispatchModeName = 'carrier' | 'own_vehicle' | 'courier' | 'collection';
+export type DispatchModeName = "carrier" | "own_vehicle" | "courier" | "collection";
 
 export interface ShippableLine {
   line_id: string;
   position: number;
   description: string;
   sku: string | null;
-  tracking: 'none' | 'batch' | 'serial';
+  tracking: "none" | "batch" | "serial";
   holds_stock: boolean;
   ordered: string;
   delivered: string;
@@ -2371,7 +2332,7 @@ export interface ShipmentLineRow {
   sales_order_line_id: string;
   sku: string;
   description: string;
-  tracking: 'none' | 'batch' | 'serial';
+  tracking: "none" | "batch" | "serial";
   quantity: string;
   delivered: string;
   returned: string;
@@ -2420,7 +2381,7 @@ export interface Shipment {
   exceptions: {
     id: string;
     line_position: number;
-    kind: 'returned' | 'damaged' | 'lost' | 'customer_return';
+    kind: "returned" | "damaged" | "lost" | "customer_return";
     kind_label: string;
     quantity: string;
     reason: string;
@@ -2449,7 +2410,7 @@ export interface DeliveryOutcomeInput {
   reason?: string | null;
   serials_delivered?: string[];
   /** Everything not delivered, under one outcome; the service works out how many. */
-  remainder_as?: 'returned' | 'damaged' | 'lost' | null;
+  remainder_as?: "returned" | "damaged" | "lost" | null;
 }
 
 export interface DeliveryInput {
@@ -2465,16 +2426,11 @@ export interface DeliveryInput {
 
 // -- Point of sale ---------------------------------------------------------------------
 
-export type TenderMethodName = 'cash' | 'mobile_money' | 'card' | 'bank_transfer' | 'on_account';
-export type TenderStateName = 'pending' | 'confirmed' | 'failed' | 'abandoned';
+export type TenderMethodName = "cash" | "mobile_money" | "card" | "bank_transfer" | "on_account";
+export type TenderStateName = "pending" | "confirmed" | "failed" | "abandoned";
 export type SaleStateName =
-  | 'open'
-  | 'parked'
-  | 'completed'
-  | 'voided'
-  | 'refunded'
-  | 'partially_refunded';
-export type ShiftStateName = 'open' | 'submitted' | 'closed';
+  "open" | "parked" | "completed" | "voided" | "refunded" | "partially_refunded";
+export type ShiftStateName = "open" | "submitted" | "closed";
 
 export interface PosSaleLine {
   id: string;
@@ -2590,7 +2546,7 @@ export interface PosCountPreview {
 export interface PosRefund {
   id: string;
   number: string;
-  kind: 'refund' | 'exchange' | 'void';
+  kind: "refund" | "exchange" | "void";
   sale_id: string;
   reason: string;
   method: TenderMethodName;
@@ -2619,7 +2575,7 @@ export interface PosRefundInput {
 
 // -- Financial management ----------------------------------------------------------------
 
-export type FinancialAccountKindName = 'cash_drawer' | 'petty_cash' | 'bank' | 'mobile_money';
+export type FinancialAccountKindName = "cash_drawer" | "petty_cash" | "bank" | "mobile_money";
 
 export interface FinancialAccount {
   id: string;
@@ -2636,11 +2592,7 @@ export interface FinancialAccount {
 }
 
 export type TreasuryMovementKindName =
-  | 'transfer'
-  | 'bank_charge'
-  | 'interest'
-  | 'adjustment_in'
-  | 'adjustment_out';
+  "transfer" | "bank_charge" | "interest" | "adjustment_in" | "adjustment_out";
 
 export interface TreasuryMovement {
   id: string;
@@ -2701,7 +2653,7 @@ export interface SalesInvoiceLine {
 export interface SalesInvoice {
   id: string;
   number: string;
-  origin: 'sales_order' | 'pos_sale';
+  origin: "sales_order" | "pos_sale";
   customer_id: string;
   customer: string | null;
   order_number: string | null;
@@ -2715,7 +2667,7 @@ export interface SalesInvoice {
   amount_written_off: string;
   amount_provided: string;
   outstanding: string;
-  state: 'open' | 'part_settled' | 'settled' | 'written_off';
+  state: "open" | "part_settled" | "settled" | "written_off";
   state_label: string;
   disputed: boolean;
   days_overdue: number;
@@ -2748,9 +2700,9 @@ export interface CustomerDeposit {
   applied: string;
   refunded: string;
   held: string;
-  condition: 'on_invoice' | 'on_delivery';
+  condition: "on_invoice" | "on_delivery";
   condition_label: string;
-  state: 'held' | 'part_applied' | 'applied' | 'refunded';
+  state: "held" | "part_applied" | "applied" | "refunded";
 }
 
 export interface CreditNoteRecord {
@@ -2780,7 +2732,7 @@ export interface AgeingRow {
 
 export interface CollectionNote {
   id: string;
-  kind: 'contact' | 'promise' | 'dispute' | 'resolved';
+  kind: "contact" | "promise" | "dispute" | "resolved";
   kind_label: string;
   note: string;
   invoice_number: string | null;
@@ -2825,17 +2777,17 @@ export interface ExpenseRecord {
   category_code: string;
   category: string | null;
   description: string;
-  classification: 'operating' | 'capital';
+  classification: "operating" | "capital";
   net: string;
   input_tax: string;
   total: string;
   incurred_on: string;
   payee_reference: string | null;
-  settlement: 'paid' | 'on_credit' | 'staff_claim';
+  settlement: "paid" | "on_credit" | "staff_claim";
   settlement_label: string;
   account: string | null;
   employee: string | null;
-  state: 'awaiting_approval' | 'recognised' | 'settled' | 'rejected';
+  state: "awaiting_approval" | "recognised" | "settled" | "rejected";
   state_label: string;
   submitted_by: string | null;
   approved_by: string | null;
@@ -2850,9 +2802,9 @@ export interface ExpenseInput {
   category_code: string;
   description: string;
   net: string;
-  settlement: 'paid' | 'on_credit' | 'staff_claim';
+  settlement: "paid" | "on_credit" | "staff_claim";
   input_tax?: string;
-  classification?: 'operating' | 'capital';
+  classification?: "operating" | "capital";
   incurred_on?: string | null;
   payee_reference?: string | null;
   employee_id?: string | null;
@@ -2869,7 +2821,7 @@ export interface RecurringExpenseRecord {
   net: string;
   input_tax: string;
   settlement: string;
-  frequency: 'weekly' | 'monthly' | 'quarterly';
+  frequency: "weekly" | "monthly" | "quarterly";
   next_due: string;
   ends_on: string | null;
   is_active: boolean;
@@ -2882,7 +2834,7 @@ export interface StatementLineRecord {
   description: string;
   reference: string | null;
   amount: string;
-  state: 'unmatched' | 'matched' | 'duplicate' | 'excluded';
+  state: "unmatched" | "matched" | "duplicate" | "excluded";
   note: string | null;
 }
 
@@ -2898,7 +2850,7 @@ export interface BankStatementRecord {
   difference: string;
   unmatched: number;
   duplicates: number;
-  state: 'open' | 'reconciled';
+  state: "open" | "reconciled";
   reconciled: boolean;
   lines: StatementLineRecord[];
 }
@@ -2927,7 +2879,7 @@ export interface SourceRow {
 export interface MeasureRecord {
   code: string;
   label: string;
-  basis: 'flow' | 'position';
+  basis: "flow" | "position";
   description: string;
   value: string;
   starts_on: string | null;
@@ -2953,19 +2905,19 @@ export interface MeasureDrill {
 
 export interface Widget {
   measure: string;
-  size: 'small' | 'medium' | 'large';
+  size: "small" | "medium" | "large";
 }
 
 export interface CommandLayout {
   preset: string;
   widgets: Widget[];
-  source: 'personal' | 'role' | 'preset';
+  source: "personal" | "role" | "preset";
 }
 
 export interface PaymentBatchRecord {
   id: string;
   number: string;
-  state: 'awaiting_approval' | 'paid' | 'rejected';
+  state: "awaiting_approval" | "paid" | "rejected";
   account: string | null;
   pay_on: string;
   items: { supplier_id: string; supplier: string; amount: string; invoice_ids: string[] }[];
@@ -2977,37 +2929,21 @@ export interface PaymentBatchRecord {
 
 // -- debt, loans and financing (PRD §25) --------------------------------------------------
 
-export type LoanDirection = 'borrowing' | 'lending';
+export type LoanDirection = "borrowing" | "lending";
 export type LoanTypeName =
-  | 'term_loan'
-  | 'overdraft'
-  | 'revolving_credit'
-  | 'asset_finance'
-  | 'staff_advance'
-  | 'related_party'
-  | 'other';
+  | "term_loan"
+  | "overdraft"
+  | "revolving_credit"
+  | "asset_finance"
+  | "staff_advance"
+  | "related_party"
+  | "other";
 export type InterestModelName =
-  | 'none'
-  | 'fixed'
-  | 'flat'
-  | 'reducing_balance'
-  | 'interest_only'
-  | 'balloon'
-  | 'custom';
+  "none" | "fixed" | "flat" | "reducing_balance" | "interest_only" | "balloon" | "custom";
 export type RepaymentFrequencyName =
-  | 'daily'
-  | 'weekly'
-  | 'fortnightly'
-  | 'monthly'
-  | 'quarterly'
-  | 'semi_annual'
-  | 'annual';
+  "daily" | "weekly" | "fortnightly" | "monthly" | "quarterly" | "semi_annual" | "annual";
 export type RevisionKindName =
-  | 'reschedule'
-  | 'payment_holiday'
-  | 'deferment'
-  | 'interest_change'
-  | 'restructure';
+  "reschedule" | "payment_holiday" | "deferment" | "interest_change" | "restructure";
 
 export interface LoanInput {
   direction: LoanDirection;
@@ -3246,7 +3182,7 @@ export interface RevisionInput {
 }
 
 export interface SecurityInput {
-  kind: 'collateral' | 'guarantor' | 'covenant';
+  kind: "collateral" | "guarantor" | "covenant";
   description: string;
   party_name?: string | null;
   value?: string | null;
@@ -3383,11 +3319,11 @@ export interface OtherDebtRecord {
 
 // -- budgets, forecasts, profitability and charts (PRD §20.7, §29.6, §29.8) ----------------
 
-export type FigureBasis = 'actual' | 'budget' | 'forecast' | 'estimate';
+export type FigureBasis = "actual" | "budget" | "forecast" | "estimate";
 
 export interface AnalysisCode {
   id: string;
-  kind: 'department' | 'project' | 'cost_centre';
+  kind: "department" | "project" | "cost_centre";
   kind_label: string;
   code: string;
   name: string;
@@ -3418,10 +3354,10 @@ export interface BudgetLineRecord {
 export interface BudgetSummary {
   id: string;
   name: string;
-  period_kind: 'annual' | 'quarterly' | 'monthly' | 'custom';
+  period_kind: "annual" | "quarterly" | "monthly" | "custom";
   starts_on: string;
   ends_on: string;
-  state: 'draft' | 'in_review' | 'approved' | 'superseded' | 'rejected';
+  state: "draft" | "in_review" | "approved" | "superseded" | "rejected";
   state_label: string;
   version: number;
   total: string;
@@ -3433,13 +3369,13 @@ export interface BudgetSummary {
 export interface BudgetRequestRecord {
   id: string;
   budget_id: string;
-  kind: 'transfer' | 'overspend';
+  kind: "transfer" | "overspend";
   line_id: string;
   from_line_id: string | null;
   period_key: string;
   amount: string;
   reason: string;
-  state: 'pending' | 'approved' | 'rejected';
+  state: "pending" | "approved" | "rejected";
   expense_id: string | null;
   requested_by: string | null;
   decided_by: string | null;
@@ -3452,14 +3388,20 @@ export interface BudgetDetail extends BudgetSummary {
   assumptions: string | null;
   periods: BudgetPeriod[];
   budget_lines: BudgetLineRecord[];
-  decisions: { action: string; actor: string | null; note: string | null; occurred_at: string; version: number }[];
+  decisions: {
+    action: string;
+    actor: string | null;
+    note: string | null;
+    occurred_at: string;
+    version: number;
+  }[];
   versions: BudgetSummary[];
   requests: BudgetRequestRecord[];
 }
 
 export interface BudgetInput {
   name: string;
-  period_kind: BudgetSummary['period_kind'];
+  period_kind: BudgetSummary["period_kind"];
   starts_on: string;
   ends_on: string;
   branch_id?: string | null;
@@ -3496,7 +3438,7 @@ export interface BudgetComparison {
   lines: {
     line_id: string;
     label: string;
-    nature: 'income' | 'cost';
+    nature: "income" | "cost";
     analysis: string | null;
     cells: ComparisonCell[];
     total: ComparisonCell;
@@ -3534,7 +3476,7 @@ export interface ForecastAssumptions {
 export interface ForecastScenario {
   id: string;
   name: string;
-  kind: 'best' | 'base' | 'downside' | 'custom';
+  kind: "best" | "base" | "downside" | "custom";
   kind_label: string;
   is_default: boolean;
   assumptions: ForecastAssumptions;
@@ -3591,7 +3533,7 @@ export interface PlannedCashItem {
 }
 
 export interface AlertRecord {
-  severity: 'critical' | 'warning' | 'notice';
+  severity: "critical" | "warning" | "notice";
   kind: string;
   title: string;
   detail: string;
@@ -3605,7 +3547,7 @@ export interface ChartSeries {
   label: string;
   basis: FigureBasis;
   basis_label: string;
-  role: 'primary' | 'comparison' | 'supporting' | 'level';
+  role: "primary" | "comparison" | "supporting" | "level";
 }
 
 export interface ChartPoint {
@@ -3618,7 +3560,7 @@ export interface ChartPoint {
 export interface ChartData {
   id: string;
   title: string;
-  kind: 'line' | 'columns' | 'bars' | 'grouped_bars';
+  kind: "line" | "columns" | "bars" | "grouped_bars";
   unit: string;
   starts_on: string;
   ends_on: string;
@@ -3696,4 +3638,220 @@ export interface ErosionReport {
   realised_margin: string;
   pending: number;
   bases: Record<string, string>;
+}
+
+// -- reporting -----------------------------------------------------------------------------
+
+export type ColumnKind = "text" | "money" | "quantity" | "count" | "percent" | "date" | "days";
+export type Cell = string | number | null;
+
+export interface ReportOption {
+  key: string;
+  label: string;
+}
+
+export interface ReportCatalogueEntry {
+  id: string;
+  title: string;
+  group: string;
+  group_label: string;
+  summary: string;
+  sensitive: boolean;
+  available: boolean;
+  exportable: boolean;
+  groupings: ReportOption[];
+  filters: string[];
+  comparisons: ReportOption[];
+  as_at: boolean;
+  ledger: boolean;
+}
+
+export interface ReportParameters {
+  granularity: "day" | "week" | "month" | "quarter" | "year" | "custom";
+  anchor?: string | null;
+  start?: string | null;
+  end?: string | null;
+  comparison: "none" | "prior" | "year" | "budget";
+  grouping?: string | null;
+  filters: Record<string, string>;
+  basis: "accrual" | "cash";
+}
+
+export interface ReportColumn {
+  key: string;
+  label: string;
+  kind: ColumnKind;
+  compare: boolean;
+  sensitive: boolean;
+}
+
+export interface ReportRow {
+  key: string;
+  cells: Record<string, Cell>;
+  drill: Record<string, string> | null;
+  emphasis: "heading" | "subtotal" | "total" | null;
+  level: number;
+}
+
+export interface ReportTable {
+  key: string;
+  title: string;
+  note: string | null;
+  empty: string;
+  columns: ReportColumn[];
+  rows: ReportRow[];
+  total: ReportRow | null;
+}
+
+export interface ReportFigure {
+  key: string;
+  label: string;
+  kind: ColumnKind;
+  value: Cell;
+  prior: Cell;
+  change: string | null;
+  sensitive: boolean;
+  note: string | null;
+}
+
+export interface ReportCheck {
+  key: string;
+  label: string;
+  reported: string;
+  ledger: string;
+  difference: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface ReportSection {
+  key: string;
+  title: string;
+  commentary: string[];
+  figures: ReportFigure[];
+  tables: ReportTable[];
+  checks: ReportCheck[];
+}
+
+export interface ReportHeader {
+  title: string;
+  business: string;
+  period: string;
+  starts_on: string;
+  ends_on: string;
+  currency: string;
+  basis: string;
+  generated_at: string;
+  generated_by: string | null;
+  filters: [string, string][];
+  comparison: string | null;
+  comparison_starts_on: string | null;
+  comparison_ends_on: string | null;
+  as_at: boolean;
+}
+
+export interface ReportResult {
+  id: string;
+  title: string;
+  sensitive: boolean;
+  withheld: boolean;
+  reconciled: boolean;
+  header: ReportHeader;
+  sections: ReportSection[];
+}
+
+export interface ReportRunSummary {
+  id: string;
+  report_id: string;
+  title: string;
+  period_label: string;
+  starts_on: string;
+  ends_on: string;
+  generated_at: string;
+  generated_by: string | null;
+  reconciled: boolean;
+  sensitive: boolean;
+  scheduled: boolean;
+  notes: number;
+}
+
+export interface SavedReportRun extends ReportRunSummary {
+  report: ReportResult;
+  section_notes: Record<string, string>;
+  parameters: ReportParameters;
+}
+
+export interface InboxEntry extends ReportRunSummary {
+  delivered_at: string;
+  read_at: string | null;
+}
+
+export interface ReportSchedule {
+  id: string;
+  name: string;
+  report_id: string;
+  report_title: string;
+  frequency: "daily" | "weekly" | "monthly";
+  run_day: number;
+  run_hour: number;
+  recipients: string[];
+  recipient_names: string[];
+  formats: string[];
+  parameters: ReportParameters;
+  is_active: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_error: string | null;
+}
+
+export interface ReportScheduleInput {
+  name: string;
+  report_id: string;
+  frequency: ReportSchedule["frequency"];
+  run_day: number;
+  run_hour: number;
+  recipients: string[];
+  formats: string[];
+  parameters: ReportParameters;
+  is_active: boolean;
+}
+
+export interface ReportRecipient {
+  id: string;
+  name: string;
+}
+
+export interface CloseStep {
+  key: string;
+  label: string;
+  done: boolean;
+  done_by: string | null;
+  done_at: string | null;
+  note: string | null;
+}
+
+export interface ReopenRequest {
+  id: string;
+  period_id: string;
+  period_label: string;
+  reason: string;
+  state: "pending" | "approved" | "declined";
+  requested_by: string | null;
+  requested_by_id: string | null;
+  requested_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  self_approved: boolean;
+}
+
+export interface CloseChecklist {
+  period: AccountingPeriod;
+  checks: CloseCheck[];
+  steps: CloseStep[];
+  ready: boolean;
+  closed_by: string | null;
+  reopened_by: string | null;
+  reopen_approved_by: string | null;
+  requests: ReopenRequest[];
 }

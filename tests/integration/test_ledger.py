@@ -14,7 +14,7 @@ from nickland.application.context import Actor
 from nickland.application.services.accounts import AccountService
 from nickland.application.services.journals import JournalDraft, JournalService
 from nickland.application.services.ledger_reports import LedgerReportService
-from nickland.application.services.periods import PeriodService
+from nickland.application.services.periods import CHECKLIST, CloseReadiness, PeriodService
 from nickland.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -55,6 +55,17 @@ def reports(db: Session, clock: FixedClock) -> LedgerReportService:
 @pytest.fixture
 def periods(db: Session, clock: FixedClock) -> PeriodService:
     return PeriodService(db, clock=clock)
+
+
+def close(periods: PeriodService, admin: Actor, period_id: uuid.UUID) -> CloseReadiness:
+    """Confirm the checklist a person signs off, then close."""
+    confirm(periods, admin, period_id)
+    return periods.close(admin, period_id)
+
+
+def confirm(periods: PeriodService, admin: Actor, period_id: uuid.UUID) -> None:
+    for key, _ in CHECKLIST:
+        periods.confirm_step(admin, period_id, key, done=True)
 
 
 def capital(journals: JournalService, admin: Actor, amount: str = "50000.00") -> JournalEntry:
@@ -826,7 +837,7 @@ class TestPeriodClose:
     ) -> None:
         for period in accounts.periods(admin, financial_year=2026):
             if period.ends_on < upto:
-                periods.close(admin, period.id)
+                close(periods, admin, period.id)
 
     def test_a_period_closes_when_every_gate_passes(
         self,
@@ -840,9 +851,9 @@ class TestPeriodClose:
         db.flush()
         self.close_everything_before(periods, accounts, admin, date(2026, 11, 1))
         november = accounts.require_period_for(admin.business_id, TODAY)  # type: ignore[arg-type]
-        readiness = periods.close(admin, november.id)
+        readiness = close(periods, admin, november.id)
         assert readiness.ready
-        assert len(readiness.checks) == 5
+        assert len(readiness.checks) == 9
         assert november.state == "closed"
         assert november.closed_by_id == admin.user_id
 
@@ -856,7 +867,7 @@ class TestPeriodClose:
     ) -> None:
         self.close_everything_before(periods, accounts, admin, date(2026, 11, 1))
         november = accounts.require_period_for(admin.business_id, TODAY)  # type: ignore[arg-type]
-        periods.close(admin, november.id)
+        close(periods, admin, november.id)
         db.flush()
         with pytest.raises(ConflictError, match="closed"):
             journals.post(
@@ -876,7 +887,7 @@ class TestPeriodClose:
     ) -> None:
         november = accounts.require_period_for(admin.business_id, TODAY)  # type: ignore[arg-type]
         with pytest.raises(ConflictError, match="periods close in order"):
-            periods.close(admin, november.id)
+            close(periods, admin, november.id)
 
     def test_a_pending_entry_blocks_the_close(
         self,
@@ -903,7 +914,7 @@ class TestPeriodClose:
         self.close_everything_before(periods, accounts, admin, date(2026, 11, 1))
         november = accounts.require_period_for(admin.business_id, TODAY)  # type: ignore[arg-type]
         with pytest.raises(ConflictError, match="pending approval"):
-            periods.close(admin, november.id)
+            close(periods, admin, november.id)
 
     def test_the_gates_are_recorded_with_the_close(
         self,
@@ -913,10 +924,10 @@ class TestPeriodClose:
         admin: Actor,
     ) -> None:
         january = accounts.periods(admin, financial_year=2026)[0]
-        periods.close(admin, january.id)
+        close(periods, admin, january.id)
         db.flush()
         recorded = periods.checks_recorded(admin, january.id)
-        assert len(recorded) == 5
+        assert len(recorded) == 9
         assert all(check.passed for check in recorded)
         assert {check.name for check in recorded} == {
             "earlier_periods_closed",
@@ -924,6 +935,10 @@ class TestPeriodClose:
             "entries_balanced",
             "trial_balance_balanced",
             "subledgers_reconciled",
+            "shifts_closed",
+            "expenses_decided",
+            "statements_reconciled",
+            "checklist_confirmed",
         }
 
     def test_reopening_records_the_reason_and_the_person(
@@ -934,7 +949,7 @@ class TestPeriodClose:
         admin: Actor,
     ) -> None:
         january = accounts.periods(admin, financial_year=2026)[0]
-        periods.close(admin, january.id)
+        close(periods, admin, january.id)
         db.flush()
         reopened = periods.reopen(admin, january.id, "A supplier invoice arrived late")
 
@@ -953,7 +968,7 @@ class TestPeriodClose:
         admin: Actor,
     ) -> None:
         january = accounts.periods(admin, financial_year=2026)[0]
-        periods.close(admin, january.id)
+        close(periods, admin, january.id)
         db.flush()
         with pytest.raises(ValidationError, match="substantive reason"):
             periods.reopen(admin, january.id, "oops")
@@ -966,8 +981,8 @@ class TestPeriodClose:
         admin: Actor,
     ) -> None:
         calendar = accounts.periods(admin, financial_year=2026)
-        periods.close(admin, calendar[0].id)
-        periods.close(admin, calendar[1].id)
+        close(periods, admin, calendar[0].id)
+        close(periods, admin, calendar[1].id)
         db.flush()
         with pytest.raises(ConflictError, match="reverse order"):
             periods.reopen(admin, calendar[0].id, "A supplier invoice arrived late")
@@ -1006,9 +1021,10 @@ class TestYearEnd:
         )
         db.flush()
         for period in accounts.periods(admin, financial_year=2026)[:-1]:
-            periods.close(admin, period.id)
+            close(periods, admin, period.id)
         db.flush()
 
+        confirm(periods, admin, accounts.periods(admin, financial_year=2026)[-1].id)
         outcome = periods.close_year(admin, 2026)
         db.flush()
 
@@ -1053,7 +1069,8 @@ class TestYearEnd:
         )
         db.flush()
         for period in accounts.periods(admin, financial_year=2026)[:-1]:
-            periods.close(admin, period.id)
+            close(periods, admin, period.id)
+        confirm(periods, admin, accounts.periods(admin, financial_year=2026)[-1].id)
         periods.close_year(admin, 2026)
         db.flush()
         assert reports.trial_balance(admin, as_at=date(2026, 12, 31)).balanced
