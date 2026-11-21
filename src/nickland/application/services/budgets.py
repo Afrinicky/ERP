@@ -490,7 +490,7 @@ class BudgetService:
             Nature.COST: {"o": ZERO, "b": ZERO, "a": ZERO, "p": ZERO},
         }
         for line in budget.lines:
-            nature = self._nature(budget.business_id, line)
+            nature = self.nature_of(budget.business_id, line)
             effective = self._effective(line)
             cells: list[Cell] = []
             forecast = ZERO
@@ -873,7 +873,7 @@ class BudgetService:
     def _actual(self, budget: Budget, line: BudgetLine, start: date, end: date) -> Decimal:
         if end < start:
             return ZERO
-        nature = self._nature(budget.business_id, line)
+        nature = self.nature_of(budget.business_id, line)
         rows = self._db.execute(
             self._lines_query(budget, line, start, end).with_only_columns(
                 JournalLine.base_debit, JournalLine.base_credit
@@ -883,7 +883,7 @@ class BudgetService:
         credit = sum((row[1] for row in rows), ZERO)
         return cents(credit - debit if nature is Nature.INCOME else debit - credit)
 
-    def _nature(self, business_id: uuid.UUID, line: BudgetLine) -> Nature:
+    def nature_of(self, business_id: uuid.UUID, line: BudgetLine) -> Nature:
         if line.account_code:
             account = self._account(business_id, line.account_code)
             income = account.kind == "revenue" or account.code in _INCOME_CODES
