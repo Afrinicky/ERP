@@ -3380,3 +3380,317 @@ export interface OtherDebtRecord {
   issued_on: string;
   due_on: string | null;
 }
+
+// -- budgets, forecasts, profitability and charts (PRD §20.7, §29.6, §29.8) ----------------
+
+export type FigureBasis = 'actual' | 'budget' | 'forecast' | 'estimate';
+
+export interface AnalysisCode {
+  id: string;
+  kind: 'department' | 'project' | 'cost_centre';
+  kind_label: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+}
+
+export interface BudgetPeriod {
+  key: string;
+  label: string;
+  starts_on: string;
+  ends_on: string;
+}
+
+export interface BudgetLineRecord {
+  id: string;
+  position: number;
+  account_code: string | null;
+  group_code: string | null;
+  label: string;
+  branch_id: string | null;
+  analysis_code_id: string | null;
+  analysis: string | null;
+  amounts: Record<string, string>;
+  total: string;
+  note: string | null;
+}
+
+export interface BudgetSummary {
+  id: string;
+  name: string;
+  period_kind: 'annual' | 'quarterly' | 'monthly' | 'custom';
+  starts_on: string;
+  ends_on: string;
+  state: 'draft' | 'in_review' | 'approved' | 'superseded' | 'rejected';
+  state_label: string;
+  version: number;
+  total: string;
+  lines: number;
+  owner: string | null;
+  approved_by: string | null;
+}
+
+export interface BudgetRequestRecord {
+  id: string;
+  budget_id: string;
+  kind: 'transfer' | 'overspend';
+  line_id: string;
+  from_line_id: string | null;
+  period_key: string;
+  amount: string;
+  reason: string;
+  state: 'pending' | 'approved' | 'rejected';
+  expense_id: string | null;
+  requested_by: string | null;
+  decided_by: string | null;
+  decision_note: string | null;
+}
+
+export interface BudgetDetail extends BudgetSummary {
+  branch_id: string | null;
+  owner_id: string | null;
+  assumptions: string | null;
+  periods: BudgetPeriod[];
+  budget_lines: BudgetLineRecord[];
+  decisions: { action: string; actor: string | null; note: string | null; occurred_at: string; version: number }[];
+  versions: BudgetSummary[];
+  requests: BudgetRequestRecord[];
+}
+
+export interface BudgetInput {
+  name: string;
+  period_kind: BudgetSummary['period_kind'];
+  starts_on: string;
+  ends_on: string;
+  branch_id?: string | null;
+  assumptions?: string | null;
+}
+
+export interface BudgetLineInput {
+  account_code?: string | null;
+  group_code?: string | null;
+  analysis_code_id?: string | null;
+  amounts?: Record<string, string>;
+  total?: string | null;
+  note?: string | null;
+}
+
+export interface ComparisonCell {
+  period_key: string;
+  original: string;
+  budget: string;
+  actual: string;
+  prior: string;
+  variance: {
+    absolute: string;
+    percent: string | null;
+    favourable: boolean | null;
+    utilisation: string | null;
+  };
+}
+
+export interface BudgetComparison {
+  budget_id: string;
+  as_of: string;
+  periods: BudgetPeriod[];
+  lines: {
+    line_id: string;
+    label: string;
+    nature: 'income' | 'cost';
+    analysis: string | null;
+    cells: ComparisonCell[];
+    total: ComparisonCell;
+    forecast: string;
+  }[];
+  income: ComparisonCell;
+  costs: ComparisonCell;
+  bases: Record<string, string>;
+}
+
+export interface PostingRecord {
+  posting_date: string;
+  entry_id: string;
+  number: string | null;
+  account_code: string;
+  account_name: string;
+  narration: string | null;
+  amount: string;
+}
+
+export interface ForecastAssumptions {
+  collection_delay_days: number;
+  collection_rate: string;
+  payment_delay_days: number;
+  include_recurring: boolean;
+  include_overdue_payables: boolean;
+  extra_flows: { on: string; amount: string; inward: boolean; label: string }[];
+  settle_loan_id: string | null;
+  settle_on: string | null;
+}
+
+export interface ForecastScenario {
+  id: string;
+  name: string;
+  kind: 'best' | 'base' | 'downside' | 'custom';
+  kind_label: string;
+  is_default: boolean;
+  assumptions: ForecastAssumptions;
+  notes: string | null;
+}
+
+export interface CashForecast {
+  basis: FigureBasis;
+  basis_label: string;
+  scenario: string;
+  scenario_kind: string;
+  assumptions: ForecastAssumptions;
+  starts_on: string;
+  ends_on: string;
+  opening_cash: string;
+  closing_cash: string;
+  lowest: string;
+  lowest_on: string;
+  threshold: string | null;
+  bucket_days: number;
+  rows: {
+    starts_on: string;
+    ends_on: string;
+    opening: string;
+    inflow: string;
+    outflow: string;
+    closing: string;
+    by_class: Record<string, string>;
+    below_threshold: boolean;
+  }[];
+  totals: Record<string, string>;
+  class_labels: Record<string, string>;
+  items: {
+    on: string;
+    cls: string;
+    cls_label: string;
+    inward: boolean;
+    amount: string;
+    reference: string;
+    counterparty: string | null;
+    source_type: string;
+    source_id: string | null;
+  }[];
+  warnings: string[];
+}
+
+export interface PlannedCashItem {
+  id: string;
+  expected_on: string;
+  amount: string;
+  inward: boolean;
+  label: string;
+  scenario_id: string | null;
+}
+
+export interface AlertRecord {
+  severity: 'critical' | 'warning' | 'notice';
+  kind: string;
+  title: string;
+  detail: string;
+  amount: string | null;
+  count: number;
+  view: string;
+}
+
+export interface ChartSeries {
+  key: string;
+  label: string;
+  basis: FigureBasis;
+  basis_label: string;
+  role: 'primary' | 'comparison' | 'supporting' | 'level';
+}
+
+export interface ChartPoint {
+  key: string;
+  label: string;
+  values: Record<string, string>;
+  drill: Record<string, string>;
+}
+
+export interface ChartData {
+  id: string;
+  title: string;
+  kind: 'line' | 'columns' | 'bars' | 'grouped_bars';
+  unit: string;
+  starts_on: string;
+  ends_on: string;
+  interval: string | null;
+  series: ChartSeries[];
+  points: ChartPoint[];
+  note: string | null;
+}
+
+export interface ProfitRow {
+  key: string;
+  label: string;
+  lines: number;
+  revenue: string;
+  cost: string;
+  gross: string;
+  commission: string;
+  after_commission: string;
+  direct: string;
+  overheads: string;
+  after_allocation: string;
+  margin: string | null;
+  pending_lines: number;
+  pending_revenue: string;
+}
+
+export interface ProfitabilityReport {
+  basis: FigureBasis;
+  basis_label: string;
+  dimension: string;
+  dimension_label: string;
+  starts_on: string;
+  ends_on: string;
+  rows: ProfitRow[];
+  total: ProfitRow;
+  allocated: boolean;
+  direct_pool: string;
+  overhead_pool: string;
+}
+
+export interface SaleFact {
+  source_type: string;
+  source_id: string;
+  reference: string;
+  on: string;
+  description: string;
+  channel: string;
+  quantity: string;
+  revenue: string;
+  cost: string | null;
+  commission: string;
+}
+
+export interface ErosionReport {
+  rows: {
+    order_id: string;
+    order_number: string;
+    order_line_id: string;
+    customer: string;
+    description: string;
+    supplier: string;
+    quantity_quoted: string;
+    quantity_invoiced: string;
+    quoted_margin: string;
+    realised_margin: string;
+    difference: string;
+    quoted_cost: string;
+    actual_cost: string | null;
+    causes: Record<string, string>;
+    complete: boolean;
+  }[];
+  totals: Record<string, string>;
+  cause_labels: Record<string, string>;
+  quoted_margin: string;
+  realised_margin: string;
+  pending: number;
+  bases: Record<string, string>;
+}

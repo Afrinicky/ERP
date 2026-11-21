@@ -18,6 +18,8 @@ import type {
   Actor,
   AffiliateProfile,
   AgeingRow,
+  AlertRecord,
+  AnalysisCode,
   ApiError,
   ApprovalThreshold,
   AssemblyStepInput,
@@ -30,11 +32,19 @@ import type {
   BankStatementRecord,
   Barcode,
   Branch,
+  BudgetComparison,
+  BudgetDetail,
+  BudgetInput,
+  BudgetLineInput,
+  BudgetRequestRecord,
+  BudgetSummary,
   Business,
   CashClassRecord,
   CashFlow,
+  CashForecast,
   Cashbook,
   Category,
+  ChartData,
   CloseReadiness,
   CollectionNote,
   CommandLayout,
@@ -61,11 +71,14 @@ import type {
   DocumentTypeField,
   Draft,
   DraftLine,
+  ErosionReport,
   ExpenseInput,
   ExpenseRecord,
   ExpressionCheck,
   FinancialAccount,
   FinancialAccountKindName,
+  ForecastAssumptions,
+  ForecastScenario,
   GoodsReceipt,
   Health,
   ImportReport,
@@ -106,6 +119,7 @@ import type {
   PaymentBatchRecord,
   PaymentInput,
   Permission,
+  PlannedCashItem,
   PosCountPreview,
   PosRefund,
   PosRefundInput,
@@ -115,11 +129,13 @@ import type {
   PosShiftSummary,
   PosSupervisor,
   PostingOutcome,
+  PostingRecord,
   Preset,
   PriceList,
   PriceListLine,
   Product,
   ProfitAndLoss,
+  ProfitabilityReport,
   PurchaseOrder,
   PurchaseOrderInput,
   Quotation,
@@ -133,6 +149,7 @@ import type {
   ResolvedPrice,
   RevisionInput,
   Role,
+  SaleFact,
   SalesInvoice,
   SalesOrder,
   SalesSummary,
@@ -1120,6 +1137,120 @@ export const api = {
       debtId: string,
       payload: { amount: string; financial_account_id: string; on?: string | null },
     ) => request<OtherDebtRecord>('POST', `/financing/other-debts/${debtId}/settlements`, payload),
+  },
+
+  planning: {
+    codes: (kind?: string) =>
+      request<AnalysisCode[]>('GET', '/planning/analysis-codes', undefined, { kind }),
+    createCode: (payload: { kind: AnalysisCode['kind']; code: string; name: string }) =>
+      request<AnalysisCode>('POST', '/planning/analysis-codes', payload),
+    amendCode: (codeId: string, payload: { name?: string; is_active?: boolean }) =>
+      request<AnalysisCode>('PATCH', `/planning/analysis-codes/${codeId}`, payload),
+    budgets: () => request<BudgetSummary[]>('GET', '/planning/budgets'),
+    createBudget: (payload: BudgetInput) =>
+      request<BudgetDetail>('POST', '/planning/budgets', payload),
+    budget: (budgetId: string) => request<BudgetDetail>('GET', `/planning/budgets/${budgetId}`),
+    amendBudget: (budgetId: string, payload: BudgetInput) =>
+      request<BudgetDetail>('PUT', `/planning/budgets/${budgetId}`, payload),
+    setLines: (budgetId: string, lines: BudgetLineInput[]) =>
+      request<BudgetDetail>('PUT', `/planning/budgets/${budgetId}/lines`, { lines }),
+    submit: (budgetId: string) =>
+      request<BudgetDetail>('POST', `/planning/budgets/${budgetId}/submit`),
+    approve: (budgetId: string, note: string | null) =>
+      request<BudgetDetail>('POST', `/planning/budgets/${budgetId}/approve`, { note }),
+    reject: (budgetId: string, reason: string) =>
+      request<BudgetDetail>('POST', `/planning/budgets/${budgetId}/reject`, { reason }),
+    revise: (budgetId: string) =>
+      request<BudgetDetail>('POST', `/planning/budgets/${budgetId}/revise`),
+    comparison: (budgetId: string) =>
+      request<BudgetComparison>('GET', `/planning/budgets/${budgetId}/comparison`),
+    budgetDrill: (budgetId: string, line_id: string, period_key: string) =>
+      request<PostingRecord[]>('GET', `/planning/budgets/${budgetId}/drill`, undefined, {
+        line_id,
+        period_key,
+      }),
+    request: (
+      budgetId: string,
+      payload: {
+        kind: 'transfer' | 'overspend';
+        line_id: string;
+        from_line_id?: string | null;
+        period_key: string;
+        amount: string;
+        reason: string;
+      },
+    ) => request<BudgetRequestRecord>('POST', `/planning/budgets/${budgetId}/requests`, payload),
+    requests: () => request<BudgetRequestRecord[]>('GET', '/planning/requests'),
+    decide: (requestId: string, approve: boolean, note: string | null) =>
+      request<BudgetRequestRecord>('POST', `/planning/requests/${requestId}/decision`, {
+        approve,
+        note,
+      }),
+    control: () => request<{ enabled: boolean }>('GET', '/planning/budget-control'),
+    setControl: (enabled: boolean) =>
+      request<{ enabled: boolean }>('PUT', '/planning/budget-control', { enabled }),
+    scenarios: () => request<ForecastScenario[]>('GET', '/planning/scenarios'),
+    createScenario: (payload: {
+      name: string;
+      assumptions: ForecastAssumptions;
+      notes?: string | null;
+    }) => request<ForecastScenario>('POST', '/planning/scenarios', payload),
+    amendScenario: (
+      scenarioId: string,
+      payload: { name: string; assumptions: ForecastAssumptions; notes?: string | null },
+    ) => request<ForecastScenario>('PUT', `/planning/scenarios/${scenarioId}`, payload),
+    forecast: (horizon_days: number, scenario_id?: string) =>
+      request<CashForecast>('GET', '/planning/forecast', undefined, {
+        horizon_days: String(horizon_days),
+        scenario_id,
+      }),
+    whatIf: (payload: {
+      horizon_days: number;
+      scenario_id?: string | null;
+      assumptions: ForecastAssumptions;
+    }) => request<CashForecast>('POST', '/planning/forecast', payload),
+    planned: () => request<PlannedCashItem[]>('GET', '/planning/planned'),
+    plan: (payload: {
+      expected_on: string;
+      amount: string;
+      inward: boolean;
+      label: string;
+      scenario_id?: string | null;
+    }) => request<PlannedCashItem>('POST', '/planning/planned', payload),
+    unplan: (itemId: string) => request<void>('DELETE', `/planning/planned/${itemId}`),
+    threshold: () => request<{ amount: string | null }>('GET', '/planning/cash-threshold'),
+    setThreshold: (amount: string | null) =>
+      request<{ amount: string | null }>('PUT', '/planning/cash-threshold', { amount }),
+    alerts: () => request<AlertRecord[]>('GET', '/planning/alerts'),
+  },
+
+  analytics: {
+    charts: () => request<{ id: string; title: string }[]>('GET', '/analytics/charts'),
+    chart: (chartId: string, start: string, end: string, interval = 'month', compare = true) =>
+      request<ChartData>('GET', `/analytics/charts/${chartId}`, undefined, {
+        start,
+        end,
+        interval,
+        compare: compare ? 'true' : 'false',
+      }),
+    drill: (measure: string, start: string, end: string) =>
+      request<PostingRecord[]>('GET', '/analytics/drill', undefined, { measure, start, end }),
+    profitability: (dimension: string, start: string, end: string, allocate = false) =>
+      request<ProfitabilityReport>('GET', '/analytics/profitability', undefined, {
+        dimension,
+        start,
+        end,
+        allocate: allocate ? 'true' : 'false',
+      }),
+    records: (dimension: string, key: string, start: string, end: string) =>
+      request<SaleFact[]>('GET', '/analytics/profitability/records', undefined, {
+        dimension,
+        key,
+        start,
+        end,
+      }),
+    erosion: (start: string, end: string) =>
+      request<ErosionReport>('GET', '/analytics/erosion', undefined, { start, end }),
   },
 
   commandCentre: {

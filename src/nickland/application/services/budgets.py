@@ -528,10 +528,10 @@ class BudgetService:
             rows.append(
                 LineComparison(
                     line_id=line.id,
-                    label=self._label(budget.business_id, line),
+                    label=self.label_of(budget.business_id, line),
                     target=line.account_code or f"group {line.group_code}",
                     nature=nature,
-                    analysis=self._analysis_label(line.analysis_code_fk),
+                    analysis=self.analysis_label(line.analysis_code_fk),
                     branch_id=line.branch_fk,
                     cells=cells,
                     total=Cell(
@@ -700,7 +700,7 @@ class BudgetService:
             amount=check.excess if check.excess > ZERO else amount,
             reason=(
                 f"An expense of {cents(amount)} takes "
-                f"{self._label(check.budget.business_id, check.line)} "
+                f"{self.label_of(check.budget.business_id, check.line)} "
                 f"to {cents(check.after)} against {cents(check.planned)} planned for "
                 f"{check.period.label}."
             ),
@@ -892,14 +892,14 @@ class BudgetService:
             income = group.kind == "revenue"
         return Nature.INCOME if income else Nature.COST
 
-    def _label(self, business_id: uuid.UUID, line: BudgetLine) -> str:
+    def label_of(self, business_id: uuid.UUID, line: BudgetLine) -> str:
         if line.account_code:
             account = self._account(business_id, line.account_code)
             return f"{account.code} {account.name}"
         group = self._group(business_id, line.group_code or "")
         return f"{group.name} (all accounts)"
 
-    def _analysis_label(self, code_id: uuid.UUID | None) -> str | None:
+    def analysis_label(self, code_id: uuid.UUID | None) -> str | None:
         if code_id is None:
             return None
         row = self._db.get(AnalysisCode, code_id)

@@ -17,9 +17,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from nickland.application.context import Actor
 from nickland.application.services.access import AccessControlService
 from nickland.application.services.accounts import AccountService
+from nickland.application.services.analytics import AnalyticsService
 from nickland.application.services.assembly import AssemblyService
 from nickland.application.services.attachments import AttachmentService
 from nickland.application.services.backup import BackupService
+from nickland.application.services.budgets import BudgetService
 from nickland.application.services.catalogue import CatalogueService
 from nickland.application.services.command_centre import CommandCentreService
 from nickland.application.services.commissions import CommissionService
@@ -29,6 +31,7 @@ from nickland.application.services.designer import DesignerService
 from nickland.application.services.dispatch import DispatchService
 from nickland.application.services.documents import DocumentRecordService
 from nickland.application.services.expenses import ExpenseService
+from nickland.application.services.forecasts import ForecastService
 from nickland.application.services.health import HealthService
 from nickland.application.services.identity import IdentityService
 from nickland.application.services.importing import ImportService
@@ -46,6 +49,7 @@ from nickland.application.services.pos import PosService
 from nickland.application.services.pricing_lists import PriceListService
 from nickland.application.services.pricing_policy import PricingPolicyService
 from nickland.application.services.procurement import ProcurementService
+from nickland.application.services.profitability import ProfitabilityService
 from nickland.application.services.quotations import QuotationService
 from nickland.application.services.receivables import ReceivablesService
 from nickland.application.services.reconciliation import ReconciliationService
@@ -378,6 +382,22 @@ def get_debts(session: SessionDependency, runtime: RuntimeDependency) -> DebtSer
     return DebtService(session, clock=runtime.clock)
 
 
+def get_budgets(session: SessionDependency, runtime: RuntimeDependency) -> BudgetService:
+    return BudgetService(session, clock=runtime.clock)
+
+
+def get_forecasts(session: SessionDependency, runtime: RuntimeDependency) -> ForecastService:
+    return ForecastService(session, clock=runtime.clock)
+
+
+def get_analytics(session: SessionDependency, runtime: RuntimeDependency) -> AnalyticsService:
+    return AnalyticsService(session, clock=runtime.clock)
+
+
+def get_profitability(session: SessionDependency) -> ProfitabilityService:
+    return ProfitabilityService(session)
+
+
 def get_reconciliation(
     session: SessionDependency, runtime: RuntimeDependency
 ) -> ReconciliationService:
@@ -394,6 +414,10 @@ TreasuryDependency = Annotated[TreasuryService, Depends(get_treasury)]
 ReceivablesDependency = Annotated[ReceivablesService, Depends(get_receivables)]
 ExpenseDependency = Annotated[ExpenseService, Depends(get_expenses)]
 LoanDependency = Annotated[LoanService, Depends(get_loans)]
+BudgetDependency = Annotated[BudgetService, Depends(get_budgets)]
+ForecastDependency = Annotated[ForecastService, Depends(get_forecasts)]
+AnalyticsDependency = Annotated[AnalyticsService, Depends(get_analytics)]
+ProfitabilityDependency = Annotated[ProfitabilityService, Depends(get_profitability)]
 DebtDependency = Annotated[DebtService, Depends(get_debts)]
 ReconciliationDependency = Annotated[ReconciliationService, Depends(get_reconciliation)]
 CommandCentreDependency = Annotated[CommandCentreService, Depends(get_command_centre)]

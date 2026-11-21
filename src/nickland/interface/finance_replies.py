@@ -220,6 +220,7 @@ def expense(names: Names, item: Expense) -> ExpenseReply:
         rejection_reason=item.rejection_reason,
         duplicate_of=None,
         duplicate_reason=item.duplicate_reason,
+        hold_reason=item.hold_reason,
         settled_on=item.settled_on,
     )
 

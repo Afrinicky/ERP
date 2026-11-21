@@ -66,7 +66,9 @@ class Series:
     label: str
     basis: Basis
     role: str = "primary"
-    """``primary``, ``comparison`` or ``supporting``: which the eye should land on."""
+    """``primary``, ``comparison`` or ``supporting``: which the eye should land on. A
+    ``level`` (a balance at each point, not a flow within it) is drawn on its own chart, so
+    two scales never share an axis."""
 
 
 @dataclass(slots=True)
@@ -301,7 +303,7 @@ class AnalyticsService:
             [
                 Series("inflow", "Cash in", Basis.ACTUAL),
                 Series("outflow", "Cash out", Basis.ACTUAL, "supporting"),
-                Series("balance", "Cash and bank balance", Basis.ACTUAL, "comparison"),
+                Series("balance", "Cash and bank balance", Basis.ACTUAL, "level"),
             ],
             points,
             note="Transfers between the business's own accounts appear on both sides.",

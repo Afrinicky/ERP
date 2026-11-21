@@ -351,6 +351,7 @@ class ExpenseContract(_Figures):
     financial_account_id: uuid.UUID | None = None
     duplicate_reason: str | None = Field(default=None, max_length=500)
     evidence_attachment_id: uuid.UUID | None = None
+    analysis_code_id: uuid.UUID | None = None
 
 
 class ExpenseReply(Reply):
@@ -377,6 +378,7 @@ class ExpenseReply(Reply):
     rejection_reason: str | None
     duplicate_of: str | None
     duplicate_reason: str | None
+    hold_reason: str | None = None
     settled_on: date | None
 
 
