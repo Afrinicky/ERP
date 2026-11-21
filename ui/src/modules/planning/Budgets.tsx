@@ -752,8 +752,8 @@ function ComparisonView({ budget }: { budget: BudgetDetail }) {
             </tbody>
             <tfoot>
               {[
-                { label: "Income", cell: data.income },
-                { label: "Costs", cell: data.costs },
+                { label: "Income", cell: toDate ? data.income_to_date : data.income },
+                { label: "Costs", cell: toDate ? data.costs_to_date : data.costs },
               ].map(({ label, cell }) => (
                 <tr key={label}>
                   <th>{label}</th>

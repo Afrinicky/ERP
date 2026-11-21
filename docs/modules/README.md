@@ -38,4 +38,5 @@ The following are already specified in full and require no further module docume
 - Point of sale — [module specification](pos.md), written at the commencement of Phase 10
 - Financial management — [module specification](finance.md), written at the commencement of Phase 11
 - Debt, loans and financing — [module specification](financing.md), written at the commencement of Phase 12
+- Budgets, forecasting, profitability and analytics — [module specification](analytics.md), written at the commencement of Phase 13
 - Access control — [module specification](access-control.md): roles, individual exceptions, sessions and the sign-in policy

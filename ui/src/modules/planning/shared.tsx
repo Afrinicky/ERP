@@ -84,7 +84,7 @@ export function PostingsDialog({
               {(lines.data ?? []).map((line, index) => (
                 <tr key={`${line.entry_id}-${index}`}>
                   <td className="nowrap">{formatDate(line.posting_date)}</td>
-                  <td>{line.number ?? "—"}</td>
+                  <td className="nowrap">{line.number ?? "—"}</td>
                   <td>
                     {line.account_code}
                     <div className="cell-note">{line.account_name}</div>
