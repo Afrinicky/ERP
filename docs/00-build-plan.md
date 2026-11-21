@@ -39,12 +39,11 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 | 14 to 16 | Not started | |
 
 Each verifier exercises its phase's exit criteria against a live database rather than
-asserting that the code was written. 1,321 tests pass and 10 are skipped, in under
-twelve minutes: 910 against SQLite, with the integration and end-to-end layers run
-again against PostgreSQL. All ten skips are backup tests, and each skips on
-the engine it does not describe: eight exercise SQLite's own online-backup API and
-stand down on PostgreSQL, whose scheduled dump arrives in Phase 15, and two assert
-the PostgreSQL path and stand down on SQLite.
+asserting that the code was written. At the close of Phase 12, 2,102 tests pass and 12
+are skipped, with the integration and end-to-end layers run against both SQLite and
+PostgreSQL. The skips are engine-specific: each stands down on the engine it does not
+describe, such as SQLite's online-backup API on PostgreSQL, whose scheduled dump arrives
+in Phase 15.
 
 Phase 5 was the first run to configure PostgreSQL, and it found a Phase 3 reporting
 query that only SQLite would accept; see the [quality strategy](08-quality-strategy.md)
