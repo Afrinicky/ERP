@@ -596,9 +596,18 @@ def _totals(rows: list[ScheduledInstalment]) -> ScheduleSummaryReply:
 
 
 def _stored(row: LoanInstalment, today: date, live: bool) -> ScheduleRowReply:
-    state = instalment_state(row.due_on, row.owed, row.paid, today, closed=row.closed or not live)
-    if row.closed and row.owed > ZERO and row.paid >= row.owed:
-        state = InstalmentState.PAID
+    """A row as it stands: closed when its version was superseded or it was released, and
+    otherwise by its date and what has been paid. A version not in force is only a plan."""
+    if row.closed:
+        state = (
+            InstalmentState.PAID
+            if row.owed > ZERO and row.paid >= row.owed
+            else InstalmentState.CLOSED
+        )
+    elif live:
+        state = instalment_state(row.due_on, row.owed, row.paid, today)
+    else:
+        state = InstalmentState.SCHEDULED
     return ScheduleRowReply(
         id=row.id,
         sequence=row.sequence,

@@ -86,6 +86,13 @@ class DebtLine:
     bucket: str
     responsible_id: uuid.UUID | None
     branch_id: uuid.UUID | None
+    arrears: Decimal | None = None
+    """What is past due. For an agreement, its unpaid instalments, not its whole balance."""
+
+    def overdue(self, today: date) -> Decimal:
+        if self.arrears is not None:
+            return self.arrears
+        return self.outstanding if self.due_on is not None and self.due_on < today else ZERO
 
     @property
     def owed_to_us(self) -> bool:
@@ -440,7 +447,10 @@ class DebtService:
                     if obligation.authority_fk
                     else "Tax authority",
                     counterparty_id=obligation.authority_fk,
-                    description=f"{obligation.label}, {obligation.period_starts_on:%b %Y}",
+                    description=(
+                        f"Period {obligation.period_starts_on:%d %b} to "
+                        f"{obligation.period_ends_on:%d %b %Y}"
+                    ),
                     original=owed,
                     settled=min(owed, obligation.paid),
                     outstanding=outstanding,
@@ -588,6 +598,7 @@ class DebtService:
                     bucket=ageing_bucket(due, today),
                     responsible_id=agreement.responsible_id,
                     branch_id=agreement.branch_id,
+                    arrears=position.arrears,
                 )
             )
         return lines
@@ -661,19 +672,16 @@ class DebtService:
         horizon = today + timedelta(days=window_days)
 
         def due_soon(lines: list[DebtLine]) -> Decimal:
-            return sum(
-                (
-                    line.outstanding
-                    for line in lines
-                    if line.due_on is not None and today <= line.due_on <= horizon
-                ),
-                ZERO,
-            )
+            total = ZERO
+            for line in lines:
+                if line.source_type == "loan_agreement":
+                    total += self._instalments_due(line.source_id, today, horizon)
+                elif line.due_on is not None and today <= line.due_on <= horizon:
+                    total += line.outstanding
+            return total
 
         def overdue(lines: list[DebtLine]) -> Decimal:
-            return sum(
-                (line.outstanding for line in lines if line.due_on and line.due_on < today), ZERO
-            )
+            return sum((line.overdue(today) for line in lines), ZERO)
 
         borrowed = [line for line in payables if line.kind is DebtKind.BORROWING]
         lent = [line for line in receivables if line.kind is DebtKind.LOAN_ISSUED]
@@ -855,13 +863,14 @@ class DebtService:
                 inflow["transfers"] += moved
                 outflow["transfers"] += moved
                 continue
-            weight = sum((abs(amount) for _, amount in others), ZERO)
-            if weight == ZERO:
-                continue
-            net_cash = sum(cash, ZERO)
+            # A balanced entry's cash equals the negated sum of its other lines, so each
+            # class is credited with exactly the cash its accounts account for. Netting
+            # within a class first keeps pairs that never touched cash (cost of sales
+            # against inventory, say) from inflating both columns.
+            by_class: dict[str, Decimal] = defaultdict(lambda: ZERO)
             for code, amount in others:
-                share = money(net_cash * abs(amount) / weight)
-                key = lookup.get(code) or _class_of(code)
+                by_class[lookup.get(code) or _class_of(code)] -= amount
+            for key, share in by_class.items():
                 if share > ZERO:
                     inflow[key] += share
                 elif share < ZERO:
@@ -892,6 +901,20 @@ class DebtService:
             for key in order
             if inflow[key] or outflow[key]
         ]
+
+    def _instalments_due(self, agreement_id: uuid.UUID, today: date, horizon: date) -> Decimal:
+        rows = self._db.scalars(
+            select(LoanInstalment)
+            .join(LoanSchedule, LoanSchedule.id == LoanInstalment.schedule_fk)
+            .where(
+                LoanInstalment.agreement_fk == agreement_id,
+                LoanInstalment.closed.is_(False),
+                LoanSchedule.state == "current",
+                LoanInstalment.due_on >= today,
+                LoanInstalment.due_on <= horizon,
+            )
+        )
+        return sum((row.owed - row.paid for row in rows), ZERO)
 
     def _debt_service(self, business_id: uuid.UUID, today: date, horizon: date) -> Decimal:
         rows = self._db.execute(
@@ -1297,6 +1320,13 @@ def _by_kind(lines: list[DebtLine]) -> list[Split]:
 def _ageing(lines: list[DebtLine]) -> list[Split]:
     totals: dict[str, tuple[Decimal, int]] = defaultdict(lambda: (ZERO, 0))
     for line in lines:
+        if line.arrears is not None and line.bucket != "current":
+            # An agreement ages by its unpaid instalments; the rest is not yet due.
+            amount, count = totals[line.bucket]
+            totals[line.bucket] = (amount + line.arrears, count + 1)
+            amount, count = totals["current"]
+            totals["current"] = (amount + line.outstanding - line.arrears, count)
+            continue
         amount, count = totals[line.bucket]
         totals[line.bucket] = (amount + line.outstanding, count + 1)
     return [

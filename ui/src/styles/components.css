@@ -2482,3 +2482,18 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.filter-bar.filter-bar--four {
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 14rem) minmax(10rem, 12rem) auto;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .filter-bar.filter-bar--four {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

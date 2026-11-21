@@ -138,6 +138,10 @@ function nextMonth(from: string): string {
   return `${target.getFullYear()}-${m}-${d}`;
 }
 
+function agreements(count: number): string {
+  return count === 1 ? "1 agreement" : `${count} agreements`;
+}
+
 function rate(value: string): string {
   return `${editable(value)}%`;
 }
@@ -239,7 +243,6 @@ function Overview({ onShow }: { onShow: (view: View) => void }) {
   if (summary.isError) return <Alert tone="error" title={describe(summary.error).message} />;
   if (summary.isPending) return <Skeleton rows={4} height={96} />;
   const data = summary.data;
-  const coverage = data.coverage ? `covered ${editable(data.coverage)} times` : "nothing due";
 
   return (
     <div className="stack gap-6">
@@ -258,7 +261,7 @@ function Overview({ onShow }: { onShow: (view: View) => void }) {
             <Tile
               label="Loans and advances issued"
               value={money(data.loans_receivable.total, currency)}
-              footer={`${data.loans_receivable.count} agreements · ${money(data.loans_receivable.charges, currency)} interest and fees`}
+              footer={`${agreements(data.loans_receivable.count)} · ${money(data.loans_receivable.charges, currency)} charges due`}
               onClick={() => onShow("agreements")}
             />
             <Tile
@@ -287,7 +290,7 @@ function Overview({ onShow }: { onShow: (view: View) => void }) {
             <Tile
               label="Borrowings"
               value={money(data.loans_payable.total, currency)}
-              footer={`${data.loans_payable.count} agreements · ${money(data.loans_payable.charges, currency)} interest and fees due`}
+              footer={`${agreements(data.loans_payable.count)} · ${money(data.loans_payable.charges, currency)} charges due`}
               onClick={() => onShow("agreements")}
             />
             <Tile
@@ -323,13 +326,15 @@ function Overview({ onShow }: { onShow: (view: View) => void }) {
           </Select>
         }
       >
-        <Details
-          rows={[
-            ["Instalments due", money(data.debt_service, currency)],
-            ["Cash and bank", money(data.cash_available, currency)],
-            ["Coverage", coverage],
-          ]}
-        />
+        <div className="measure-grid">
+          <Tile label="Instalments due" value={money(data.debt_service, currency)} />
+          <Tile label="Cash and bank" value={money(data.cash_available, currency)} />
+          <Tile
+            label="Coverage"
+            value={data.coverage ? `${editable(data.coverage)}×` : "—"}
+            footer="Cash and bank against the instalments due"
+          />
+        </div>
       </Card>
 
       <div className="debt__pair">
@@ -740,38 +745,58 @@ function AgreementView({
           </div>
         }
       >
-        <div className="measure-grid">
-          <Tile
-            label="Principal outstanding"
-            value={money(position.principal_outstanding, currency)}
-            footer={`${money(position.principal_drawn, currency)} drawn of ${money(position.principal_agreed, currency)}`}
-          />
-          <Tile
-            label="Interest and charges due"
-            value={money(data.charges, currency)}
-            footer={`Interest ${money(position.interest_due, currency)} · fees ${money(position.fees_due, currency)} · penalties ${money(position.penalties_due, currency)}`}
-          />
-          <Tile
-            label="Next instalment"
-            value={position.next_due_on ? money(position.next_due_amount, currency) : "—"}
-            footer={
-              position.next_due_on
-                ? `Due ${formatDate(position.next_due_on)}`
-                : data.closed_on
-                  ? `Closed ${formatDate(data.closed_on)}`
-                  : undefined
-            }
-          />
-          <Tile
-            label={position.days_overdue > 0 ? "In arrears" : "To settle today"}
-            value={
-              position.days_overdue > 0
-                ? money(position.arrears, currency)
-                : money(position.settlement_today, currency)
-            }
-            footer={position.days_overdue > 0 ? `${position.days_overdue} days overdue` : undefined}
-          />
-        </div>
+        {data.state === "draft" ||
+        data.state === "awaiting_approval" ||
+        data.state === "rejected" ? (
+          <div className="measure-grid">
+            <Tile label="Principal" value={money(data.principal, currency)} />
+            <Tile
+              label="Interest over the term"
+              value={money(data.current.summary.interest, currency)}
+            />
+            <Tile label="Repaid in all" value={money(data.current.summary.total, currency)} />
+            <Tile
+              label="Last instalment"
+              value={data.maturity_date ? formatDate(data.maturity_date) : "—"}
+              footer={`${data.current.summary.instalments} instalments`}
+            />
+          </div>
+        ) : (
+          <div className="measure-grid">
+            <Tile
+              label="Principal outstanding"
+              value={money(position.principal_outstanding, currency)}
+              footer={`${money(position.principal_drawn, currency)} drawn of ${money(position.principal_agreed, currency)}`}
+            />
+            <Tile
+              label="Interest and charges due"
+              value={money(data.charges, currency)}
+              footer={`Interest ${money(position.interest_due, currency)} · fees ${money(position.fees_due, currency)} · penalties ${money(position.penalties_due, currency)}`}
+            />
+            <Tile
+              label="Next instalment"
+              value={position.next_due_on ? money(position.next_due_amount, currency) : "—"}
+              footer={
+                position.next_due_on
+                  ? `Due ${formatDate(position.next_due_on)}`
+                  : data.closed_on
+                    ? `Closed ${formatDate(data.closed_on)}`
+                    : undefined
+              }
+            />
+            <Tile
+              label={position.days_overdue > 0 ? "In arrears" : "To settle today"}
+              value={
+                position.days_overdue > 0
+                  ? money(position.arrears, currency)
+                  : money(position.settlement_today, currency)
+              }
+              footer={
+                position.days_overdue > 0 ? `${position.days_overdue} days overdue` : undefined
+              }
+            />
+          </div>
+        )}
       </Card>
 
       {data.proposed ? (
@@ -780,9 +805,11 @@ function AgreementView({
           title={`Revision proposed: ${data.proposed.kind_label.toLowerCase()}, version ${data.proposed.version}`}
         >
           <p>
-            {data.proposed.reason} Built on {money(data.proposed.principal_basis, currency)} of
-            principal, {data.proposed.instalments} instalments at {rate(data.proposed.annual_rate)}.
-            Proposed by {data.proposed.proposed_by ?? "—"}.
+            {data.proposed.reason}
+            {/[.!?]$/.test(data.proposed.reason ?? "") ? "" : "."} Built on{" "}
+            {money(data.proposed.principal_basis, currency)} of principal,{" "}
+            {data.proposed.instalments} instalments at {rate(data.proposed.annual_rate)}. Proposed
+            by {data.proposed.proposed_by ?? "—"}.
           </p>
           {can("loan.restructure") ? (
             <div className="row gap-2">
@@ -1090,9 +1117,11 @@ function AgreementView({
 function ScheduleTable({
   rows,
   summary,
+  plan,
 }: {
   rows: ScheduleRow[];
   summary: { principal: string; interest: string; fees: string; total: string };
+  plan?: boolean;
 }) {
   const currency = useCurrency();
   return (
@@ -1102,22 +1131,22 @@ function ScheduleTable({
           <tr>
             <th>#</th>
             <th>Due</th>
-            <th className="numeric">Opening</th>
+            {plan ? null : <th className="numeric">Opening</th>}
             <th className="numeric">Interest</th>
             <th className="numeric">Fees</th>
             <th className="numeric">Principal</th>
             <th className="numeric">Instalment</th>
             <th className="numeric">Closing</th>
-            <th className="numeric">Paid</th>
-            <th>Status</th>
+            {plan ? null : <th className="numeric">Paid</th>}
+            {plan ? null : <th>Status</th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id ?? row.sequence}>
               <td>{row.arrears ? "Arrears" : row.sequence}</td>
-              <td>{formatDate(row.due_on)}</td>
-              <td className="numeric">{money(row.opening, currency)}</td>
+              <td className="nowrap">{formatDate(row.due_on)}</td>
+              {plan ? null : <td className="numeric">{money(row.opening, currency)}</td>}
               <td className="numeric">
                 {money(row.interest, currency)}
                 {Number(row.capitalised) ? (
@@ -1133,21 +1162,25 @@ function ScheduleTable({
               <td className="numeric">{money(row.principal, currency)}</td>
               <td className="numeric">{money(row.total, currency)}</td>
               <td className="numeric">{money(row.closing, currency)}</td>
-              <td className="numeric">{Number(row.paid) ? money(row.paid, currency) : "—"}</td>
-              <td>
-                <StatusChip tone={ROW_TONE[row.state] ?? "neutral"}>{row.state_label}</StatusChip>
-              </td>
+              {plan ? null : (
+                <td className="numeric">{Number(row.paid) ? money(row.paid, currency) : "—"}</td>
+              )}
+              {plan ? null : (
+                <td>
+                  <StatusChip tone={ROW_TONE[row.state] ?? "neutral"}>{row.state_label}</StatusChip>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
-            <th colSpan={3}>Over the term</th>
+            <th colSpan={plan ? 2 : 3}>Over the term</th>
             <th className="numeric">{money(summary.interest, currency)}</th>
             <th className="numeric">{money(summary.fees, currency)}</th>
             <th className="numeric">{money(summary.principal, currency)}</th>
             <th className="numeric">{money(summary.total, currency)}</th>
-            <th colSpan={3} />
+            <th colSpan={plan ? 1 : 3} />
           </tr>
         </tfoot>
       </table>
@@ -1204,7 +1237,7 @@ function Register({
       subtitle="Each debt from the record that creates it, once."
       flush
     >
-      <div className="filter-bar">
+      <div className="filter-bar filter-bar--four">
         <SearchField
           label="Counterparty"
           value={search}
@@ -1294,9 +1327,9 @@ function RegisterRow({
         {line.counterparty}
         <div className="cell-note">{line.description}</div>
       </td>
-      <td>
+      <td className="nowrap">
         {line.due_on ? formatDate(line.due_on) : "—"}
-        <div className="cell-note">Since {formatDate(line.issued_on)}</div>
+        <div className="cell-note nowrap">Since {formatDate(line.issued_on)}</div>
       </td>
       <td>
         <StatusChip tone={STANDING_TONE[line.standing] ?? "neutral"}>
@@ -1903,7 +1936,7 @@ function AgreementDialog({
                   ],
                 ]}
               />
-              <ScheduleTable rows={preview.data.rows} summary={preview.data.summary} />
+              <ScheduleTable rows={preview.data.rows} summary={preview.data.summary} plan />
             </>
           )}
         </section>
