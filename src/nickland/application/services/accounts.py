@@ -93,6 +93,14 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
         manual=False,
     ),
     SeededAccount(
+        "11210",
+        "Interest receivable on loans issued",
+        "CA",
+        CashFlowCategory.INVESTING,
+        SubledgerKind.BORROWER,
+        manual=False,
+    ),
+    SeededAccount(
         "11300",
         "Withholding tax receivable",
         "CA",
@@ -160,6 +168,9 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
         CashFlowCategory.OPERATING,
         control=SubledgerKind.EMPLOYEE,
         manual=False,
+    ),
+    SeededAccount(
+        "20500", "Refundable deposits and other amounts held", "CL", CashFlowCategory.OPERATING
     ),
     SeededAccount(
         "21000",
@@ -238,9 +249,11 @@ SEEDED_ACCOUNTS: tuple[SeededAccount, ...] = (
     # Other income and expense
     SeededAccount("70000", "Interest income", "OTH", CashFlowCategory.OPERATING),
     SeededAccount("70100", "Other income", "OTH", CashFlowCategory.OPERATING),
+    SeededAccount("70200", "Loan fee income", "OTH", CashFlowCategory.OPERATING),
     SeededAccount("71000", "Interest expense", "OTH", CashFlowCategory.FINANCING),
     SeededAccount("71100", "Bank charges", "OTH", CashFlowCategory.OPERATING),
     SeededAccount("71200", "Exchange differences", "OTH", CashFlowCategory.OPERATING),
+    SeededAccount("71300", "Loan fees and finance charges", "OTH", CashFlowCategory.FINANCING),
     SeededAccount("72000", "Bad debt expense", "OTH", CashFlowCategory.OPERATING),
     # Taxation on profit
     SeededAccount("80000", "Income tax expense", "TAX", CashFlowCategory.OPERATING),
