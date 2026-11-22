@@ -18,7 +18,7 @@ def _service(db: Session, engine: Engine, settings: Settings, clock: FixedClock)
     return BackupService(db, engine, settings, clock=clock)
 
 
-def test_a_postgresql_deployment_refuses_a_client_side_backup(
+def test_a_postgresql_deployment_is_dumped_and_verified(
     db: Session,
     engine: Engine,
     settings: Settings,
@@ -26,16 +26,12 @@ def test_a_postgresql_deployment_refuses_a_client_side_backup(
     admin: Actor,
     engine_name: str,
 ) -> None:
-    """A client must not attempt to dump the host's database.
-
-    The standalone path uses SQLite's online backup API. A PostgreSQL deployment is
-    backed up by the host service, which Phase 15 delivers; until then the attempt is
-    refused with that explanation rather than producing an unusable archive.
-    """
+    """The host's database is dumped by pg_dump from a snapshot and the dump verified."""
     if engine_name != "postgresql":
         pytest.skip("asserts the PostgreSQL path")
-    with pytest.raises(ConflictError, match="host service"):
-        _service(db, engine, settings, clock).run(admin, trigger="manual")
+    outcome = _service(db, engine, settings, clock).run(admin, trigger="manual")
+    assert outcome.verified
+    assert "Dump readable" in outcome.note
 
 
 def test_backup_requires_the_permission(
@@ -52,10 +48,12 @@ def test_a_failed_backup_is_recorded_rather_than_silently_lost(
     settings: Settings,
     clock: FixedClock,
     admin: Actor,
-    engine_name: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    if engine_name != "postgresql":
-        pytest.skip("uses the PostgreSQL refusal to force a failure")
+    def disk_full(*_: object, **__: object) -> None:
+        raise ConflictError("No space is left on the backup volume.")
+
+    monkeypatch.setattr(BackupService, "_copy_database", disk_full)
     service = _service(db, engine, settings, clock)
     with pytest.raises(ConflictError):
         service.run(admin, trigger="manual")
