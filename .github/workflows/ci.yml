@@ -12,7 +12,9 @@ env:
 jobs:
   service:
     name: Service — lint, types and tests
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04 carries the PostgreSQL 16 client tools, matching the service below;
+    # newer runners carry only a later client, whose dumps can set options 16 rejects.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
