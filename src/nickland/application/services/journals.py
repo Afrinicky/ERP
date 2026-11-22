@@ -691,6 +691,9 @@ class JournalService:
         ``(business_id, number)`` is the guarantee; this query only proposes.
         """
         prefix = f"JV-{period.financial_year}-"
+        # Held until commit: the next poster reads the highest number after this one is
+        # written, never alongside it.
+        advisory_lock(self._db, "journal-number", business_id, period.financial_year)
         highest = self._db.scalar(
             select(func.max(JournalEntry.number)).where(
                 JournalEntry.business_id == business_id,

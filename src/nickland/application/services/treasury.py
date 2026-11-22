@@ -36,6 +36,7 @@ from nickland.domain.ledger import AccountKind, CashFlowCategory, EntryLine, Jou
 from nickland.domain.money import ZERO, money
 from nickland.persistence.finance_models import FinancialAccount, TreasuryMovement
 from nickland.persistence.ledger_models import Account, AccountGroup
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.models import Business, User
 from nickland.platform.clock import Clock, SystemClock, business_date
 
@@ -81,6 +82,8 @@ class TreasuryService:
 
     def ensure_seeded(self, business_id: uuid.UUID) -> None:
         """One financial account per base cash account, the first time it is asked for."""
+        # Two desks asking at once for the first time would both create them.
+        advisory_lock(self._db, "treasury-seed", business_id)
         existing = {
             row.account_fk
             for row in self._db.scalars(

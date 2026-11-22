@@ -62,7 +62,14 @@ def create_database_engine(settings: Settings, *, echo: bool = False) -> Engine:
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,
-        isolation_level="REPEATABLE READ",
+        # Read committed, PostgreSQL's own default. Every invariant that concurrent users
+        # could break is held by a lock taken before it is read (an advisory lock on the
+        # name, or a row lock) and by a unique constraint behind it. Under a snapshot level
+        # a statement run after waiting for such a lock would still see the data as it was
+        # before the wait, and the lock would protect nothing; under read committed it sees
+        # what the holder committed. A report that must be self-consistent across many
+        # queries (the backup's digests) asks for a snapshot explicitly.
+        isolation_level="READ COMMITTED",
     )
 
 
