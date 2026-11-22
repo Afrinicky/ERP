@@ -21,10 +21,14 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, make_url, select, text
 
 from nickland.platform.config import DeploymentMode, Settings, get_settings
+
+if TYPE_CHECKING:
+    from nickland.interface.dependencies import Runtime
 
 SERVICE_NAME = "NicklandERPHost"
 
@@ -177,6 +181,50 @@ def transfer(settings: Settings, arguments: argparse.Namespace) -> int:
 # -- serving --------------------------------------------------------------------------
 
 
+def host_runtime(settings: Settings) -> Runtime:
+    """The host's runtime, with a one-time setup code if the business is not yet set up.
+
+    The host listens on the network and has no desktop window to hold a local token, so
+    without the code any computer that reached it first could complete setup and become
+    its administrator. The code is shown only on the host, to the person who started it.
+    """
+    from nickland.application.services.setup import SetupService
+    from nickland.interface.application import build_runtime
+    from nickland.interface.dependencies import issue_setup_code
+
+    runtime = build_runtime(settings)
+    session = runtime.session_factory()
+    try:
+        if SetupService(session).is_required():
+            runtime.setup_code = issue_setup_code()
+    finally:
+        session.close()
+    return runtime
+
+
+def _announce_setup_code(code: str) -> None:
+    from nickland.platform.logging import get_logger
+
+    print(
+        "\n".join(
+            [
+                "",
+                "This host has not been set up yet. To set it up, open the application from",
+                "any workstation and enter this one-time setup code when asked:",
+                "",
+                f"    {code}",
+                "",
+                "The code changes each time the host starts, until setup is complete.",
+                "",
+            ]
+        ),
+        flush=True,
+    )
+    # A host run as a service has no console anyone watches; its log is where the
+    # operator finds the code. It is worth nothing once setup is done.
+    get_logger(__name__).warning("Setup is outstanding. One-time setup code: %s", code)
+
+
 def serve(settings: Settings, arguments: argparse.Namespace) -> int:
     import uvicorn
 
@@ -196,7 +244,10 @@ def serve(settings: Settings, arguments: argparse.Namespace) -> int:
     if problems:
         return _fail("The host cannot serve yet:\n  " + "\n  ".join(problems))
     files = CertificateSet(settings.tls_directory)
-    application = create_application(settings, static_root=interface_root())
+    runtime = host_runtime(settings)
+    if runtime.setup_code is not None:
+        _announce_setup_code(runtime.setup_code)
+    application = create_application(runtime=runtime, static_root=interface_root())
     uvicorn.run(
         application,
         host=arguments.host or "0.0.0.0",

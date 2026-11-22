@@ -140,11 +140,13 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
 
   const businessReady = form.business_name.trim().length > 0;
   const appearanceReady = form.theme_preset.length > 0;
+  const codeRequired = status.data?.setup_code_required ?? false;
   const administratorReady =
     form.administrator_username.trim().length >= 3 &&
     form.administrator_full_name.trim().length > 0 &&
     form.administrator_password.length > 0 &&
-    confirmPassword.length > 0;
+    confirmPassword.length > 0 &&
+    (!codeRequired || (form.setup_code ?? '').trim().length > 0);
 
   return (
     <div className="centred">
@@ -404,6 +406,28 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             }
           >
             <div className="form-grid">
+              {codeRequired ? (
+                <div className="form-grid__full">
+                  <Field
+                    label="Setup code"
+                    required
+                    hint="Shown on the host computer when its service started, and written to its log. It confirms that the person setting up the business is at the host."
+                  >
+                    {(id, describedBy) => (
+                      <TextInput
+                        id={id}
+                        aria-describedby={describedBy}
+                        value={form.setup_code ?? ''}
+                        onChange={(event) => set('setup_code', event.target.value.toUpperCase())}
+                        autoComplete="one-time-code"
+                        spellCheck={false}
+                        autoFocus
+                      />
+                    )}
+                  </Field>
+                </div>
+              ) : null}
+
               <Field
                 label="Full name"
                 required
@@ -414,7 +438,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
                     id={id}
                     value={form.administrator_full_name}
                     onChange={(event) => set('administrator_full_name', event.target.value)}
-                    autoFocus
+                    autoFocus={!codeRequired}
                   />
                 )}
               </Field>
@@ -481,9 +505,9 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
 
               <div className="form-grid__full">
                 <Alert tone="info" title="What this creates">
-                  One business with a primary branch and a default store, the eight roles of the
-                  requirements, a numbering sequence for each document type, and this
-                  administrator account.
+                  One business with a primary branch and a default store, the two roles
+                  (administrator and sales person), a numbering sequence for each document
+                  type, and this administrator account.
                 </Alert>
               </div>
             </div>

@@ -5,6 +5,7 @@ Authentication happens here. Authorisation happens in the application layer.
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -80,6 +81,10 @@ class Runtime:
     session_factory: sessionmaker[Session]
     clock: Clock
     local_token: str | None = None
+    setup_code: str | None = None
+    """Issued by the LAN host when it starts on a database not yet set up. First-run
+    setup must quote it, so only the person at the host can claim the administrator
+    account; any computer on the network can otherwise reach the setup screen."""
 
     @property
     def password_policy(self) -> PasswordPolicy:
@@ -148,6 +153,32 @@ def verify_local_token(
 
 
 LocalGuard = Annotated[None, Depends(verify_local_token)]
+
+
+SETUP_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+"""No 0/O or 1/I, which are read aloud and typed from a screen."""
+
+
+def issue_setup_code() -> str:
+    """A one-time code of twelve characters in three groups: about sixty bits."""
+    characters = "".join(secrets.choice(SETUP_CODE_ALPHABET) for _ in range(12))
+    return "-".join(characters[index : index + 4] for index in range(0, 12, 4))
+
+
+def _normalise_setup_code(code: str) -> str:
+    return "".join(character for character in code.upper() if character.isalnum())
+
+
+def verify_setup_code(runtime: Runtime, code: str | None) -> None:
+    """Refuse first-run setup that does not quote the host's code, where one was issued."""
+    if runtime.setup_code is None:
+        return
+    expected = _normalise_setup_code(runtime.setup_code)
+    if not secrets.compare_digest(_normalise_setup_code(code or ""), expected):
+        raise AuthenticationError(
+            "Enter the setup code shown on the host computer when its service started. "
+            "It is also written to the host's log."
+        )
 
 
 def get_identity_service(session: SessionDependency, runtime: RuntimeDependency) -> IdentityService:

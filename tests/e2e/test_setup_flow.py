@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
+import pytest
 from fastapi.testclient import TestClient
 
 from nickland.domain.organisation import DocumentKind
-from nickland.interface.dependencies import LOCAL_HEADER, SESSION_HEADER
+from nickland.interface.application import create_application
+from nickland.interface.dependencies import (
+    LOCAL_HEADER,
+    SESSION_HEADER,
+    SETUP_CODE_ALPHABET,
+    Runtime,
+    issue_setup_code,
+)
 from tests.e2e.conftest import API, SETUP_PAYLOAD
 
 
@@ -96,3 +106,53 @@ def test_an_unauthenticated_request_is_refused(provisioned_client: TestClient) -
     response = provisioned_client.get(f"{API}/business")
     assert response.status_code == 401
     assert response.json()["error"]["message"] == "Sign in to continue."
+
+
+class TestLanHostSetupCode:
+    """A LAN host listens on the network with no desktop token, so first-run setup must
+    quote the one-time code shown on the host. Otherwise whichever computer reached it
+    first would become its administrator."""
+
+    @pytest.fixture
+    def host(self, runtime: Runtime) -> Iterator[TestClient]:
+        runtime.local_token = None
+        runtime.setup_code = "ABCD-EFGH-JKMN"
+        with TestClient(create_application(runtime=runtime)) as test_client:
+            yield test_client
+
+    def test_the_status_says_a_code_is_needed(self, host: TestClient) -> None:
+        body = host.get(f"{API}/setup").json()
+        assert body["setup_required"] is True
+        assert body["setup_code_required"] is True
+
+    def test_setup_without_the_code_is_refused(self, host: TestClient) -> None:
+        response = host.post(f"{API}/setup", json=SETUP_PAYLOAD)
+        assert response.status_code == 401
+        assert "setup code" in response.json()["error"]["message"]
+        assert host.get(f"{API}/setup").json()["setup_required"] is True
+
+    def test_setup_with_the_wrong_code_is_refused(self, host: TestClient) -> None:
+        response = host.post(f"{API}/setup", json={**SETUP_PAYLOAD, "setup_code": "ABCD-EFGH-JKMP"})
+        assert response.status_code == 401
+        assert host.get(f"{API}/setup").json()["setup_required"] is True
+
+    def test_setup_with_the_code_succeeds_however_it_is_typed(self, host: TestClient) -> None:
+        response = host.post(f"{API}/setup", json={**SETUP_PAYLOAD, "setup_code": "abcd efgh jkmn"})
+        assert response.status_code == 201, response.text
+        body = host.get(f"{API}/setup").json()
+        assert body["setup_required"] is False
+        assert body["setup_code_required"] is False
+
+
+def test_the_desktop_service_needs_no_setup_code(client: TestClient) -> None:
+    """The desktop's local token already confines setup to its own window."""
+    assert client.get(f"{API}/setup").json()["setup_code_required"] is False
+
+
+def test_a_setup_code_is_twelve_unambiguous_characters() -> None:
+    codes = {issue_setup_code() for _ in range(50)}
+    assert len(codes) == 50
+    for code in codes:
+        groups = code.split("-")
+        assert [len(group) for group in groups] == [4, 4, 4]
+        assert not set("".join(groups)) - set(SETUP_CODE_ALPHABET)

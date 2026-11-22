@@ -25,6 +25,8 @@ export interface SetupStatus {
   setup_required: boolean;
   presets: Preset[];
   password_requirements: string[];
+  /** A LAN host not yet set up asks for the one-time code shown on its console. */
+  setup_code_required?: boolean;
 }
 
 export interface SetupPayload {
@@ -49,6 +51,7 @@ export interface SetupPayload {
   branch_name?: string;
   warehouse_code?: string;
   warehouse_name?: string;
+  setup_code?: string | null;
 }
 
 export interface SetupResult {

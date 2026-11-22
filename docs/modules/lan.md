@@ -42,6 +42,13 @@ service. Put them in the host's environment or in `.env` in the data directory.
    (`--platform linux`, a systemd unit) that starts the host at boot after PostgreSQL and
    restarts it within seconds if it stops. `nickland-host serve` is what it runs.
 6. **Check.** `nickland-host status`, and the health screen.
+7. **Setting up the business** (unless step 3 brought one across). Started on a database
+   with no business yet, `nickland-host serve` prints a one-time setup code on its
+   console, and writes it to the host's log for a host run as a service. Open the
+   application from any workstation; the setup screen asks for the code before it
+   creates the administrator. The code is new each time the host starts, until setup is
+   done, and is not needed afterwards. Without it, any computer on the network that
+   reached the setup screen first could make itself the administrator.
 
 ## Clients
 
@@ -56,6 +63,7 @@ anyone types a password into it. Plain HTTP is refused.
 
 | Threat | Protection |
 | --- | --- |
+| A computer on the network claiming a host not yet set up | Setup requires the one-time code the host shows only on its own console and log |
 | A client writing to the database | PostgreSQL listens on loopback only; clients have no credentials; every write route of the service requires a signed-in session |
 | The service rewriting history or the schema | The service role may change rows only: no `CREATE`, `ALTER` or `DROP`, and no `UPDATE` or `DELETE` on the audit trail |
 | Eavesdropping on the network | TLS 1.2 or later; strict transport security; no caching of API replies |

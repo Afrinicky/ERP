@@ -25,6 +25,7 @@ from nickland.application.services.health import HealthService
 from nickland.desktop.host import verify_host
 from nickland.interface.application import build_runtime, create_application
 from nickland.interface.dependencies import SESSION_HEADER
+from nickland.interface.hostctl import host_runtime
 from nickland.persistence.base import Base
 from nickland.persistence.models import AuditEvent
 from nickland.persistence.roles import RolePlan
@@ -388,3 +389,33 @@ class TestHealth:
             SystemActor(business_id=admin.business_id, reason="Scheduled"), trigger="scheduled"
         )
         assert outcome.verified
+
+
+class TestFirstRunOnTheHost:
+    def test_a_host_not_yet_set_up_issues_a_setup_code(
+        self, settings: Settings, engine: Engine
+    ) -> None:
+        runtime = host_runtime(settings)
+        try:
+            assert runtime.setup_code is not None
+            assert runtime.local_token is None
+        finally:
+            runtime.engine.dispose()
+
+    def test_each_start_issues_a_fresh_code(self, settings: Settings, engine: Engine) -> None:
+        first, second = host_runtime(settings), host_runtime(settings)
+        try:
+            assert first.setup_code != second.setup_code
+        finally:
+            first.engine.dispose()
+            second.engine.dispose()
+
+    def test_a_host_already_set_up_issues_none(
+        self, settings: Settings, engine: Engine, provisioned: dict[str, uuid.UUID], db: Session
+    ) -> None:
+        db.commit()
+        runtime = host_runtime(settings)
+        try:
+            assert runtime.setup_code is None
+        finally:
+            runtime.engine.dispose()

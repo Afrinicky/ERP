@@ -40,6 +40,7 @@ class SetupStatusReply(Reply):
     setup_required: bool
     presets: list[PresetReply]
     password_requirements: list[str]
+    setup_code_required: bool = False
 
 
 class SetupContract(Contract):
@@ -67,6 +68,9 @@ class SetupContract(Contract):
     branch_name: str = Field(default="Head office", max_length=160)
     warehouse_code: str = Field(default="main", max_length=16)
     warehouse_name: str = Field(default="Main store", max_length=160)
+
+    setup_code: str | None = Field(default=None, max_length=64)
+    """Required only when the LAN host issued one; see ``Runtime.setup_code``."""
 
 
 class SetupReply(Reply):
