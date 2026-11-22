@@ -6,7 +6,7 @@ on:
   pull_request:
 
 env:
-  PYTHON_VERSION: '3.12'
+  PYTHON_VERSION: '3.13'
   NODE_VERSION: '22'
 
 jobs:
@@ -73,10 +73,17 @@ jobs:
       - name: Phase exit criteria
         env:
           NICKLAND_DATA_DIRECTORY: ${{ runner.temp }}/nickland-verify
+          NICKLAND_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/nickland_test
         run: |
+          sudo apt-get install -y --no-install-recommends postgresql-client-16 || true
           for phase in tools/verify_phase_*.py; do
             echo "::group::$phase"
-            python "$phase"
+            if [ "$phase" = "tools/verify_phase_15.py" ]; then
+              # The whole suite on both engines is the next step; this runs the host criteria.
+              python "$phase" --skip-suite
+            else
+              python "$phase"
+            fi
             echo "::endgroup::"
           done
 

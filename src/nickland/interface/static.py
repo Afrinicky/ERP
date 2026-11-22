@@ -6,7 +6,12 @@ from pathlib import Path
 
 
 def interface_root() -> Path | None:
-    """The built interface, from the source tree or bundled alongside the package."""
+    """The built interface: in the installed bundle, the source tree, or beside the package."""
+    from nickland.platform.frozen import bundle_root
+
+    bundle = bundle_root()
+    if bundle is not None and (bundle / "ui").is_dir():
+        return bundle / "ui"
     package = Path(__file__).resolve().parents[1]
     candidate = package.parents[1] / "ui" / "dist"
     if candidate.is_dir():

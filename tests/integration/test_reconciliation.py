@@ -80,7 +80,7 @@ class TestParsing:
 
     def test_a_signed_amount_column_and_bracketed_negatives(self) -> None:
         lines = parse_statement(
-            "Transaction Date,Narration,Amount\n2026-11-05,MoMo cash out,\"(1,250.00)\"\n"
+            'Transaction Date,Narration,Amount\n2026-11-05,MoMo cash out,"(1,250.00)"\n'
         )
         assert lines[0].amount == D("-1250")
 

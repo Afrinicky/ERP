@@ -152,9 +152,7 @@ class Settings(BaseSettings):
                 "postgresql+psycopg:// URL."
             )
         if not (self.tls_directory / "server.pem").is_file():
-            problems.append(
-                "No TLS certificate has been issued: run `nickland-host certificates`."
-            )
+            problems.append("No TLS certificate has been issued: run `nickland-host certificates`.")
         return problems
 
     def ensure_directories(self) -> None:

@@ -8,8 +8,27 @@ Document v1.4, 5 November 2026.
 
 ## Status
 
-Planning. No application code has been written. The present repository contains the
-approved architecture, data model, design system, phase plan and decision record.
+Phases 1 to 15 of the [build plan](docs/00-build-plan.md) are delivered: the standalone
+desktop edition and the LAN edition, from master data, quotations, procurement, inventory,
+dispatch and the point of sale through the general ledger, financial management, financing,
+planning, reporting and period close. Each phase has a verifier in `tools/` that exercises
+its exit criteria against a live database. Phase 16 (cloud readiness) is next.
+
+## Installing
+
+Windows installers are built by GitHub Actions. Open **Actions → Build Windows Installer**,
+run it (or push to `main`), and download the `Nickland_ERP_Windows_Installer` artifact:
+`NicklandERP-Setup-<version>.exe`. A tag such as `v0.2.0` also publishes the installer as
+a GitHub release. See [Packaging](docs/packaging.md) for what the installer contains and how
+a build is checked, and the [LAN edition](docs/modules/lan.md) for setting up a host.
+
+## Running from source
+
+```bash
+python -m venv .venv && .venv/bin/pip install -e '.[dev,desktop,postgres]'
+(cd ui && npm ci && npm run build)
+.venv/bin/nickland
+```
 
 ## Documentation
 
@@ -38,7 +57,7 @@ business rule is implemented in the presentation layer.
 
 | Concern | Selection |
 | --- | --- |
-| Language | Python 3.12 |
+| Language | Python 3.12 or later (3.13 in the installer) |
 | Application service | FastAPI |
 | Persistence | SQLAlchemy 2.x, Alembic migrations |
 | Contracts | Pydantic v2 |
@@ -46,4 +65,4 @@ business rule is implemented in the presentation layer.
 | Shared database | PostgreSQL 16 |
 | Desktop container | pywebview over Microsoft Edge WebView2 |
 | Presentation layer | React 18 with TypeScript, built by Vite |
-| Packaging | PyInstaller, signed Windows installer |
+| Packaging | PyInstaller and Inno Setup, built on GitHub Actions |

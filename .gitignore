@@ -23,3 +23,6 @@ ui/dist/
 
 # Vite/TypeScript incremental build state
 ui/tsconfig.tsbuildinfo
+
+# Installer build output
+release/

@@ -483,8 +483,7 @@ class ManagementPackService:
         obligations = [
             item
             for item in service.obligations(scope.actor)
-            if (item.period_ends_on >= scope.start
-            and item.period_starts_on <= scope.end)
+            if (item.period_ends_on >= scope.start and item.period_starts_on <= scope.end)
             or scope.start <= item.due_on <= scope.end
         ]
         paid = self._db.scalar(

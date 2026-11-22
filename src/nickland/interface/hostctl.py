@@ -182,9 +182,17 @@ def serve(settings: Settings, arguments: argparse.Namespace) -> int:
 
     from nickland.interface.application import create_application
     from nickland.interface.static import interface_root
+    from nickland.persistence.schema import is_current
     from nickland.platform.tls import CertificateSet
 
     problems = settings.lan_host_problems()
+    if not problems:
+        engine = create_engine(settings.resolved_database_url())
+        try:
+            if not is_current(engine):
+                problems.append("The schema is behind this version: run `nickland-host upgrade`.")
+        finally:
+            engine.dispose()
     if problems:
         return _fail("The host cannot serve yet:\n  " + "\n  ".join(problems))
     files = CertificateSet(settings.tls_directory)
@@ -336,7 +344,9 @@ def status(settings: Settings, _: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="nickland-host", description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        prog="nickland-host", description="Install, run and look after a Nickland ERP LAN host."
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     issue = commands.add_parser("certificates", help="Issue the host's TLS certificate")
@@ -371,6 +381,9 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("status", help="Report what the host needs")
 
     arguments = parser.parse_args(argv)
+    from nickland.platform.frozen import prepare
+
+    prepare()
     settings = get_settings()
     if arguments.command in ("serve", "status") and (
         settings.deployment_mode is not DeploymentMode.LAN_HOST

@@ -69,7 +69,8 @@ STAFF = "Counter9Staff"
 USERS = 10
 ROUNDS = 8
 D = Decimal
-Outcome = tuple[str, bool, str]
+Outcome = tuple[str, bool | None, str]
+"""A criterion's label, whether it is met (None: not run here), and what was found."""
 
 
 class Host:
@@ -532,9 +533,17 @@ def verify(run_suite: bool) -> list[Outcome]:
             text=True,
             check=False,
         )
-        dots = suite.stdout.count("[postgresql]")
-        summary = re.findall(r"(\d+) (passed|failed|skipped|error)", suite.stdout)
-        counts = {kind: int(number) for number, kind in summary}
+        marks = "".join(
+            line.split(" ")[0]
+            for line in suite.stdout.splitlines()
+            if re.search(r"\[ *\d+%\]$", line)
+        )
+        counts = {
+            "passed": marks.count("."),
+            "skipped": marks.count("s"),
+            "failed": marks.count("F"),
+            "error": marks.count("E"),
+        }
         passed = suite.returncode == 0 and not counts.get("failed") and not counts.get("error")
         outcomes.insert(
             0,
@@ -547,7 +556,6 @@ def verify(run_suite: bool) -> list[Outcome]:
                 else suite.stdout[-600:],
             ),
         )
-        _ = dots
     else:
         outcomes.insert(
             0,
@@ -568,9 +576,10 @@ def main() -> int:
     width = max(len(label) for label, _, _ in outcomes)
     print()
     for label, passed, detail in outcomes:
-        print(f"  {'PASS' if passed else 'FAIL'}  {label.ljust(width)}  {detail}")
+        state = "SKIP" if passed is None else ("PASS" if passed else "FAIL")
+        print(f"  {state}  {label.ljust(width)}  {detail}")
     print()
-    broken = [label for label, passed, _ in outcomes if not passed]
+    broken = [label for label, passed, _ in outcomes if passed is False]
     if broken:
         print(f"{len(broken)} criterion(a) not met: {broken}")
         return 1

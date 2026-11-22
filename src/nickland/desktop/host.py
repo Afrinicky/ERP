@@ -64,6 +64,20 @@ def start_local_service(settings: Settings | None = None) -> LocalService:
     port = reserve_port(host)
     token = secrets.token_urlsafe(32)
 
+    # A new installation has no schema; an upgraded one may be behind. Either way it is
+    # brought to the current revision, with a copy taken first, before anything is served.
+    from nickland.persistence.engine import create_database_engine
+    from nickland.persistence.schema import ensure_current
+
+    resolved.ensure_directories()
+    engine = create_database_engine(resolved)
+    try:
+        before, after = ensure_current(resolved, engine)
+        if before != after:
+            logger.info("Database schema upgraded from %s to %s", before or "nothing", after)
+    finally:
+        engine.dispose()
+
     runtime = build_runtime(resolved, local_token=token)
     application = create_application(runtime=runtime, static_root=interface_root())
 
