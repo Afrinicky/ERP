@@ -36,7 +36,7 @@ from nickland.application.services.accounts import AccountService  # noqa: E402
 from nickland.application.services.identity import IdentityService  # noqa: E402
 from nickland.application.services.journals import JournalDraft, JournalService  # noqa: E402
 from nickland.application.services.ledger_reports import LedgerReportService  # noqa: E402
-from nickland.application.services.periods import PeriodService  # noqa: E402
+from nickland.application.services.periods import CHECKLIST, PeriodService  # noqa: E402
 from nickland.application.services.setup import SetupRequest, SetupService  # noqa: E402
 from nickland.domain.errors import ConflictError, ValidationError  # noqa: E402
 from nickland.domain.ledger import (  # noqa: E402
@@ -278,20 +278,31 @@ def verify() -> list[Outcome]:
 
     # --- Criterion 6 ------------------------------------------------------------------
     # A closed period rejects a posting, and reopening it is audited.
+    # Since Phase 14 a close also needs the checklist a person signs off: the steps the
+    # system cannot measure (accruals reviewed, stock counted, tax reviewed, the
+    # management report read). They are confirmed here as the proprietor would.
+    def sign_off(period_id: uuid.UUID) -> None:
+        for key, _label in CHECKLIST:
+            periods.confirm_step(actor, period_id, key, done=True)
+
     november = accounts.require_period_for(business_id, TODAY)
     for earlier in accounts.periods(actor, financial_year=2026):
         if earlier.starts_on < november.starts_on:
+            sign_off(earlier.id)
             periods.close(actor, earlier.id)
     session.commit()
 
+    sign_off(november.id)
     readiness = periods.readiness(actor, november.id)
     periods.close(actor, november.id, note="Month-end close")
     session.commit()
     session.refresh(november)
     record(
         "A period closes only when every gate passes",
-        november.state == "closed" and readiness.ready and len(readiness.checks) == 5,
-        f"{len(readiness.checks)} reconciliations recorded with the close",
+        november.state == "closed"
+        and readiness.ready
+        and all(check.passed for check in readiness.checks),
+        f"{len(readiness.checks)} gates passed and recorded with the close",
     )
 
     try:
