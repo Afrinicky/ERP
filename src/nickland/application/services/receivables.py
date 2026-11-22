@@ -65,6 +65,7 @@ from nickland.persistence.finance_models import (
     SalesInvoiceLine,
 )
 from nickland.persistence.ledger_models import Account, JournalEntry, JournalLine
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.models import Business
 from nickland.persistence.order_models import SalesOrder, SalesOrderLine
 from nickland.persistence.pos_models import PosSale
@@ -1314,6 +1315,10 @@ class ReceivablesService:
     ) -> None:
         if invoice.customer_fk != receipt.customer_fk:
             raise ConflictError(f"{invoice.number} belongs to another customer.")
+        # Two desks allocating to one invoice cannot both see it outstanding.
+        self._db.flush()
+        advisory_lock(self._db, "invoice", invoice.id)
+        self._db.refresh(invoice)
         if amount <= ZERO:
             raise ValidationError("An allocation above zero.", field="amount")
         if amount > money(receipt.unapplied):

@@ -47,6 +47,7 @@ from nickland.persistence.ledger_models import (
     JournalEntry,
     PeriodCloseCheck,
 )
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.pos_models import PosShift
 from nickland.persistence.reporting_models import PeriodChecklistItem, PeriodReopenRequest
 from nickland.platform.clock import Clock, SystemClock
@@ -150,7 +151,7 @@ class PeriodService:
     ) -> CloseReadiness:
         """Close a period, provided every gate passes."""
         actor.require("period.close")
-        period = self._require_period(actor, period_id)
+        period = self._lock_period(actor, period_id)
 
         if period.state == PeriodState.CLOSED.value:
             raise ConflictError(f"{period.label} is already closed.", period=period.label)
@@ -217,7 +218,7 @@ class PeriodService:
             raise ConflictError(
                 "Ask for the period to be reopened; a second person approves the request."
             )
-        period = self._require_period(actor, period_id)
+        period = self._lock_period(actor, period_id)
         return self._reopen(
             actor,
             period,
@@ -321,6 +322,9 @@ class PeriodService:
             raise NotFoundError(f"Financial year {financial_year} has not been opened.")
 
         final = periods[-1]
+        self._db.flush()
+        advisory_lock(self._db, "period", final.id)
+        self._db.refresh(final)
         if final.year_end_posted_at is not None:
             raise ConflictError(
                 f"Financial year {financial_year} has already been closed.",
@@ -662,7 +666,7 @@ class PeriodService:
                 "A request to reopen a period is decided by someone other than the person "
                 "who made it."
             )
-        period = self._require_period(actor, request.period_fk)
+        period = self._lock_period(actor, request.period_fk)
         now = self._clock.now()
         request.decided_by_id = actor.user_id
         request.decided_at = now
@@ -853,6 +857,14 @@ class PeriodService:
                 .order_by(PeriodCloseCheck.checked_at.desc(), PeriodCloseCheck.name)
             ).all()
         )
+
+    def _lock_period(self, actor: AnyActor, period_id: uuid.UUID) -> AccountingPeriod:
+        """The period, held against postings and other closes until the transaction ends."""
+        period = self._require_period(actor, period_id)
+        self._db.flush()
+        advisory_lock(self._db, "period", period.id)
+        self._db.refresh(period)
+        return period
 
     def _require_period(self, actor: AnyActor, period_id: uuid.UUID) -> AccountingPeriod:
         period = self._db.get(AccountingPeriod, period_id)

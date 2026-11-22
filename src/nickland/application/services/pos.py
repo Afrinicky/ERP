@@ -62,6 +62,7 @@ from nickland.persistence.catalogue_models import Product
 from nickland.persistence.finance_models import SalesInvoice
 from nickland.persistence.inventory_models import Batch, StockMovement
 from nickland.persistence.ledger_models import JournalEntry
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.models import Business, Party, User
 from nickland.persistence.pos_models import (
     PosCashMovement,
@@ -171,6 +172,9 @@ class PosService:
         actor.require("pos.shift_manage")
         if actor.user_id is None:
             raise ConflictError("A shift is opened by a signed-in cashier.")
+        # One shift opens at a time across every terminal: the checks below and the
+        # shift number are read and written under the one lock.
+        advisory_lock(self._db, "pos-shift", actor.business_id)
         if self.current_shift(actor) is not None:
             raise ConflictError("A shift is already open for you. Close it before opening another.")
         float_ = money(opening_float)
@@ -804,6 +808,8 @@ class PosService:
         Idempotent by the tender's key: a duplicated callback finds the tender already in the
         state it reports, changes nothing, and posts nothing.
         """
+        self._db.flush()
+        advisory_lock(self._db, "tender-key", actor.business_id, status.idempotency_key)
         tender = self._db.scalar(
             select(PosTender).where(
                 PosTender.business_id == actor.business_id,
@@ -812,6 +818,7 @@ class PosService:
         )
         if tender is None:
             raise NotFoundError("No payment carries that reference.")
+        self._db.refresh(tender)
         if TenderState(tender.state) is status.state or status.state is TenderState.PENDING:
             return tender.sale
         return self._settle(
@@ -833,6 +840,9 @@ class PosService:
         reason: str | None = None,
         source: str,
     ) -> PosSale:
+        self._db.flush()
+        advisory_lock(self._db, "tender", tender.id)
+        self._db.refresh(tender)
         current = TenderState(tender.state)
         if current is target:
             return tender.sale
@@ -866,6 +876,11 @@ class PosService:
         """
         actor.require("pos.operate")
         sale = self.require_sale(actor, sale_id)
+        # A double press, or a retry after a lost reply, waits for the first completion
+        # and then finds the sale completed.
+        self._db.flush()
+        advisory_lock(self._db, "pos-sale", sale.id)
+        self._db.refresh(sale)
         if sale.state == SaleState.COMPLETED.value:
             return sale
         if sale.state != SaleState.OPEN.value:

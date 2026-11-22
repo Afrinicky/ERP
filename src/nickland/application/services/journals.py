@@ -49,6 +49,7 @@ from nickland.persistence.ledger_models import (
     JournalLine,
     SubledgerBalance,
 )
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.models import Business
 from nickland.platform.clock import Clock, SystemClock
 
@@ -135,6 +136,10 @@ class JournalService:
             actor.require("journal.post")
         business_id = _business_of(actor)
 
+        if draft.idempotency_key:
+            # A retried request, or a callback delivered twice, waits here for the first
+            # and then finds its entry, rather than racing it to the unique constraint.
+            advisory_lock(self._db, "journal", business_id, draft.idempotency_key)
         existing = self._by_idempotency_key(business_id, draft.idempotency_key)
         if existing is not None:
             return PostingOutcome(
@@ -625,6 +630,11 @@ class JournalService:
     def _permitted_period(self, business_id: uuid.UUID, on: date) -> AccountingPeriod:
         """The period a date falls in, having confirmed it will accept a posting."""
         period = self._accounts.require_period_for(business_id, on)
+        # Shared with every other posting, exclusive with a close: an entry cannot land in
+        # a period between the close's checks and its lock.
+        self._db.flush()
+        advisory_lock(self._db, "period", period.id, shared=True)
+        self._db.refresh(period)
         assert_posting_permitted(
             PeriodState(period.state),
             PeriodWindow(starts_on=period.starts_on, ends_on=period.ends_on),

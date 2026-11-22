@@ -80,6 +80,19 @@ class Settings(BaseSettings):
 
     backup_enabled: bool = True
     backup_retain_count: int = 14
+    backup_interval_hours: int = 24
+    """How often the host takes a scheduled backup. 0 turns scheduled backups off."""
+
+    lan_port: int = 8443
+    """Where the LAN host listens for clients, over TLS."""
+    migration_database_url: str | None = None
+    """The schema owner's URL, used only to upgrade the schema. The running service
+    connects with ``database_url``, a role that can change rows but not tables."""
+
+    host_url: str | None = None
+    """A LAN client: the host it opens, for example ``https://erp-host:8443``."""
+    host_fingerprint: str | None = None
+    """A LAN client: the SHA-256 fingerprint the host's certificate must present."""
 
     log_level: str = "INFO"
     log_json: bool = False
@@ -97,6 +110,10 @@ class Settings(BaseSettings):
     @property
     def backup_directory(self) -> Path:
         return self.data_directory / "backups"
+
+    @property
+    def tls_directory(self) -> Path:
+        return self.data_directory / "tls"
 
     @property
     def log_directory(self) -> Path:
@@ -120,6 +137,22 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.resolved_database_url().startswith("sqlite")
+
+    def lan_host_problems(self) -> list[str]:
+        """What stands in the way of serving clients on the network."""
+        if self.deployment_mode is not DeploymentMode.LAN_HOST:
+            return ["The deployment mode is not lan_host."]
+        problems = []
+        if not self.database_url or not self.database_url.startswith("postgresql"):
+            problems.append(
+                "A LAN host stores its data in PostgreSQL: set NICKLAND_DATABASE_URL to a "
+                "postgresql+psycopg:// URL."
+            )
+        if not (self.tls_directory / "server.pem").is_file():
+            problems.append(
+                "No TLS certificate has been issued: run `nickland-host certificates`."
+            )
+        return problems
 
     def ensure_directories(self) -> None:
         """Create the data directories. Idempotent."""

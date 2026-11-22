@@ -55,6 +55,7 @@ from nickland.persistence.inventory_models import (
     StockSerial,
 )
 from nickland.persistence.ledger_models import JournalEntry
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.models import Business, Warehouse
 from nickland.platform.clock import Clock, SystemClock
 from nickland.platform.ids import new_id
@@ -1101,6 +1102,9 @@ class Operation:
         if held is not None:
             return held
         self._db.flush()
+        # Named rather than row-locked: the position may not exist yet, and two first
+        # receipts would otherwise both try to create it.
+        advisory_lock(self._db, "stock", self.business_id, product_id, warehouse_id)
         position = self.engine.position(self.business_id, product_id, warehouse_id)
         if position is None:
             position = StockPosition(

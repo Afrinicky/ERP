@@ -36,6 +36,7 @@ from nickland.domain.orders import (
 )
 from nickland.persistence.finance_models import PaymentBatch
 from nickland.persistence.ledger_models import Account, JournalEntry, JournalLine
+from nickland.persistence.locking import advisory_lock
 from nickland.persistence.models import Business, Party
 from nickland.persistence.order_models import (
     SupplierInvoice,
@@ -145,6 +146,8 @@ class PayablesService:
         method = PaymentMethod(str(draft.method))
         settles = money(draft.amount + draft.withheld)
 
+        # Two payments to one supplier allocate in turn, never against the same balance.
+        advisory_lock(self._db, "supplier-payments", business_id, supplier.id)
         candidates = self._outstanding_for(business_id, supplier.id)
         if not draft.invoice_ids:
             # Paying on account: urgent invoices first, held ones not at all.
