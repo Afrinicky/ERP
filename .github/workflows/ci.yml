@@ -98,7 +98,8 @@ jobs:
             echo "::group::$phase"
             if [ "$phase" = "tools/verify_phase_15.py" ]; then
               # The whole suite on both engines is the next step; this runs the host criteria.
-              python "$phase" --skip-suite
+              # The database here is a container, so it listens beyond loopback by design.
+              python "$phase" --skip-suite --database-in-container
             else
               python "$phase"
             fi

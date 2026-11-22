@@ -19,14 +19,19 @@ from decimal import Decimal
 
 import pytest
 import uvicorn
-from sqlalchemy import func, select
+from sqlalchemy import Engine, event, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
 from nickland.application.context import Actor
 from nickland.application.services.catalogue import CatalogueService, ProductDraft
 from nickland.application.services.integrity import IntegrityService
-from nickland.application.services.inventory import InventoryService, OpeningDraft, StockLineDraft
+from nickland.application.services.inventory import (
+    AdjustmentDraft,
+    InventoryService,
+    OpeningDraft,
+    StockLineDraft,
+)
 from nickland.application.services.journals import JournalService
 from nickland.application.services.pos import PosService, ProviderStatus
 from nickland.application.services.units import UnitService
@@ -34,7 +39,7 @@ from nickland.domain.pos import TenderState
 from nickland.interface.application import build_runtime, create_application
 from nickland.persistence.inventory_models import StockMovement
 from nickland.persistence.ledger_models import JournalEntry
-from nickland.persistence.models import AuditEvent, Warehouse
+from nickland.persistence.models import AuditEvent, Product, Warehouse
 from nickland.persistence.pos_models import PosSale, PosTender
 from nickland.platform.clock import FixedClock
 from nickland.platform.config import Settings
@@ -70,6 +75,62 @@ def whole(factory: sessionmaker[Session], clock: FixedClock, admin: Actor) -> li
         return IntegrityService(session, clock=clock).check(admin).problems
     finally:
         session.close()
+
+
+class TestIntegrityCheck:
+    def test_a_commit_landing_mid_check_does_not_read_as_a_broken_record(
+        self,
+        session_factory: sessionmaker[Session],
+        clock: FixedClock,
+        admin: Actor,
+        stocked: str,
+    ) -> None:
+        """The check compares positions with the movements they summarise. Another user's
+        stock change committing between those two reads must not look like a discrepancy:
+        the check reads one snapshot, so it sees the change entirely or not at all."""
+        engine = session_factory.kw["bind"]
+        assert isinstance(engine, Engine)
+        setup = session_factory()
+        try:
+            product = setup.scalar(select(Product.id).where(Product.sku == stocked))
+            warehouse = setup.scalar(select(Warehouse.id))
+        finally:
+            setup.close()
+        assert product is not None and warehouse is not None
+        committed: list[bool] = []
+
+        def commit_a_stock_change(
+            _conn: object, _cursor: object, statement: str, *_: object
+        ) -> None:
+            if committed or "FROM stock_movements" not in statement:
+                return
+            committed.append(True)
+            writer = session_factory()
+            try:
+                InventoryService(writer, clock=clock).adjust(
+                    admin,
+                    AdjustmentDraft(
+                        warehouse_id=warehouse,
+                        kind="gain",
+                        reason="Found in the store room",
+                        lines=[
+                            StockLineDraft(product_id=product, quantity=D("3"), unit_cost=D("30"))
+                        ],
+                    ),
+                )
+                writer.commit()
+            finally:
+                writer.close()
+
+        event.listen(engine, "after_cursor_execute", commit_a_stock_change)
+        try:
+            problems = whole(session_factory, clock, admin)
+        finally:
+            event.remove(engine, "after_cursor_execute", commit_a_stock_change)
+        assert committed, "the stock change was never committed mid-check"
+        assert not problems
+        # And the change itself is whole once the check is run again.
+        assert not whole(session_factory, clock, admin)
 
 
 class TestInterruptedTransaction:
@@ -257,21 +318,24 @@ class TestClientDisconnection:
         import httpx
 
         base = f"http://127.0.0.1:{served}/api/v1"
-        token = httpx.post(
-            f"{base}/session", json={"username": "proprietor", "password": "Provision9Admin"}
-        ).json()["token"]
-        headers = {"X-Nickland-Session": token}
-        sale = httpx.get(f"{base}/pos/sale", headers=headers).json()
-        httpx.post(
-            f"{base}/pos/sales/{sale['id']}/scan",
-            headers=headers,
-            json={"code": stocked, "quantity": "2"},
-        )
-        httpx.post(
-            f"{base}/pos/sales/{sale['id']}/tenders",
-            headers=headers,
-            json={"method": "cash", "cash_received": "500"},
-        )
+        # A generous timeout: a loaded CI runner can take more than httpx's default five
+        # seconds to answer, and a timeout here would say nothing about the sale.
+        with httpx.Client(timeout=30) as client:
+            token = client.post(
+                f"{base}/session", json={"username": "proprietor", "password": "Provision9Admin"}
+            ).json()["token"]
+            headers = {"X-Nickland-Session": token}
+            sale = client.get(f"{base}/pos/sale", headers=headers).json()
+            client.post(
+                f"{base}/pos/sales/{sale['id']}/scan",
+                headers=headers,
+                json={"code": stocked, "quantity": "2"},
+            ).raise_for_status()
+            client.post(
+                f"{base}/pos/sales/{sale['id']}/tenders",
+                headers=headers,
+                json={"method": "cash", "cash_received": "500"},
+            ).raise_for_status()
 
         # Send the completion and hang up without waiting for the answer.
         body = b"{}"
@@ -282,12 +346,20 @@ class TestClientDisconnection:
         ).encode() + body
         with socket.create_connection(("127.0.0.1", served)) as raw:
             raw.sendall(request)
-        time.sleep(1.5)
 
-        check = session_factory()
-        try:
-            stored = check.get(PosSale, uuid.UUID(sale["id"]))
-            assert stored is not None and stored.state in {"open", "completed"}
-        finally:
-            check.close()
+        # The host finishes or abandons the request in its own time. Wait until the sale
+        # is completed, or long enough that it plainly was not, rather than a fixed pause.
+        state = None
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            check = session_factory()
+            try:
+                stored = check.get(PosSale, uuid.UUID(sale["id"]))
+                state = stored.state if stored is not None else None
+            finally:
+                check.close()
+            if state == "completed":
+                break
+            time.sleep(0.1)
+        assert state in {"open", "completed"}
         assert not whole(session_factory, clock, admin)

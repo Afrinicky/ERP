@@ -168,7 +168,7 @@ def numbered_duplicates(engine) -> list[str]:  # type: ignore[no-untyped-def]
     return found
 
 
-def verify(run_suite: bool) -> list[Outcome]:
+def verify(run_suite: bool, *, in_container: bool = False) -> list[Outcome]:
     outcomes: list[Outcome] = []
     tag = secrets.token_hex(4)
     database = f"nickland_verify_{tag}"
@@ -288,7 +288,8 @@ def verify(run_suite: bool) -> list[Outcome]:
             pass
         with engine.connect() as connection:
             listening = connection.execute(text("SHOW listen_addresses")).scalar()
-        if listening not in ("localhost", "127.0.0.1", "::1"):
+        loopback = listening in ("localhost", "127.0.0.1", "::1")
+        if not loopback and not in_container:
             problems.append(f"PostgreSQL listens on {listening}, beyond the host")
         for forbidden in (
             "CREATE TABLE intruder (id int)",
@@ -307,8 +308,14 @@ def verify(run_suite: bool) -> list[Outcome]:
                 "Only the authenticated service writes",
                 not problems,
                 f"{writes} write routes refused without a session over TLS; plain HTTP refused; "
-                f"PostgreSQL listens on {listening} only; the service role cannot create, drop or "
-                "alter tables, nor alter or delete the audit trail"
+                + (
+                    f"PostgreSQL listens on {listening} only; "
+                    if loopback
+                    else f"PostgreSQL listens on {listening}, allowed only because "
+                    "--database-in-container was given (a CI container, not a host); "
+                )
+                + "the service role cannot create, drop or alter tables, nor alter or delete "
+                "the audit trail"
                 if not problems
                 else "; ".join(problems[:4]),
             )
@@ -561,8 +568,9 @@ def verify(run_suite: bool) -> list[Outcome]:
             0,
             (
                 "PostgreSQL behaves as SQLite",
-                False,
-                "not run (--skip-suite); run without it to verify",
+                None,
+                "not run here (--skip-suite): run without it, or see the test step, which runs "
+                "the whole suite on both engines",
             ),
         )
     return outcomes
@@ -571,8 +579,16 @@ def verify(run_suite: bool) -> list[Outcome]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-suite", action="store_true")
+    parser.add_argument(
+        "--database-in-container",
+        action="store_true",
+        help="The PostgreSQL under test is a container that must listen beyond loopback (CI). "
+        "A real host is always held to listen_addresses = 'localhost'.",
+    )
     arguments = parser.parse_args()
-    outcomes = verify(run_suite=not arguments.skip_suite)
+    outcomes = verify(
+        run_suite=not arguments.skip_suite, in_container=arguments.database_in_container
+    )
     width = max(len(label) for label, _, _ in outcomes)
     print()
     for label, passed, detail in outcomes:

@@ -13,10 +13,13 @@ that a transaction either keeps entirely or never begins:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.pool import StaticPool
 
 from nickland.application.context import AnyActor
 from nickland.application.services.inventory_reports import InventoryReportService
@@ -51,11 +54,49 @@ class IntegrityService:
         self._clock = clock or SystemClock()
 
     def check(self, actor: AnyActor) -> IntegrityReport:
+        """Check the committed record, read as it stood at one moment.
+
+        The checks compare figures held in different tables (positions against movements,
+        a sale against its posting), so they are read in one snapshot. Read statement by
+        statement, a transaction that commits while the check runs, such as the sale of a
+        client that has just hung up, would land between two reads and make a whole record
+        look broken.
+        """
         actor.require("account.view")
+        with self._snapshot() as db:
+            return self._check(db, actor)
+
+    @contextmanager
+    def _snapshot(self) -> Iterator[DbSession]:
+        """A read-only session on its own connection, holding one snapshot throughout.
+
+        PostgreSQL gives it repeatable read. SQLite starts a read transaction explicitly,
+        because its driver begins one only before a write, and so would give each statement
+        a snapshot of its own. A database in memory has a single shared connection that no
+        one else can be writing through mid-check, so the caller's own session is used.
+        """
+        bind = self._db.get_bind()
+        if not isinstance(bind, Engine) or isinstance(bind.pool, StaticPool):
+            yield self._db
+            return
+        with bind.connect() as connection:
+            if bind.dialect.name == "postgresql":
+                connection = connection.execution_options(isolation_level="REPEATABLE READ")
+                connection.begin()
+            else:
+                connection.exec_driver_sql("BEGIN")
+            session = DbSession(bind=connection, autoflush=False, expire_on_commit=False)
+            try:
+                yield session
+            finally:
+                session.close()
+                connection.rollback()
+
+    def _check(self, db: DbSession, actor: AnyActor) -> IntegrityReport:
         business = actor.business_id
         report = IntegrityReport()
 
-        unbalanced = self._db.execute(
+        unbalanced = db.execute(
             select(
                 JournalEntry.number,
                 JournalEntry.total_debit,
@@ -81,7 +122,7 @@ class IntegrityService:
             ],
         )
 
-        sales = self._db.execute(
+        sales = db.execute(
             select(PosSale.number, PosSale.state, PosSale.journal_entry_fk).where(
                 PosSale.business_id == business
             )
@@ -96,12 +137,12 @@ class IntegrityService:
             ],
         )
 
-        receipts = self._db.execute(
+        receipts = db.execute(
             select(GoodsReceipt.number, GoodsReceipt.state, GoodsReceipt.journal_entry_fk).where(
                 GoodsReceipt.business_id == business
             )
         ).all()
-        invoices = self._db.execute(
+        invoices = db.execute(
             select(
                 SupplierInvoice.number, SupplierInvoice.state, SupplierInvoice.journal_entry_fk
             ).where(SupplierInvoice.business_id == business)
@@ -115,13 +156,13 @@ class IntegrityService:
             ],
         )
 
-        reconciliation = InventoryReportService(self._db, clock=self._clock).reconcile(actor)
+        reconciliation = InventoryReportService(db, clock=self._clock).reconcile(actor)
         report.record(
             "Stock agrees with its movements and layers",
             [f"Stock disagrees: {item}" for item in reconciliation.discrepancies[:10]],
         )
 
-        ledger = LedgerReportService(self._db, clock=self._clock)
+        ledger = LedgerReportService(db, clock=self._clock)
         trial = ledger.trial_balance(actor)
         report.record(
             "The trial balance balances",
