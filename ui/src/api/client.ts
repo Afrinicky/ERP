@@ -264,7 +264,6 @@ export class ServiceUnreachableError extends Error {
 }
 
 let sessionToken: string | null = readStoredToken();
-let localToken: string | null = readLocalToken();
 let onUnauthenticated: (() => void) | null = null;
 
 function readStoredToken(): string | null {
@@ -275,9 +274,70 @@ function readStoredToken(): string | null {
   }
 }
 
-function readLocalToken(): string | null {
-  const element = document.querySelector<HTMLMetaElement>('meta[name="nickland-local-token"]');
-  return element?.content || null;
+/*
+ * The desktop host accepts only requests that carry the token it issued at start. Its
+ * window opens the interface with ?shell=desktop and hands the token over through the
+ * window's own bridge (window.pywebview.api), which is ready only after the page has
+ * begun to run. Every request therefore waits for the token first. A browser, or a LAN
+ * workstation reaching the host, carries no token and waits for nothing.
+ */
+const DESKTOP_SHELL_KEY = 'nickland.desktopShell';
+const LOCAL_TOKEN_WAIT_MS = 15000;
+
+interface DesktopBridge {
+  api?: { local_token?: () => Promise<string> };
+}
+
+declare global {
+  interface Window {
+    pywebview?: DesktopBridge;
+  }
+}
+
+function inDesktopShell(): boolean {
+  const marked = new URLSearchParams(window.location.search).get('shell') === 'desktop';
+  try {
+    // Remembered for the tab, so a reload of a later page still asks for the token.
+    if (marked) window.sessionStorage.setItem(DESKTOP_SHELL_KEY, '1');
+    return marked || window.sessionStorage.getItem(DESKTOP_SHELL_KEY) === '1';
+  } catch {
+    return marked;
+  }
+}
+
+function askDesktopForToken(): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    // If the bridge never arrives, the requests go without it and the host's refusal is
+    // shown, rather than the interface waiting forever.
+    const timer = window.setTimeout(() => settle(null), LOCAL_TOKEN_WAIT_MS);
+    function settle(token: string | null): void {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('pywebviewready', ask);
+      resolve(token);
+    }
+    function ask(): void {
+      const bridge = window.pywebview?.api?.local_token;
+      if (!bridge) return;
+      bridge().then(
+        (token) => settle(token || null),
+        () => settle(null),
+      );
+    }
+    window.addEventListener('pywebviewready', ask);
+    ask();
+  });
+}
+
+const localToken: Promise<string | null> = inDesktopShell()
+  ? askDesktopForToken()
+  : Promise.resolve(null);
+
+async function withLocalToken(headers: Record<string, string>): Promise<void> {
+  const token = await localToken;
+  if (token) headers[LOCAL_HEADER] = token;
 }
 
 export function setSessionToken(token: string | null): void {
@@ -315,7 +375,7 @@ async function requestText(
 ): Promise<string> {
   const headers: Record<string, string> = { Accept: 'text/html' };
   if (sessionToken) headers[SESSION_HEADER] = sessionToken;
-  if (localToken) headers[LOCAL_HEADER] = localToken;
+  await withLocalToken(headers);
 
   let url = `${BASE}${path}`;
   if (query) {
@@ -358,7 +418,7 @@ async function requestFile(
 ): Promise<string> {
   const headers: Record<string, string> = { Accept: 'application/pdf' };
   if (sessionToken) headers[SESSION_HEADER] = sessionToken;
-  if (localToken) headers[LOCAL_HEADER] = localToken;
+  await withLocalToken(headers);
 
   let url = `${BASE}${path}`;
   if (query) {
@@ -396,7 +456,7 @@ async function request<T>(
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (sessionToken) headers[SESSION_HEADER] = sessionToken;
-  if (localToken) headers[LOCAL_HEADER] = localToken;
+  await withLocalToken(headers);
 
   let url = `${BASE}${path}`;
   if (query) {

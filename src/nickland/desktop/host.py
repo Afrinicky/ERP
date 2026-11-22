@@ -26,6 +26,25 @@ MINIMUM_SIZE = (1100, 700)
 INITIAL_SIZE = (1440, 900)
 
 
+DESKTOP_SHELL_QUERY = "shell=desktop"
+
+
+class WindowBridge:
+    """What the page inside the application window may ask of the host: its token.
+
+    pywebview exposes this object's public methods to the page as
+    ``window.pywebview.api``. It has one, and holds the token privately.
+    """
+
+    __slots__ = ("_token",)
+
+    def __init__(self, token: str) -> None:
+        self._token = token
+
+    def local_token(self) -> str:
+        return self._token
+
+
 @dataclass(slots=True)
 class LocalService:
     """A running local service."""
@@ -226,20 +245,20 @@ def run() -> int:
         return 0
 
     try:
-        window = webview.create_window(
+        # The token reaches the interface through the window's own bridge, which only the
+        # page inside this window can call: never through a URL, where history and logs
+        # would record it, nor through the served page, which any local process could
+        # fetch. The interface asks for it before its first request; the query string
+        # only tells it that it is running in this window and should ask.
+        webview.create_window(
             WINDOW_TITLE,
-            url=service.url,
+            url=f"{service.url}/?{DESKTOP_SHELL_QUERY}",
             width=INITIAL_SIZE[0],
             height=INITIAL_SIZE[1],
             min_size=MINIMUM_SIZE,
             text_select=True,
             confirm_close=True,
-        )
-        # The token reaches the interface through the document, never through a URL,
-        # so it is not recorded in history or in a log.
-        window.events.loaded += lambda: window.evaluate_js(
-            "(function(){var m=document.querySelector('meta[name=\"nickland-local-token\"]');"
-            f"if(m){{m.content={service.token!r};}}}})()"
+            js_api=WindowBridge(service.token),
         )
         webview.start()
         return 0
