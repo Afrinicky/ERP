@@ -11,11 +11,11 @@ import secrets
 import socket
 import threading
 from dataclasses import dataclass
-from pathlib import Path
 
 import uvicorn
 
 from nickland.interface.application import build_runtime, create_application
+from nickland.interface.static import interface_root
 from nickland.platform.config import DeploymentMode, Settings, get_settings
 from nickland.platform.logging import configure_logging, get_logger
 
@@ -50,15 +50,6 @@ def reserve_port(host: str) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind((host, 0))
         return int(probe.getsockname()[1])
-
-
-def interface_root() -> Path | None:
-    """The built interface, when it has been bundled alongside the package."""
-    candidate = Path(__file__).resolve().parents[3] / "ui" / "dist"
-    if candidate.is_dir():
-        return candidate
-    bundled = Path(__file__).resolve().parent / "interface"
-    return bundled if bundled.is_dir() else None
 
 
 def start_local_service(settings: Settings | None = None) -> LocalService:

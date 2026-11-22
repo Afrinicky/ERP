@@ -180,8 +180,8 @@ def transfer(settings: Settings, arguments: argparse.Namespace) -> int:
 def serve(settings: Settings, arguments: argparse.Namespace) -> int:
     import uvicorn
 
-    from nickland.desktop.host import interface_root
     from nickland.interface.application import create_application
+    from nickland.interface.static import interface_root
     from nickland.platform.tls import CertificateSet
 
     problems = settings.lan_host_problems()

@@ -467,15 +467,13 @@ class BackupService:
             )
             name = f"{admin_url.database}_drill_{secrets.token_hex(4)}"
             admin = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-            with admin.connect() as connection:
-                connection.execute(text(f'CREATE DATABASE "{name}"'))
+            _database_statement(admin, "CREATE DATABASE {}", name)
             pgtools.restore(admin_url, dump, name, directory=self._settings.postgres_bin)
             engine = create_engine(admin_url.set(database=name))
 
             def discard() -> None:
                 engine.dispose()
-                with admin.connect() as connection:
-                    connection.execute(text(f'DROP DATABASE IF EXISTS "{name}"'))
+                _database_statement(admin, "DROP DATABASE IF EXISTS {}", name)
                 admin.dispose()
 
             return _Scratch(engine, discard)
@@ -510,6 +508,16 @@ class BackupService:
                 return connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
         except Exception:
             return None
+
+
+def _database_statement(engine: Engine, template: str, name: str) -> None:
+    """CREATE or DROP DATABASE, which take no parameters: the name is quoted by the driver."""
+    from psycopg import sql
+
+    with engine.connect() as connection:
+        raw = connection.connection.driver_connection
+        assert raw is not None
+        raw.execute(sql.SQL(template).format(sql.Identifier(name)))
 
 
 def _hash_file(path: Path) -> str:

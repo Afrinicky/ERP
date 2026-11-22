@@ -25,6 +25,9 @@ from sqlalchemy.orm import Session
 
 Part = str | uuid.UUID | int | None
 
+EXCLUSIVE = text("SELECT pg_advisory_xact_lock(:key)")
+SHARED = text("SELECT pg_advisory_xact_lock_shared(:key)")
+
 
 def lock_key(*parts: Part) -> int:
     """A signed 64-bit key for a name made of parts."""
@@ -45,8 +48,8 @@ def advisory_lock(session: Session, *parts: Part, shared: bool = False) -> None:
     """
     if not supports_advisory_locks(session):
         return
-    function = "pg_advisory_xact_lock_shared" if shared else "pg_advisory_xact_lock"
-    session.execute(text(f"SELECT {function}(:key)"), {"key": lock_key(*parts)})
+    statement = SHARED if shared else EXCLUSIVE
+    session.execute(statement, {"key": lock_key(*parts)})
 
 
 def try_advisory_lock(session: Session, *parts: Part) -> bool:
