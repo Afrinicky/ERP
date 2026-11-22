@@ -40,6 +40,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev,postgres]'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # The Phase 13 verifier and the packaging self-test read the built interface.
+      - name: Build the interface
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      # pg_dump and pg_restore, for the PostgreSQL backup and restore drill.
+      - name: PostgreSQL client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+
       - name: Lint
         run: ruff check src tests tools
 
@@ -75,7 +94,6 @@ jobs:
           NICKLAND_DATA_DIRECTORY: ${{ runner.temp }}/nickland-verify
           NICKLAND_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/nickland_test
         run: |
-          sudo apt-get install -y --no-install-recommends postgresql-client-16 || true
           for phase in tools/verify_phase_*.py; do
             echo "::group::$phase"
             if [ "$phase" = "tools/verify_phase_15.py" ]; then
