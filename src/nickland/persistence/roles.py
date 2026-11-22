@@ -3,8 +3,8 @@
 Two roles, so that the service that answers clients cannot change the shape of the
 database or rewrite its history:
 
-* the **owner** owns the schema and runs migrations. Its password is used only by the
-  upgrade step, at the host, by an administrator;
+* the **owner** owns the schema, runs migrations and creates the restore drill's scratch
+  database. Its password is used only by those steps, at the host, by an administrator;
 * the **service** role is what the running service connects as. It may read and write
   rows, and nothing else: it cannot create, alter or drop a table, and it cannot alter or
   delete an audit entry.
@@ -46,7 +46,7 @@ class RolePlan:
         return [
             f"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{owner}') "
             f"THEN CREATE ROLE {owner} LOGIN; END IF; END $$",
-            f"ALTER ROLE {owner} WITH LOGIN PASSWORD {_literal(password)}",
+            f"ALTER ROLE {owner} WITH LOGIN CREATEDB PASSWORD {_literal(password)}",
             f"ALTER DATABASE {_identifier(self.database)} OWNER TO {owner}",
             f"ALTER SCHEMA {_identifier(self.schema)} OWNER TO {owner}",
         ]
