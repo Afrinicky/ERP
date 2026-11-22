@@ -37,8 +37,8 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 | 12 — Debt, Loans and Financing | **Delivered** | `tools/verify_phase_12.py` |
 | 13 — Budgets, Forecasting and Profitability | **Delivered** | `tools/verify_phase_13.py` |
 | 14 — Management Reporting and Period Close | **Delivered** | `tools/verify_phase_14.py` |
-| 15 — LAN Edition | Next | |
-| 16 | Not started | |
+| 15 — LAN Edition | **Delivered** | `tools/verify_phase_15.py` |
+| 16 — Cloud Readiness | Next | |
 
 Each verifier exercises its phase's exit criteria against a live database rather than
 asserting that the code was written. At the close of Phase 14, 2,246 tests pass and 12
