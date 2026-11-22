@@ -8,21 +8,27 @@ permission-controlled action.
 from __future__ import annotations
 
 import hashlib
+import json
+import secrets
 import shutil
 import sqlite3
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, create_engine, make_url, select, text
 from sqlalchemy.orm import Session as DbSession
 
 from nickland.application.audit import AuditAction, AuditRecorder
 from nickland.application.context import AnyActor
 from nickland.domain.errors import ConflictError, NotFoundError, ValidationError
+from nickland.persistence import pgtools
 from nickland.persistence.models import BackupRecord
+from nickland.persistence.transfer import digests, manifest
 from nickland.platform.clock import Clock, SystemClock
 from nickland.platform.config import Settings
 from nickland.platform.logging import get_logger
@@ -30,6 +36,31 @@ from nickland.platform.logging import get_logger
 logger = get_logger(__name__)
 
 _CHUNK = 1024 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class DrillReport:
+    """What a restore drill found."""
+
+    archive: str
+    taken_at: str | None
+    engine: str
+    tables: int
+    rows: int
+    table_mismatches: list[str]
+    files: int
+    file_mismatches: list[str]
+    seconds: float
+
+    @property
+    def reproduced(self) -> bool:
+        return not self.table_mismatches and not self.file_mismatches
+
+
+@dataclass(frozen=True, slots=True)
+class _Scratch:
+    engine: Engine
+    discard: Callable[[], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,13 +121,27 @@ class BackupService:
         try:
             with tempfile.TemporaryDirectory() as staging_name:
                 staging = Path(staging_name)
-                database_copy = staging / "nickland.db"
-                self._copy_database(database_copy)
+                database_copy, tables = self._copy_database(staging)
+                files = manifest(self._settings.attachment_directory) if include_attachments else {}
 
                 with zipfile.ZipFile(
                     archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
                 ) as bundle:
-                    bundle.write(database_copy, "database/nickland.db")
+                    bundle.write(database_copy, f"database/{database_copy.name}")
+                    bundle.writestr(
+                        "manifest.json",
+                        json.dumps(
+                            {
+                                "taken_at": started.isoformat(),
+                                "engine": self._engine.dialect.name,
+                                "schema_revision": record.schema_revision,
+                                "tables": tables,
+                                "attachments": files,
+                            },
+                            indent=1,
+                            sort_keys=True,
+                        ),
+                    )
                     bundle.writestr(
                         "manifest.txt",
                         "\n".join(
@@ -250,9 +295,16 @@ class BackupService:
             raise ConflictError("The database path could not be determined.")
         return Path(database)
 
-    def _copy_database(self, destination: Path) -> None:
-        """Copy the database consistently."""
+    def _copy_database(self, staging: Path) -> tuple[Path, dict[str, list[Any]]]:
+        """Copy the database consistently, with every table's digest as of the copy.
+
+        SQLite is copied through the online backup API and digested from the copy.
+        PostgreSQL is dumped by ``pg_dump`` from an exported snapshot, and digested in the
+        transaction that holds that snapshot, so the digests describe exactly the rows the
+        dump contains however busy the host is.
+        """
         if self._engine.dialect.name == "sqlite":
+            destination = staging / "nickland.db"
             source_path = self._database_path()
             if not source_path.exists():
                 raise ConflictError(f"The database file is not present at {source_path}.")
@@ -265,22 +317,58 @@ class BackupService:
                     target.close()
             finally:
                 source.close()
-            return
-        raise ConflictError(
-            "Backup of a PostgreSQL deployment is performed by the host service's "
-            "scheduled dump, not from a client. See the LAN deployment procedure."
-        )
+            copy = create_engine(f"sqlite+pysqlite:///{destination}")
+            try:
+                return destination, digests(copy)
+            finally:
+                copy.dispose()
+        destination = staging / "nickland.dump"
+        with self._engine.connect() as connection:
+            connection = connection.execution_options(isolation_level="REPEATABLE READ")
+            with connection.begin():
+                snapshot = connection.execute(text("SELECT pg_export_snapshot()")).scalar()
+                tables = digests(connection)
+                pgtools.dump(
+                    self._engine.url,
+                    destination,
+                    snapshot=str(snapshot),
+                    directory=self._settings.postgres_bin,
+                    schema=pgtools.schema_of(self._engine.url),
+                )
+        return destination, tables
 
     def _verify(self, archive: Path) -> tuple[bool, str]:
-        """Verify the archive and run an integrity check on the contained database."""
+        """Verify the archive: its members, the database within it, and every attachment
+        against the digest recorded when it was taken."""
         try:
             with zipfile.ZipFile(archive) as bundle:
                 damaged = bundle.testzip()
                 if damaged is not None:
                     return False, f"Archive member is corrupt: {damaged}"
-                if "database/nickland.db" not in bundle.namelist():
-                    return False, "Archive does not contain a database."
+                names = set(bundle.namelist())
+                recorded = (
+                    json.loads(bundle.read("manifest.json")) if "manifest.json" in names else {}
+                )
+                for relative, expected in (recorded.get("attachments") or {}).items():
+                    stored = f"attachments/{relative}"
+                    if stored not in names:
+                        return False, f"Attachment missing from the archive: {relative}"
+                    if hashlib.sha256(bundle.read(stored)).hexdigest() != expected:
+                        return False, f"Attachment altered in the archive: {relative}"
                 with tempfile.TemporaryDirectory() as staging:
+                    if "database/nickland.dump" in names:
+                        extracted = Path(staging) / "nickland.dump"
+                        with (
+                            bundle.open("database/nickland.dump") as member,
+                            extracted.open("wb") as out,
+                        ):
+                            shutil.copyfileobj(member, out)
+                        objects = pgtools.list_contents(
+                            extracted, directory=self._settings.postgres_bin
+                        )
+                        return True, f"Dump readable: {objects} objects listed."
+                    if "database/nickland.db" not in names:
+                        return False, "Archive does not contain a database."
                     extracted = Path(staging) / "nickland.db"
                     with bundle.open("database/nickland.db") as member, extracted.open("wb") as out:
                         shutil.copyfileobj(member, out)
@@ -297,6 +385,103 @@ class BackupService:
             return True, f"Integrity check passed. {tables} tables present."
         except Exception as error:
             return False, f"Verification failed: {error}"
+
+    # -- the restore drill ----------------------------------------------------------------
+
+    def drill(self, actor: AnyActor, archive_name: str | None = None) -> DrillReport:
+        """Restore a backup somewhere harmless and prove it reproduces what was taken.
+
+        The database is restored into a scratch database (PostgreSQL) or file (SQLite),
+        every table is digested and compared with the digests recorded at backup time,
+        and every attachment is extracted and compared with its recorded digest. The
+        scratch copy is then removed. Nothing the business is using is touched.
+        """
+        actor.require("backup.manage")
+        if archive_name is None:
+            latest = self.latest(actor)
+            if latest is None or not latest.storage_key:
+                raise NotFoundError("No verified backup is available to drill.")
+            archive_name = latest.storage_key
+        archive = self._settings.backup_directory / Path(archive_name).name
+        if not archive.exists():
+            raise NotFoundError(f"Backup not found: {archive_name}")
+        started = self._clock.now()
+        with zipfile.ZipFile(archive) as bundle, tempfile.TemporaryDirectory() as staging_name:
+            staging = Path(staging_name)
+            names = set(bundle.namelist())
+            if "manifest.json" not in names:
+                raise ConflictError("This backup predates recorded digests and cannot be drilled.")
+            recorded = json.loads(bundle.read("manifest.json"))
+            for member in names:
+                resolved = (staging / member).resolve()
+                if not str(resolved).startswith(str(staging.resolve())):
+                    raise ConflictError(f"Backup contains an unsafe path: {member}")
+            bundle.extractall(staging)
+            restored = self._restore_scratch(staging)
+            try:
+                tables = digests(restored.engine)
+            finally:
+                restored.discard()
+            files = manifest(staging / "attachments")
+        expected_tables: dict[str, list[Any]] = recorded.get("tables", {})
+        expected_files: dict[str, str] = recorded.get("attachments", {})
+        table_mismatches = sorted(
+            name for name, value in expected_tables.items() if tables.get(name) != value
+        )
+        file_mismatches = sorted(
+            name for name, value in expected_files.items() if files.get(name) != value
+        )
+        report = DrillReport(
+            archive=archive.name,
+            taken_at=recorded.get("taken_at"),
+            engine=str(recorded.get("engine")),
+            tables=len(expected_tables),
+            rows=sum(int(value[0]) for value in expected_tables.values()),
+            table_mismatches=table_mismatches,
+            files=len(expected_files),
+            file_mismatches=file_mismatches,
+            seconds=(self._clock.now() - started).total_seconds(),
+        )
+        self._audit.record(
+            actor,
+            "restore_drill",
+            entity_type="backup",
+            entity_label=archive.name,
+            context={
+                "reproduced": report.reproduced,
+                "tables": report.tables,
+                "rows": report.rows,
+                "files": report.files,
+                "table_mismatches": table_mismatches[:20],
+                "file_mismatches": file_mismatches[:20],
+            },
+        )
+        return report
+
+    def _restore_scratch(self, staging: Path) -> _Scratch:
+        dump = staging / "database" / "nickland.dump"
+        if dump.exists():
+            admin_url = make_url(
+                self._settings.migration_database_url
+                or self._engine.url.render_as_string(hide_password=False)
+            )
+            name = f"{admin_url.database}_drill_{secrets.token_hex(4)}"
+            admin = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+            with admin.connect() as connection:
+                connection.execute(text(f'CREATE DATABASE "{name}"'))
+            pgtools.restore(admin_url, dump, name, directory=self._settings.postgres_bin)
+            engine = create_engine(admin_url.set(database=name))
+
+            def discard() -> None:
+                engine.dispose()
+                with admin.connect() as connection:
+                    connection.execute(text(f'DROP DATABASE IF EXISTS "{name}"'))
+                admin.dispose()
+
+            return _Scratch(engine, discard)
+        database = staging / "database" / "nickland.db"
+        engine = create_engine(f"sqlite+pysqlite:///{database}")
+        return _Scratch(engine, engine.dispose)
 
     def _prune(self, actor: AnyActor) -> None:
         """Remove archives beyond the retention count."""

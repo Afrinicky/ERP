@@ -37,6 +37,7 @@ dev = [
 [project.scripts]
 nickland = "nickland.desktop.__main__:main"
 nickland-service = "nickland.interface.__main__:main"
+nickland-host = "nickland.interface.hostctl:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

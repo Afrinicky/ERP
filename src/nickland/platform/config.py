@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     backup_interval_hours: int = 24
     """How often the host takes a scheduled backup. 0 turns scheduled backups off."""
 
+    postgres_bin: Path | None = None
+    """Where pg_dump and pg_restore are, when they are not on the path."""
+
     lan_port: int = 8443
     """Where the LAN host listens for clients, over TLS."""
     migration_database_url: str | None = None

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -115,6 +115,9 @@ class InterfaceFiles(StaticFiles):
 SCHEDULE_INTERVAL_SECONDS = 60
 
 
+BACKUP_CHECK_SECONDS = 900
+
+
 async def _run_report_schedules(runtime: Runtime) -> None:
     """Scheduled reports, generated in the background and delivered to inboxes.
 
@@ -122,21 +125,80 @@ async def _run_report_schedules(runtime: Runtime) -> None:
     request, and a failure is logged and tried again on the next pass.
     """
     from nickland.application.services.report_runs import run_schedules
+    from nickland.application.workers import beat, register
     from nickland.persistence.engine import unit_of_work
 
     def one_pass() -> int:
         with unit_of_work(runtime.session_factory) as session:
             return run_schedules(session, clock=runtime.clock)
 
+    register("Scheduled reports", SCHEDULE_INTERVAL_SECONDS)
     await asyncio.sleep(15)
     while True:
         try:
             produced = await asyncio.to_thread(one_pass)
+            beat("Scheduled reports", runtime.clock.now())
             if produced:
                 logger.info("Scheduled reports generated: %d", produced)
-        except Exception:
+        except Exception as error:
+            beat("Scheduled reports", runtime.clock.now(), error=str(error)[:300])
             logger.exception("Scheduled reports could not be generated")
         await asyncio.sleep(SCHEDULE_INTERVAL_SECONDS)
+
+
+async def _run_backups(runtime: Runtime) -> None:
+    """A verified backup whenever the last is older than the configured interval."""
+    from nickland.application.workers import beat, register
+
+    register("Scheduled backups", BACKUP_CHECK_SECONDS)
+    await asyncio.sleep(60)
+    while True:
+        try:
+            taken = await asyncio.to_thread(_backup_if_due, runtime)
+            beat("Scheduled backups", runtime.clock.now())
+            if taken:
+                logger.info("Scheduled backup taken")
+        except Exception as error:
+            beat("Scheduled backups", runtime.clock.now(), error=str(error)[:300])
+            logger.exception("Scheduled backup failed")
+        await asyncio.sleep(BACKUP_CHECK_SECONDS)
+
+
+def _backup_if_due(runtime: Runtime) -> bool:
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from nickland.application.context import SystemActor
+    from nickland.application.services.backup import BackupService
+    from nickland.persistence.engine import unit_of_work
+    from nickland.persistence.models import Business
+
+    settings = runtime.settings
+    if not settings.backup_enabled or settings.backup_interval_hours <= 0:
+        return False
+    with unit_of_work(runtime.session_factory) as session:
+        business = session.scalar(select(Business.id))
+        if business is None:
+            return False
+        actor = SystemActor(business_id=business, reason="Scheduled backup")
+        service = BackupService(session, runtime.engine, settings, clock=runtime.clock)
+        latest = service.latest(actor)
+        due = latest is None or runtime.clock.now() - latest.started_at >= timedelta(
+            hours=settings.backup_interval_hours
+        )
+        if due:
+            service.run(actor, trigger="scheduled")
+        return due
+
+
+SECURITY_HEADERS = {
+    "Strict-Transport-Security": "max-age=31536000",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store",
+}
 
 
 def create_application(
@@ -163,13 +225,16 @@ def create_application(
             active.environment.value,
         )
         _apply_staged_restore(active)
-        runner = (
-            asyncio.create_task(_run_report_schedules(resolved_runtime))
+        runners = (
+            [
+                asyncio.create_task(_run_report_schedules(resolved_runtime)),
+                asyncio.create_task(_run_backups(resolved_runtime)),
+            ]
             if active.environment is not Environment.TEST
-            else None
+            else []
         )
         yield
-        if runner is not None:
+        for runner in runners:
             runner.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await runner
@@ -188,6 +253,22 @@ def create_application(
     application.state.runtime = resolved_runtime
 
     if active.deployment_mode is DeploymentMode.LAN_HOST:
+
+        @application.middleware("http")
+        async def secure(
+            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+        ) -> Response:
+            # Served to the network: the browser is told to keep to TLS, never to frame
+            # the application, and never to keep a page of business records in its cache.
+            response = await call_next(request)
+            if request.url.path.startswith("/api/"):
+                for name, value in SECURITY_HEADERS.items():
+                    response.headers.setdefault(name, value)
+            else:
+                response.headers.setdefault("X-Frame-Options", "DENY")
+                response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            return response
+
         # Clients are served from the host, so only the host origin is permitted.
         application.add_middleware(
             CORSMiddleware,

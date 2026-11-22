@@ -7,7 +7,6 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from nickland.domain.money import ZERO
@@ -426,10 +425,6 @@ class TestAudit:
 
 
 class TestBackupAndHealth:
-    @pytest.fixture(autouse=True)
-    def _standalone_only(self, sqlite_only: None) -> None:
-        """Backup here is the standalone SQLite path."""
-
     def test_takes_and_verifies_a_backup(self, admin_client: TestClient) -> None:
         response = admin_client.post(f"{API}/backups", json={"include_attachments": True})
         assert response.status_code == 201
@@ -437,7 +432,10 @@ class TestBackupAndHealth:
         assert body["status"] == "verified"
         assert body["verified_at"] is not None
         assert body["size_bytes"] > 0
-        assert "Integrity check passed" in body["verification_note"]
+        assert (
+            "Integrity check passed" in body["verification_note"]
+            or "Dump readable" in body["verification_note"]
+        )
 
     def test_the_backup_appears_in_the_history(self, admin_client: TestClient) -> None:
         admin_client.post(f"{API}/backups", json={})

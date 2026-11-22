@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Engine, Table, func, insert, select
+from sqlalchemy import Connection, Engine, Table, func, insert, select
 
 from nickland.persistence.base import Base
 
@@ -88,17 +88,56 @@ def _canonical(value: Any) -> Any:
     return value
 
 
-def _rows(engine: Engine, table: Table) -> Iterator[dict[str, Any]]:
+def _rows(bind: Engine | Connection, table: Table) -> Iterator[dict[str, Any]]:
     order = list(table.primary_key.columns) or list(table.columns)
-    with engine.connect() as connection:
-        result = connection.execution_options(stream_results=True).execute(
-            select(table).order_by(*order)
-        )
+    statement = select(table).order_by(*order)
+    if isinstance(bind, Connection):
+        for row in bind.execute(statement).mappings():
+            yield dict(row)
+        return
+    with bind.connect() as connection:
+        result = connection.execution_options(stream_results=True).execute(statement)
         for row in result.mappings():
             yield dict(row)
 
 
-def digest(engine: Engine, table: Table) -> tuple[int, str]:
+def _parents_first(table: Table, rows: Iterator[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Rows in an order where any row another row of the same table refers to (a unit's
+    base unit, a category's parent) arrives before the row that refers to it."""
+    pairs = [
+        (element.parent.name, element.column.name)
+        for constraint in table.foreign_key_constraints
+        if constraint.referred_table is table
+        for element in constraint.elements
+    ]
+    if not pairs:
+        yield from rows
+        return
+    pending = list(rows)
+    emitted: set[Any] = set()
+    while pending:
+        waiting = []
+        for row in pending:
+            ready = all(
+                row.get(local) is None
+                or row.get(local) == row.get(remote)
+                or (remote, row.get(local)) in emitted
+                for local, remote in pairs
+            )
+            if ready:
+                for _, remote in pairs:
+                    emitted.add((remote, row.get(remote)))
+                yield row
+            else:
+                waiting.append(row)
+        if len(waiting) == len(pending):
+            # A reference to a row that does not exist: let the database refuse it.
+            yield from waiting
+            return
+        pending = waiting
+
+
+def digest(engine: Engine | Connection, table: Table) -> tuple[int, str]:
     """Row count and SHA-256 of the table's rows, each column as the application reads it."""
     hasher = hashlib.sha256()
     count = 0
@@ -134,7 +173,7 @@ def transfer(source: Engine, target: Engine, *, verify: bool = True) -> Transfer
     with target.begin() as connection:
         for table in tables:
             batch: list[dict[str, Any]] = []
-            for row in _rows(source, table):
+            for row in _parents_first(table, _rows(source, table)):
                 batch.append(row)
                 if len(batch) >= BATCH:
                     connection.execute(insert(table), batch)
@@ -150,6 +189,11 @@ def transfer(source: Engine, target: Engine, *, verify: bool = True) -> Transfer
                 TableResult(table.name, source_rows, target_rows, source_digest, target_digest)
             )
     return report
+
+
+def digests(bind: Engine | Connection) -> dict[str, list[Any]]:
+    """Every table's row count and digest, by name."""
+    return {table.name: list(digest(bind, table)) for table in _tables()}
 
 
 def file_digest(path: Path) -> str:
@@ -191,6 +235,7 @@ __all__ = [
     "TransferReport",
     "copy_files",
     "digest",
+    "digests",
     "file_digest",
     "manifest",
     "transfer",

@@ -83,6 +83,7 @@ def start_local_service(settings: Settings | None = None) -> LocalService:
         log_config=None,
         access_log=False,
         lifespan="on",
+        ws="none",
     )
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, name="nickland-service", daemon=True)
@@ -122,6 +123,59 @@ def _instance_port(settings: Settings) -> int:
     return 49200 + (int.from_bytes(digest[:2], "big") % 300)
 
 
+def verify_host(settings: Settings) -> str:
+    """The host's address, once its certificate has been shown to be the one pinned.
+
+    A client never opens a host it cannot identify: a machine answering on the host's
+    address with another certificate is refused before a password is typed into it.
+    """
+    from urllib.parse import urlparse
+
+    from nickland.platform.tls import peer_fingerprint
+
+    if not settings.host_url:
+        raise RuntimeError("Set NICKLAND_HOST_URL to the host, for example https://erp-host:8443.")
+    address = urlparse(settings.host_url)
+    if address.scheme != "https" or not address.hostname:
+        raise RuntimeError("A LAN client connects to its host over https only.")
+    if settings.host_fingerprint:
+        presented = peer_fingerprint(address.hostname, address.port or 443)
+        expected = settings.host_fingerprint.strip().upper()
+        if presented != expected:
+            raise RuntimeError(
+                "The host presented a certificate that is not the one this workstation "
+                f"trusts.\n  Expected {expected}\n  Presented {presented}\n"
+                "Do not sign in. Ask whoever looks after the host."
+            )
+    return settings.host_url.rstrip("/")
+
+
+def run_client(settings: Settings) -> int:
+    """A LAN workstation: no local service and no database, only the host's window."""
+    try:
+        url = verify_host(settings)
+    except (RuntimeError, OSError) as problem:
+        logger.error("The host could not be verified: %s", problem)
+        print(f"Nickland ERP cannot open the host.\n{problem}")
+        return 1
+    try:
+        import webview
+    except ImportError:
+        print(f"Open {url} in a browser on this workstation.")
+        return 0
+    webview.create_window(
+        WINDOW_TITLE,
+        url=url,
+        width=INITIAL_SIZE[0],
+        height=INITIAL_SIZE[1],
+        min_size=MINIMUM_SIZE,
+        text_select=True,
+        confirm_close=True,
+    )
+    webview.start()
+    return 0
+
+
 def run() -> int:
     """Start the service and open the window."""
     settings = get_settings()
@@ -131,6 +185,8 @@ def run() -> int:
         directory=settings.log_directory,
         as_json=settings.log_json,
     )
+    if settings.deployment_mode is DeploymentMode.LAN_CLIENT:
+        return run_client(settings)
 
     lock = acquire_single_instance(settings)
     if lock is None:

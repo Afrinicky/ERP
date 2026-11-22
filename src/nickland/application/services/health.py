@@ -84,6 +84,10 @@ class HealthService:
             self._storage(),
             self._network(),
         ]
+        if self._settings.deployment_mode is DeploymentMode.LAN_HOST:
+            checks.append(self._transport())
+        if self._engine.dialect.name == "postgresql":
+            checks.append(self._connections())
         if actor is not None:
             checks.append(self._backup(actor))
         checks.append(self._workers())
@@ -255,16 +259,89 @@ class HealthService:
         )
 
     def _workers(self) -> Check:
-        """Background worker queue.
+        """The service's background work: scheduled reports and backups."""
+        from nickland.application.workers import workers
 
-        Phase 1 runs scheduled work in-process; the queue report becomes meaningful when
-        the worker pool arrives.
-        """
+        running = workers()
+        if not running:
+            return Check(
+                name="Background work",
+                state=HealthState.UNAVAILABLE,
+                detail="No background work has started in this process.",
+                measurements={"workers": 0},
+            )
+        now = self._clock.now()
+        late = [
+            item.name
+            for item in running
+            if item.last_pass is None
+            or (now - item.last_pass).total_seconds() > 5 * item.interval_seconds + 60
+        ]
+        failing = [item.name for item in running if item.last_error]
+        state = HealthState.DEGRADED if late or failing else HealthState.OK
+        detail = (
+            "Scheduled reports and backups are running."
+            if state is HealthState.OK
+            else "; ".join(
+                [
+                    *(f"{name} has not run recently" for name in late),
+                    *(f"{name} failed on its last pass" for name in failing),
+                ]
+            )
+            + "."
+        )
         return Check(
             name="Background work",
-            state=HealthState.OK,
-            detail="In-process scheduler running.",
-            measurements={"queued": 0},
+            state=state,
+            detail=detail,
+            measurements={
+                item.name: {
+                    "last_pass": item.last_pass.isoformat() if item.last_pass else None,
+                    "passes": item.passes,
+                    "error": item.last_error,
+                }
+                for item in running
+            },
+        )
+
+    def _transport(self) -> Check:
+        """The LAN host's certificate: present, and not about to expire."""
+        from nickland.platform.tls import RENEW_WITHIN_DAYS, inspect
+
+        status = inspect(self._settings.tls_directory)
+        if status is None:
+            return Check(
+                name="Encrypted transport",
+                state=HealthState.FAILED,
+                detail="No TLS certificate. Clients cannot connect securely.",
+            )
+        now = self._clock.now()
+        days = (status.not_after - now).days
+        return Check(
+            name="Encrypted transport",
+            state=HealthState.DEGRADED
+            if status.expires_within(RENEW_WITHIN_DAYS, now=now)
+            else HealthState.OK,
+            detail=f"Certificate valid for {days} more days."
+            if days > RENEW_WITHIN_DAYS
+            else f"Certificate expires in {days} days: run `nickland-host certificates`.",
+            measurements={"fingerprint": status.fingerprint, "names": status.names},
+        )
+
+    def _connections(self) -> Check:
+        """How many connections the host's database is serving."""
+        with self._engine.connect() as connection:
+            count = connection.execute(
+                text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()")
+            ).scalar()
+            limit = connection.execute(text("SHOW max_connections")).scalar()
+        used = int(count or 0)
+        ceiling = int(limit or 100)
+        return Check(
+            name="Database connections",
+            state=HealthState.DEGRADED if used > ceiling * 0.8 else HealthState.OK,
+            detail=f"{used} of {ceiling} connections in use.",
+            measurements={"in_use": used, "limit": ceiling},
         )
 
 

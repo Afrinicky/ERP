@@ -58,13 +58,9 @@ def engine_name(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture
 def sqlite_only(engine_name: str) -> None:
-    """Skip a test that exercises a SQLite-specific mechanism.
-
-    The standalone backup uses SQLite's online backup API. A PostgreSQL deployment is
-    backed up by the host service's scheduled dump, which Phase 15 delivers.
-    """
+    """Skip a test that exercises a SQLite-specific mechanism."""
     if engine_name != "sqlite":
-        pytest.skip("standalone SQLite mechanism; PostgreSQL backup arrives in Phase 15")
+        pytest.skip("a standalone SQLite mechanism")
 
 
 @pytest.fixture
