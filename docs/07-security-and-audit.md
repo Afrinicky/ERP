@@ -21,18 +21,24 @@ is a convenience and is never treated as a control.
 
 ### Roles
 
-The eight roles of PRD §3 are seeded. Each is editable, and further roles may be created.
+Two roles are seeded. Each is editable, and further roles may be created.
 
 | Role | Principal capabilities |
 | --- | --- |
-| Owner and administrator | Business setup, branding, templates, pricing, tax configuration, permissions, approvals |
-| Sales officer | RFQs, quotations, customer follow-up, sales orders |
-| Purchasing officer | Supplier sourcing, comparisons, purchase orders, supplier invoices |
-| Receiving and store officer | Goods receipt, inspection, assembly, batch and expiry, stock |
-| Dispatch officer | Picking, packing, waybills, delivery, proof of receipt |
-| Cashier | Point of sale, payments, receipts, returns, shift reconciliation |
-| Accountant | Receivables, payables, expenses, tax, financial reports |
-| Auditor | Read-only access to records, documents and the audit trail |
+| Administrator | Everything: business setup, branding, templates, pricing, tax configuration, permissions, approvals |
+| Sales Person | Customers, RFQs, quotations, sales orders, the counter, and the documents each produces |
+
+PRD §3 describes eight job functions. Two are seeded, because two are what this business
+has, and a user list carrying six roles nobody fills is harder to read than one carrying
+the two that are used. The decision is about seeding, not about capability: every
+permission the other six would need is in the registry, so an administrator creates
+purchasing, stores, dispatch, cash, accounts or audit under Settings without a code
+change.
+
+`pos.discount`, `pos.refund`, `pos.price_override` and `pos.shift_approve` are withheld
+from the sales person. With no separate cashier role they work the till, so what they may
+do there unsupervised is the question that matters: they may sell, and they may not
+discount, refund, override a price or approve their own shift.
 
 ### Permission model
 

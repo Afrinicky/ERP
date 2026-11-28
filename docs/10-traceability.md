@@ -20,8 +20,8 @@ Phases are defined in the [build plan](00-build-plan.md).
 | §6.3 | Costing and pricing engine | 5 |
 | §6.4 | Affiliate commission | 5 |
 | §6.5 | Outright and instalment plans | 5 |
-| §6.6 | Document designer | 6 |
-| §6.7 | Document generation and acknowledgement | 6, 9 |
+| §6.6 | Document designer | 3.5, 6 |
+| §6.7 | Document generation and acknowledgement | 3.5, 6, 9 |
 | §6.8 | Procurement, receiving and assembly | 7, 8 |
 | §6.9 | Dispatch and delivery | 9 |
 | §6.10 | Point of sale | 10 |
@@ -101,9 +101,9 @@ Phases are defined in the [build plan](00-build-plan.md).
 | AC-02 | Cost build-up | 5 | Unit tests across the canonical sequence; build-up panel exposes every component |
 | AC-03 | Affiliate selection | 5 | Unit tests for every scope, in and out |
 | AC-04 | Instalment pricing | 5 | Unit tests per duration band; schedule disclosure asserted |
-| AC-05 | Redesign pro forma | 6 | End-to-end test: columns and sections added, removed, reordered and previewed |
-| AC-06 | New document type | 6 | End-to-end test: custom type, fields and numbering sequence created |
-| AC-07 | Order procurement | 7 | Integration test: accepted order linked to supplier POs and available stock |
+| AC-05 | Redesign pro forma | 6 | End-to-end test over HTTP, and `tools/verify_phase_6.py`: columns and sections added, removed, reordered, re-labelled and previewed |
+| AC-06 | New document type | 6 | Integration test and `tools/verify_phase_6.py`: custom type, its own fields and its own numbering sequence created |
+| AC-07 | Order procurement | 7 | Integration and HTTP tests, and `tools/verify_phase_7.py`: acceptance evidence, conversion without re-entry, several purchase orders serving one order, the stock part drawn on conversion |
 | AC-08 | Delivery acknowledgement | 9 | Integration test: waybill and signed proof linked to the order |
 | AC-09 | POS cash sale | 10 | End-to-end test: receipt issued; stock, cash and change recorded |
 | AC-10 | Split and electronic tender | 10 | Integration test: tender amounts and confirmation states accurate |

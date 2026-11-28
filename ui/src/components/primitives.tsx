@@ -1,0 +1,1231 @@
+/**
+ * Component library.
+ *
+ * Every component reads the semantic token layer through its class names. No colour,
+ * font, spacing or radius literal appears here.
+ */
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
+
+import { Icons } from './icons';
+
+/* ------------------------------------------------------------------ Button */
+
+type ButtonTone = 'primary' | 'secondary' | 'plain' | 'destructive';
+/**
+ * The sizing tiers of the design system. `transactional` and `counter` are the two
+ * point-of-sale tiers: a control pressed many times an hour, and the keypad keys and
+ * the one primary action of a sale.
+ */
+type ControlSize = 'compact' | 'standard' | 'touch' | 'transactional' | 'counter';
+
+const SIZE_CLASS: Record<ControlSize, string> = {
+  compact: 'button--compact',
+  standard: '',
+  touch: 'button--touch',
+  transactional: 'button--transactional',
+  counter: 'button--counter',
+};
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  tone?: ButtonTone;
+  size?: ControlSize;
+  block?: boolean;
+  busy?: boolean;
+  icon?: ReactNode;
+}
+
+export function Button({
+  tone = 'secondary',
+  size = 'standard',
+  block,
+  busy,
+  icon,
+  children,
+  className,
+  disabled,
+  ...rest
+}: ButtonProps) {
+  const classes = [
+    'button',
+    `button--${tone}`,
+    SIZE_CLASS[size],
+    block ? 'button--block' : '',
+    className ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <button className={classes} disabled={disabled || busy} aria-busy={busy} {...rest}>
+      {busy ? <span className="button__spinner" aria-hidden="true" /> : icon}
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A navigation link presented as a button.
+ *
+ * Used where the action is navigation: a button wrapping a link is neither, and reads
+ * incorrectly to assistive technology.
+ */
+export function LinkButton({
+  tone = 'secondary',
+  size = 'standard',
+  children,
+  ...rest
+}: {
+  tone?: ButtonTone;
+  size?: ControlSize;
+  children: ReactNode;
+} & AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const classes = [
+    'button',
+    `button--${tone}`,
+    size === 'compact' ? 'button--compact' : '',
+    size === 'touch' ? 'button--touch' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <a className={classes} {...rest}>
+      {children}
+    </a>
+  );
+}
+
+/* ------------------------------------------------------------------ Field */
+
+interface FieldProps {
+  label: string;
+  children: (id: string, describedBy: string | undefined) => ReactNode;
+  hint?: string;
+  error?: string | null;
+  required?: boolean;
+  optional?: boolean;
+  full?: boolean;
+}
+
+/**
+ * A labelled field. The label is persistent; placeholder text is never the only label.
+ * Validation sits next to the field and is announced to assistive technology.
+ */
+export function Field({
+  label,
+  children,
+  hint,
+  error,
+  required,
+  optional,
+  full,
+}: FieldProps) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  const describedBy = [hint ? hintId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div className={`field${full ? ' form-grid__full' : ''}`}>
+      <label className="field__label" htmlFor={id}>
+        {label}
+        {required ? (
+          <span className="field__required" aria-hidden="true">
+            required
+          </span>
+        ) : null}
+        {optional ? <span className="field__optional">optional</span> : null}
+      </label>
+      {children(id, describedBy || undefined)}
+      {hint && !error ? (
+        <span className="field__hint" id={hintId}>
+          {hint}
+        </span>
+      ) : null}
+      {error ? (
+        <span className="field__error" id={errorId} role="alert">
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export function TextInput({
+  invalid,
+  numeric,
+  className,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; numeric?: boolean }) {
+  return (
+    <input
+      className={[
+        'input',
+        invalid ? 'input--invalid' : '',
+        numeric ? 'input--numeric' : '',
+        className ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-invalid={invalid || undefined}
+      {...rest}
+    />
+  );
+}
+
+export function TextArea({
+  invalid,
+  className,
+  ...rest
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
+  return (
+    <textarea
+      className={['textarea', invalid ? 'textarea--invalid' : '', className ?? '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-invalid={invalid || undefined}
+      {...rest}
+    />
+  );
+}
+
+export function Select({
+  invalid,
+  className,
+  children,
+  ...rest
+}: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
+  return (
+    <select
+      className={['select', invalid ? 'select--invalid' : '', className ?? '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-invalid={invalid || undefined}
+      {...rest}
+    >
+      {children}
+    </select>
+  );
+}
+
+interface CheckboxProps {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}
+
+export function Checkbox({ label, hint, checked, onChange, disabled }: CheckboxProps) {
+  return (
+    <label className="choice">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className="choice__body">
+        <span className="choice__label">{label}</span>
+        {hint ? <span className="choice__hint">{hint}</span> : null}
+      </span>
+    </label>
+  );
+}
+
+export function Switch({
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="row gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        className="switch"
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+      />
+      <span className="choice__label">{label}</span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Card */
+
+export function Card({
+  title,
+  subtitle,
+  actions,
+  children,
+  footer,
+  flush,
+}: {
+  title?: string;
+  subtitle?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  flush?: boolean;
+}) {
+  return (
+    <section className="card">
+      {title ? (
+        <header className="card__header">
+          <div className="card__heading">
+            <h2 className="card__title">{title}</h2>
+            {subtitle ? <p className="card__subtitle">{subtitle}</p> : null}
+          </div>
+          {actions ? <div className="row gap-2">{actions}</div> : null}
+        </header>
+      ) : null}
+      <div className={`card__body${flush ? ' card__body--flush' : ''}`}>{children}</div>
+      {footer ? <footer className="card__footer">{footer}</footer> : null}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ Status */
+
+export type Tone = 'ok' | 'warning' | 'error' | 'info' | 'neutral' | 'accent';
+
+/** Shape and label in addition to colour, so colour is never the sole carrier. */
+export function StatusChip({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return (
+    <span className={`chip chip--${tone}`}>
+      <span className="chip__mark" aria-hidden="true" />
+      {children}
+    </span>
+  );
+}
+
+export function Alert({
+  tone,
+  title,
+  children,
+}: {
+  tone: 'error' | 'warning' | 'info' | 'success';
+  title?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={`alert alert--${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
+      <div className="alert__body">
+        {title ? <span className="alert__title">{title}</span> : null}
+        {children ? <span className="alert__detail">{children}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Measure tile */
+
+/** Value, period and comparison. Never a bare number. */
+export function Measure({
+  label,
+  value,
+  period,
+  footer,
+  text,
+}: {
+  label: string;
+  value: string;
+  period?: string;
+  footer?: ReactNode;
+  text?: boolean;
+}) {
+  return (
+    <div className="measure">
+      <span className="measure__label">{label}</span>
+      <span className={`measure__value${text ? ' measure__value--text' : ''}`}>{value}</span>
+      <div className="measure__footer">
+        {period ? <span className="measure__period">{period}</span> : null}
+        {footer}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Empty and loading */
+
+/** Explains the absence and offers the next action. */
+export function EmptyState({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="empty">
+      <p className="empty__title">{title}</p>
+      {detail ? <p className="empty__detail">{detail}</p> : null}
+      {action}
+    </div>
+  );
+}
+
+/** Matches the eventual layout, rather than a spinner over a blank region. */
+export function Skeleton({ rows = 3, height = 20 }: { rows?: number; height?: number }) {
+  return (
+    <div className="stack gap-2" aria-busy="true" aria-live="polite">
+      <span className="visually-hidden">Loading</span>
+      {Array.from({ length: rows }, (_, index) => (
+        <div
+          key={index}
+          className="skeleton"
+          style={{ height, width: index === rows - 1 ? '60%' : '100%' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function TableSkeleton({ columns, rows = 5 }: { columns: number; rows?: number }) {
+  return (
+    <tbody aria-busy="true">
+      {Array.from({ length: rows }, (_, row) => (
+        <tr key={row}>
+          {Array.from({ length: columns }, (_, column) => (
+            <td key={column}>
+              <div className="skeleton" style={{ height: 14, width: column === 0 ? '70%' : '45%' }} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  );
+}
+
+/* ------------------------------------------------------------------ Dialog */
+
+/**
+ * A modal dialog. Focus is trapped within it and returns to the invoking control on
+ * close; Escape closes it.
+ */
+export function Dialog({
+  title,
+  children,
+  footer,
+  onClose,
+  size = 'md',
+}: {
+  title: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  onClose: () => void;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const panel = useRef<HTMLDivElement>(null);
+  const invoker = useRef<Element | null>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    invoker.current = document.activeElement;
+    const first = panel.current?.querySelector<HTMLElement>(
+      'input, select, textarea, button, [tabindex]:not([tabindex="-1"])',
+    );
+    first?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !panel.current) return;
+      const focusable = Array.from(
+        panel.current.querySelectorAll<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown, true);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.body.style.overflow = previous;
+      (invoker.current as HTMLElement | null)?.focus?.();
+    };
+  }, [onClose]);
+
+  return (
+    // A click beside the dialog does not close it: a half-entered form, a count sheet or a
+    // drawn signature would be lost to a stray click. Close, Cancel and Escape remain.
+    <div className="dialog-backdrop">
+      <div
+        className={`dialog dialog--${size}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        ref={panel}
+      >
+        <header className="dialog__header">
+          <h2 className="dialog__title" id={titleId}>
+            {title}
+          </h2>
+          <Button tone="plain" size="compact" onClick={onClose} aria-label="Close">
+            Close
+          </Button>
+        </header>
+        <div className="dialog__body">{children}</div>
+        {footer ? <footer className="dialog__footer">{footer}</footer> : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Confirmation of a destructive action. Names the record and states what cannot be
+ * undone.
+ */
+export function ConfirmDialog({
+  title,
+  record,
+  consequence,
+  confirmLabel,
+  requireReason,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  record: string;
+  consequence: string;
+  confirmLabel: string;
+  requireReason?: boolean;
+  busy?: boolean;
+  onConfirm: (reason: string) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const blocked = Boolean(requireReason) && reason.trim().length === 0;
+
+  return (
+    <Dialog
+      title={title}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button tone="plain" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            tone="destructive"
+            busy={busy}
+            disabled={blocked}
+            onClick={() => onConfirm(reason.trim())}
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="stack gap-4">
+        <div className="stack gap-2">
+          <p>
+            <strong>{record}</strong>
+          </p>
+          <p className="muted">{consequence}</p>
+        </div>
+        {requireReason ? (
+          <Field label="Reason" required hint="Recorded in the audit trail.">
+            {(id, describedBy) => (
+              <TextArea
+                id={id}
+                aria-describedby={describedBy}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                rows={3}
+              />
+            )}
+          </Field>
+        ) : null}
+      </div>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ Toast */
+
+interface ToastEntry {
+  id: number;
+  tone: 'success' | 'error' | 'info';
+  message: string;
+}
+
+interface ToastApi {
+  show: (tone: ToastEntry['tone'], message: string) => void;
+}
+
+const ToastContext = createContext<ToastApi>({ show: () => undefined });
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [entries, setEntries] = useState<ToastEntry[]>([]);
+  const next = useRef(0);
+
+  const show = useCallback((tone: ToastEntry['tone'], message: string) => {
+    const id = (next.current += 1);
+    setEntries((current) => [...current, { id, tone, message }]);
+    window.setTimeout(() => {
+      setEntries((current) => current.filter((entry) => entry.id !== id));
+    }, 6000);
+  }, []);
+
+  const value = useMemo(() => ({ show }), [show]);
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+      <div className="toast-region" role="status" aria-live="polite">
+        {entries.map((entry) => (
+          <div key={entry.id} className={`toast toast--${entry.tone}`}>
+            <span className="toast__mark" aria-hidden="true" />
+            <span>{entry.message}</span>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast(): ToastApi {
+  return useContext(ToastContext);
+}
+
+/* ------------------------------------------------------------------ Tabs */
+
+export function Tabs<T extends string>({
+  items,
+  active,
+  onChange,
+}: {
+  items: { id: T; label: string }[];
+  active: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="tabs" role="tablist">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="tab"
+          className="tab"
+          aria-selected={item.id === active}
+          onClick={() => onChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Description list */
+
+export function Details({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="details">
+      {rows.map(([term, value]) => (
+        <div key={term} style={{ display: 'contents' }}>
+          <dt>{term}</dt>
+          <dd>{value ?? <span className="muted">Not recorded</span>}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Advanced settings behind a labelled disclosure. */
+export function Disclosure({
+  summary,
+  children,
+  open,
+}: {
+  summary: string;
+  children: ReactNode;
+  open?: boolean;
+}) {
+  return (
+    <details className="disclosure" open={open}>
+      <summary className="disclosure__summary">{summary}</summary>
+      <div className="disclosure__body">{children}</div>
+    </details>
+  );
+}
+
+export function SectionHeader({
+  title,
+  detail,
+  actions,
+}: {
+  title: string;
+  detail?: string;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="section-header">
+      <div className="stack gap-1">
+        <h2>{title}</h2>
+        {detail ? <p className="caption">{detail}</p> : null}
+      </div>
+      {actions ? <div className="row gap-2">{actions}</div> : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ Transactional patterns */
+
+/**
+ * The following are drawn from a working pharmacy terminal the business already uses.
+ * They are the patterns a till operator reads without being taught, so they are
+ * implemented here once rather than reinvented per screen.
+ */
+
+/**
+ * A row in a product or party picker.
+ *
+ * An unavailable item is listed rather than hidden, with the reason set inline in red
+ * italics after the name. Hiding it would leave the operator searching for something
+ * that is there; stating why is faster than their discovering it at the till.
+ */
+export function PickerOption({
+  label,
+  unavailable,
+  secondary,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  unavailable?: string | null;
+  secondary?: string;
+  selected?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      aria-disabled={Boolean(unavailable)}
+      className="picker__option"
+      onClick={onSelect}
+    >
+      <span className="picker__label">
+        {label}
+        {unavailable ? <em className="picker__unavailable"> ({unavailable})</em> : null}
+      </span>
+      {secondary ? <span className="picker__secondary">{secondary}</span> : null}
+    </button>
+  );
+}
+
+export function PickerList({
+  children,
+  empty,
+}: {
+  children: ReactNode;
+  empty?: string;
+}) {
+  return (
+    <div className="picker" role="listbox" tabIndex={-1}>
+      {children}
+      {empty ? <p className="picker__empty">{empty}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The running total of a transaction.
+ *
+ * Set at the largest size on the screen, because at a till it is the one figure read
+ * from a distance and the one the customer is told.
+ */
+export function TotalDisplay({
+  label = 'Total',
+  value,
+  caption,
+  tone,
+  compact,
+}: {
+  label?: string;
+  value: string;
+  caption?: string;
+  tone?: 'default' | 'due' | 'settled';
+  /** Sized for a dialog footer rather than for a counter read at arm's length. */
+  compact?: boolean;
+}) {
+  return (
+    <div className={`total total--${tone ?? 'default'}${compact ? ' total--compact' : ''}`}>
+      <span className="total__label">{label}</span>
+      <span className="total__value">{value}</span>
+      {caption ? <span className="total__caption">{caption}</span> : null}
+    </div>
+  );
+}
+
+/** A mutually exclusive choice, presented as radios rather than a select. */
+export function RadioGroup<T extends string>({
+  legend,
+  options,
+  value,
+  onChange,
+  inline,
+  disabled,
+}: {
+  legend: string;
+  options: { value: T; label: string; hint?: string; disabled?: boolean }[];
+  value: T;
+  onChange: (value: T) => void;
+  inline?: boolean;
+  disabled?: boolean;
+}) {
+  const name = useId();
+  return (
+    <fieldset className="radio-group" disabled={disabled}>
+      <legend className="radio-group__legend">{legend}</legend>
+      <div className={`radio-group__options${inline ? ' radio-group__options--inline' : ''}`}>
+        {options.map((option) => (
+          <label className="choice" key={option.value}>
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={option.value === value}
+              disabled={option.disabled}
+              onChange={() => onChange(option.value)}
+            />
+            <span className="choice__body">
+              <span className="choice__label">{option.label}</span>
+              {option.hint ? <span className="choice__hint">{option.hint}</span> : null}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * A label-left form row.
+ *
+ * Used on dense transactional screens, where the eye runs down a column of labels and
+ * the controls align to a second column. The stacked Field is used elsewhere.
+ */
+export function FormRow({
+  label,
+  required,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  error?: string | null;
+  children: (id: string, describedBy: string | undefined) => ReactNode;
+}) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  const describedBy = [hint ? hintId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div className="form-row">
+      <label className="form-row__label" htmlFor={id}>
+        {label}
+        {required ? (
+          <span className="form-row__required" aria-hidden="true">
+            *
+          </span>
+        ) : null}
+      </label>
+      <div className="form-row__control">
+        {children(id, describedBy || undefined)}
+        {hint && !error ? (
+          <span className="field__hint" id={hintId}>
+            {hint}
+          </span>
+        ) : null}
+        {error ? (
+          <span className="field__error" id={errorId} role="alert">
+            {error}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** A search field carrying its magnifier, as a scanner-driven picker does. */
+export function SearchField({
+  value,
+  onChange,
+  placeholder,
+  label,
+  autoFocus,
+  onKeyDown,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+  autoFocus?: boolean;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="search-field">
+      <svg
+        className="search-field__glyph"
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.5 4.5" />
+      </svg>
+      <input
+        type="search"
+        className="search-field__input"
+        value={value}
+        placeholder={placeholder}
+        aria-label={label}
+        autoFocus={autoFocus}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={onKeyDown}
+      />
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------ Transactional controls */
+
+/**
+ * A quantity stepper: decrement, a typed field, increment.
+ *
+ * The field accepts direct typing because a stepper suits a small adjustment from a
+ * common value, and a quantity of three hundred is faster typed than tapped. Holding a
+ * button repeats after a short delay; the arrow keys do what the buttons do; a button at
+ * its bound is disabled rather than hidden, so the bound is visible. Never used for a
+ * price: a price is continuous and precise, and belongs in a field alone.
+ */
+export function Stepper({
+  id,
+  value,
+  onChange,
+  min = 0,
+  max,
+  step = 1,
+  unit,
+  size = 'transactional',
+  disabled,
+  describedBy,
+  label,
+}: {
+  id?: string;
+  /** The current value as text, so a typed fraction is never rounded under the finger. */
+  value: string;
+  onChange: (value: string) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Announced with the value, and shown after it: "4 boxes". */
+  unit?: string;
+  size?: 'standard' | 'transactional' | 'counter';
+  disabled?: boolean;
+  describedBy?: string;
+  /** An accessible name where no visible Field label wraps the control. */
+  label?: string;
+}) {
+  const repeat = useRef<number | null>(null);
+  const delay = useRef<number | null>(null);
+  const numeric = Number.parseFloat(value);
+  const current = Number.isFinite(numeric) ? numeric : 0;
+  const atMin = current <= min;
+  const atMax = max !== undefined && current >= max;
+
+  const settle = (next: number) => {
+    const bounded = Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, next));
+    // Keep the step's own precision: a step of 0.5 must not come back as 0.50000001.
+    const places = (String(step).split('.')[1] ?? '').length;
+    onChange(bounded.toFixed(places));
+  };
+
+  const stop = useCallback(() => {
+    if (delay.current !== null) window.clearTimeout(delay.current);
+    if (repeat.current !== null) window.clearInterval(repeat.current);
+    delay.current = null;
+    repeat.current = null;
+  }, []);
+
+  useEffect(() => stop, [stop]);
+
+  /** Press once; hold to repeat after a short delay, as a physical keypad would. */
+  const press = (direction: 1 | -1) => {
+    let next = current;
+    const tick = () => {
+      next += direction * step;
+      settle(next);
+    };
+    tick();
+    delay.current = window.setTimeout(() => {
+      repeat.current = window.setInterval(tick, 90);
+    }, 400);
+  };
+
+  const sizeClass =
+    size === 'counter'
+      ? 'stepper--counter'
+      : size === 'transactional'
+        ? 'stepper--transactional'
+        : '';
+
+  return (
+    <div className={`stepper ${sizeClass}`.trim()} role="group" aria-label={label}>
+      <button
+        type="button"
+        className="stepper__button"
+        aria-label="Reduce"
+        disabled={disabled || atMin}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          press(-1);
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onPointerLeave={stop}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            settle(current - step);
+          }
+        }}
+      >
+        <Icons.minus />
+      </button>
+      <input
+        id={id}
+        className="stepper__field"
+        type="text"
+        inputMode="decimal"
+        value={value}
+        disabled={disabled}
+        aria-describedby={describedBy}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={current}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => settle(current)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            settle(current + step);
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            settle(current - step);
+          }
+        }}
+      />
+      {unit ? <span className="stepper__unit">{unit}</span> : null}
+      <button
+        type="button"
+        className="stepper__button"
+        aria-label="Add"
+        disabled={disabled || atMax}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          press(1);
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onPointerLeave={stop}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            settle(current + step);
+          }
+        }}
+      >
+        <Icons.plus />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A numeric keypad: the digits in telephone order, the decimal point, a backspace,
+ * and a tall key for the primary completion. The keys are the counter tier.
+ *
+ * A secondary path by design: whatever it feeds can also be typed, so a keyboard or a
+ * scanner is never the slower route.
+ */
+export function Keypad({
+  value,
+  onChange,
+  onComplete,
+  completeLabel = 'Enter',
+  decimal = true,
+  maximumLength = 12,
+  disabled,
+  compact,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onComplete?: () => void;
+  completeLabel?: string;
+  decimal?: boolean;
+  maximumLength?: number;
+  disabled?: boolean;
+  /** For a dialog rather than the counter. */
+  compact?: boolean;
+}) {
+  const put = (digit: string) => {
+    if (value.length >= maximumLength) return;
+    if (digit === '.' && (!decimal || value.includes('.'))) return;
+    if (value === '0' && digit !== '.') {
+      onChange(digit);
+      return;
+    }
+    onChange(value + digit);
+  };
+  const erase = () => onChange(value.slice(0, -1));
+
+  const key = (label: string, onPress: () => void, extra = '') => (
+    <button
+      key={label}
+      type="button"
+      className={`keypad__key ${extra}`.trim()}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className={`keypad${compact ? ' keypad--compact' : ''}`} role="group" aria-label="Keypad">
+      {key('7', () => put('7'))}
+      {key('8', () => put('8'))}
+      {key('9', () => put('9'))}
+      <button
+        type="button"
+        className="keypad__key keypad__key--erase"
+        aria-label="Backspace"
+        disabled={disabled}
+        onClick={erase}
+      >
+        <Icons.backspace />
+      </button>
+      {key('4', () => put('4'))}
+      {key('5', () => put('5'))}
+      {key('6', () => put('6'))}
+      <button
+        type="button"
+        className="keypad__key keypad__key--complete"
+        disabled={disabled || !onComplete}
+        onClick={onComplete}
+      >
+        {completeLabel}
+      </button>
+      {key('1', () => put('1'))}
+      {key('2', () => put('2'))}
+      {key('3', () => put('3'))}
+      {key('0', () => put('0'), 'keypad__key--zero')}
+      {decimal ? key('.', () => put('.')) : <span className="keypad__blank" aria-hidden="true" />}
+    </div>
+  );
+}
+
+/**
+ * Suggested amounts for a cash tender: the exact figure first, then the next notes
+ * above it.
+ *
+ * The suggestions are computed by the service, not here. Which notes a currency has
+ * and how a figure rounds to them is a business fact, and the interface only shows
+ * what it is given — the same rule that keeps every other monetary figure in Python.
+ */
+export function AmountShortcuts({
+  suggestions,
+  onChoose,
+  format,
+  disabled,
+}: {
+  /** As the service returns them: decimal strings, the exact amount first. */
+  suggestions: { amount: string; exact: boolean }[];
+  onChoose: (amount: string) => void;
+  /** Presents an amount string as the business writes money. */
+  format: (amount: string) => string;
+  disabled?: boolean;
+}) {
+  if (suggestions.length === 0) return null;
+  return (
+    <div className="amounts" role="group" aria-label="Suggested amounts">
+      {suggestions.map((candidate) => (
+        <button
+          key={candidate.amount}
+          type="button"
+          className={`amounts__choice${candidate.exact ? ' amounts__choice--exact' : ''}`}
+          disabled={disabled}
+          onClick={() => onChoose(candidate.amount)}
+        >
+          {candidate.exact ? <span className="amounts__caption">Exact</span> : null}
+          <span className="amounts__value">{format(candidate.amount)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}

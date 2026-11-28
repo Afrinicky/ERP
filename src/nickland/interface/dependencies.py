@@ -1,0 +1,497 @@
+"""Request dependencies: the unit of work, the actor and the service container.
+
+Authentication happens here. Authorisation happens in the application layer.
+"""
+
+from __future__ import annotations
+
+import secrets
+import uuid
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Annotated
+
+from fastapi import Depends, Header, Request
+from sqlalchemy import Engine, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from nickland.application.context import Actor
+from nickland.application.services.access import AccessControlService
+from nickland.application.services.accounts import AccountService
+from nickland.application.services.analytics import AnalyticsService
+from nickland.application.services.assembly import AssemblyService
+from nickland.application.services.attachments import AttachmentService
+from nickland.application.services.backup import BackupService
+from nickland.application.services.budgets import BudgetService
+from nickland.application.services.catalogue import CatalogueService
+from nickland.application.services.command_centre import CommandCentreService
+from nickland.application.services.commissions import CommissionService
+from nickland.application.services.custom_fields import CustomFieldService
+from nickland.application.services.debts import DebtService
+from nickland.application.services.designer import DesignerService
+from nickland.application.services.dispatch import DispatchService
+from nickland.application.services.documents import DocumentRecordService
+from nickland.application.services.expenses import ExpenseService
+from nickland.application.services.forecasts import ForecastService
+from nickland.application.services.health import HealthService
+from nickland.application.services.identity import IdentityService
+from nickland.application.services.importing import ImportService
+from nickland.application.services.inventory import InventoryService
+from nickland.application.services.inventory_reports import InventoryReportService
+from nickland.application.services.journals import JournalService
+from nickland.application.services.ledger_reports import LedgerReportService
+from nickland.application.services.loans import LoanService
+from nickland.application.services.orders import SalesOrderService
+from nickland.application.services.organisation import OrganisationService
+from nickland.application.services.parties import PartyService
+from nickland.application.services.payables import PayablesService
+from nickland.application.services.periods import PeriodService
+from nickland.application.services.pos import PosService
+from nickland.application.services.pricing_lists import PriceListService
+from nickland.application.services.pricing_policy import PricingPolicyService
+from nickland.application.services.procurement import ProcurementService
+from nickland.application.services.profitability import ProfitabilityService
+from nickland.application.services.quotations import QuotationService
+from nickland.application.services.receivables import ReceivablesService
+from nickland.application.services.reconciliation import ReconciliationService
+from nickland.application.services.setup import SetupService
+from nickland.application.services.sourcing import SourcingService
+from nickland.application.services.supplier_billing import SupplierBillingService
+from nickland.application.services.taxation import TaxService
+from nickland.application.services.theme import ThemeService
+from nickland.application.services.treasury import TreasuryService
+from nickland.application.services.units import UnitService
+from nickland.documents.service import DocumentRenderService
+from nickland.domain.errors import AuthenticationError, ConflictError
+from nickland.domain.identity import LockoutPolicy, PasswordPolicy, SessionPolicy
+from nickland.persistence.models import Business
+from nickland.platform.clock import Clock
+from nickland.platform.config import Settings
+
+SESSION_HEADER = "X-Nickland-Session"
+LOCAL_HEADER = "X-Nickland-Local-Token"
+
+
+@dataclass(slots=True)
+class Runtime:
+    """Process-wide objects, attached to the application at start-up."""
+
+    settings: Settings
+    engine: Engine
+    session_factory: sessionmaker[Session]
+    clock: Clock
+    local_token: str | None = None
+    setup_code: str | None = None
+    """Issued by the LAN host when it starts on a database not yet set up. First-run
+    setup must quote it, so only the person at the host can claim the administrator
+    account; any computer on the network can otherwise reach the setup screen."""
+
+    @property
+    def password_policy(self) -> PasswordPolicy:
+        return PasswordPolicy(minimum_length=self.settings.password_minimum_length)
+
+    @property
+    def lockout_policy(self) -> LockoutPolicy:
+        from datetime import timedelta
+
+        return LockoutPolicy(
+            threshold=self.settings.lockout_threshold,
+            duration=timedelta(minutes=self.settings.lockout_minutes),
+        )
+
+    @property
+    def session_policy(self) -> SessionPolicy:
+        from datetime import timedelta
+
+        return SessionPolicy(
+            idle=timedelta(minutes=self.settings.session_idle_minutes),
+            absolute=timedelta(hours=self.settings.session_absolute_hours),
+        )
+
+
+def get_runtime(request: Request) -> Runtime:
+    runtime: Runtime = request.app.state.runtime
+    return runtime
+
+
+RuntimeDependency = Annotated[Runtime, Depends(get_runtime)]
+
+
+def get_unit_of_work(runtime: RuntimeDependency) -> Iterator[Session]:
+    """One transaction per request.
+
+    Commits when the handler returns, rolls back on any exception, so a failed
+    operation leaves no partial write.
+    """
+    session = runtime.session_factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+SessionDependency = Annotated[Session, Depends(get_unit_of_work)]
+
+
+def verify_local_token(
+    runtime: RuntimeDependency,
+    local_token: Annotated[str | None, Header(alias=LOCAL_HEADER)] = None,
+) -> None:
+    """Reject a request not bearing the token issued by the desktop host.
+
+    The local service binds to loopback and accepts only this token, so another
+    process on the machine cannot drive the application.
+    """
+    if runtime.local_token is None:
+        return
+    if local_token != runtime.local_token:
+        raise AuthenticationError("This request did not come from the application.")
+
+
+LocalGuard = Annotated[None, Depends(verify_local_token)]
+
+
+SETUP_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+"""No 0/O or 1/I, which are read aloud and typed from a screen."""
+
+
+def issue_setup_code() -> str:
+    """A one-time code of twelve characters in three groups: about sixty bits."""
+    characters = "".join(secrets.choice(SETUP_CODE_ALPHABET) for _ in range(12))
+    return "-".join(characters[index : index + 4] for index in range(0, 12, 4))
+
+
+def _normalise_setup_code(code: str) -> str:
+    return "".join(character for character in code.upper() if character.isalnum())
+
+
+def verify_setup_code(runtime: Runtime, code: str | None) -> None:
+    """Refuse first-run setup that does not quote the host's code, where one was issued."""
+    if runtime.setup_code is None:
+        return
+    expected = _normalise_setup_code(runtime.setup_code)
+    if not secrets.compare_digest(_normalise_setup_code(code or ""), expected):
+        raise AuthenticationError(
+            "Enter the setup code shown on the host computer when its service started. "
+            "It is also written to the host's log."
+        )
+
+
+def get_identity_service(session: SessionDependency, runtime: RuntimeDependency) -> IdentityService:
+    return IdentityService(
+        session,
+        clock=runtime.clock,
+        password_policy=runtime.password_policy,
+        lockout_policy=runtime.lockout_policy,
+        session_policy=runtime.session_policy,
+    )
+
+
+IdentityDependency = Annotated[IdentityService, Depends(get_identity_service)]
+
+
+def get_access_control(
+    session: SessionDependency, runtime: RuntimeDependency, identity: IdentityDependency
+) -> AccessControlService:
+    return AccessControlService(session, clock=runtime.clock, identity=identity)
+
+
+AccessDependency = Annotated[AccessControlService, Depends(get_access_control)]
+
+
+def get_actor(
+    identity: IdentityDependency,
+    session_token: Annotated[str | None, Header(alias=SESSION_HEADER)] = None,
+    user_agent: Annotated[str | None, Header()] = None,
+) -> Actor:
+    """Resolve the authenticated actor, or refuse the request."""
+    if not session_token:
+        raise AuthenticationError("Sign in to continue.")
+    return identity.resolve_session(session_token, device=user_agent)
+
+
+ActorDependency = Annotated[Actor, Depends(get_actor)]
+
+
+def get_setup_service(session: SessionDependency, runtime: RuntimeDependency) -> SetupService:
+    return SetupService(session, clock=runtime.clock)
+
+
+def get_organisation_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> OrganisationService:
+    return OrganisationService(session, clock=runtime.clock)
+
+
+def get_theme_service(session: SessionDependency, runtime: RuntimeDependency) -> ThemeService:
+    return ThemeService(session, clock=runtime.clock)
+
+
+def get_custom_field_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CustomFieldService:
+    return CustomFieldService(session, clock=runtime.clock)
+
+
+def get_backup_service(session: SessionDependency, runtime: RuntimeDependency) -> BackupService:
+    return BackupService(session, runtime.engine, runtime.settings, clock=runtime.clock)
+
+
+def get_health_service(session: SessionDependency, runtime: RuntimeDependency) -> HealthService:
+    return HealthService(session, runtime.engine, runtime.settings, clock=runtime.clock)
+
+
+SetupDependency = Annotated[SetupService, Depends(get_setup_service)]
+OrganisationDependency = Annotated[OrganisationService, Depends(get_organisation_service)]
+ThemeDependency = Annotated[ThemeService, Depends(get_theme_service)]
+CustomFieldDependency = Annotated[CustomFieldService, Depends(get_custom_field_service)]
+BackupDependency = Annotated[BackupService, Depends(get_backup_service)]
+HealthDependency = Annotated[HealthService, Depends(get_health_service)]
+
+
+def sole_business_id(session: Session) -> uuid.UUID:
+    """The identifier of the single configured business.
+
+    The interface exposes one business, per ADR-0003. Sign-in therefore need not ask
+    which business is meant. When multi-business operation is activated in Phase 16,
+    sign-in takes the business explicitly and this helper is withdrawn.
+    """
+    identifiers = list(session.scalars(select(Business.id).limit(2)))
+    if not identifiers:
+        raise ConflictError("This installation has not been set up.")
+    if len(identifiers) > 1:
+        raise ConflictError(
+            "More than one business is configured. Multi-business sign-in is not "
+            "enabled in this release."
+        )
+    return identifiers[0]
+
+
+def get_unit_service(session: SessionDependency, runtime: RuntimeDependency) -> UnitService:
+    return UnitService(session, clock=runtime.clock)
+
+
+def get_catalogue_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CatalogueService:
+    return CatalogueService(session, clock=runtime.clock)
+
+
+def get_party_service(session: SessionDependency, runtime: RuntimeDependency) -> PartyService:
+    return PartyService(session, clock=runtime.clock)
+
+
+def get_price_list_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> PriceListService:
+    return PriceListService(session, clock=runtime.clock)
+
+
+def get_import_service(session: SessionDependency, runtime: RuntimeDependency) -> ImportService:
+    return ImportService(session, clock=runtime.clock)
+
+
+UnitDependency = Annotated[UnitService, Depends(get_unit_service)]
+CatalogueDependency = Annotated[CatalogueService, Depends(get_catalogue_service)]
+PartyDependency = Annotated[PartyService, Depends(get_party_service)]
+PriceListDependency = Annotated[PriceListService, Depends(get_price_list_service)]
+ImportDependency = Annotated[ImportService, Depends(get_import_service)]
+
+
+def get_account_service(session: SessionDependency, runtime: RuntimeDependency) -> AccountService:
+    return AccountService(session, clock=runtime.clock)
+
+
+def get_journal_service(session: SessionDependency, runtime: RuntimeDependency) -> JournalService:
+    return JournalService(session, clock=runtime.clock)
+
+
+def get_period_service(session: SessionDependency, runtime: RuntimeDependency) -> PeriodService:
+    return PeriodService(session, clock=runtime.clock)
+
+
+def get_ledger_report_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> LedgerReportService:
+    return LedgerReportService(session, clock=runtime.clock)
+
+
+AccountDependency = Annotated[AccountService, Depends(get_account_service)]
+JournalDependency = Annotated[JournalService, Depends(get_journal_service)]
+PeriodDependency = Annotated[PeriodService, Depends(get_period_service)]
+LedgerReportDependency = Annotated[LedgerReportService, Depends(get_ledger_report_service)]
+
+
+def get_document_records(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> DocumentRecordService:
+    return DocumentRecordService(session, clock=runtime.clock)
+
+
+def get_document_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> DocumentRenderService:
+    return DocumentRenderService(session, clock=runtime.clock)
+
+
+def get_designer(session: SessionDependency, runtime: RuntimeDependency) -> DesignerService:
+    return DesignerService(session, clock=runtime.clock)
+
+
+def get_sales_orders(session: SessionDependency, runtime: RuntimeDependency) -> SalesOrderService:
+    return SalesOrderService(session, clock=runtime.clock)
+
+
+def get_procurement(session: SessionDependency, runtime: RuntimeDependency) -> ProcurementService:
+    return ProcurementService(session, clock=runtime.clock)
+
+
+def get_supplier_billing(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> SupplierBillingService:
+    return SupplierBillingService(session, clock=runtime.clock)
+
+
+def get_payables(session: SessionDependency, runtime: RuntimeDependency) -> PayablesService:
+    return PayablesService(session, clock=runtime.clock)
+
+
+def get_attachments(session: SessionDependency, runtime: RuntimeDependency) -> AttachmentService:
+    return AttachmentService(session, settings=runtime.settings, clock=runtime.clock)
+
+
+def get_inventory(session: SessionDependency, runtime: RuntimeDependency) -> InventoryService:
+    return InventoryService(session, clock=runtime.clock)
+
+
+def get_inventory_reports(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> InventoryReportService:
+    return InventoryReportService(session, clock=runtime.clock)
+
+
+def get_assembly(session: SessionDependency, runtime: RuntimeDependency) -> AssemblyService:
+    return AssemblyService(session, clock=runtime.clock)
+
+
+def get_dispatch(session: SessionDependency, runtime: RuntimeDependency) -> DispatchService:
+    return DispatchService(session, clock=runtime.clock)
+
+
+def get_pos(session: SessionDependency, runtime: RuntimeDependency) -> PosService:
+    return PosService(session, clock=runtime.clock)
+
+
+InventoryDependency = Annotated[InventoryService, Depends(get_inventory)]
+InventoryReportDependency = Annotated[InventoryReportService, Depends(get_inventory_reports)]
+AssemblyDependency = Annotated[AssemblyService, Depends(get_assembly)]
+DispatchDependency = Annotated[DispatchService, Depends(get_dispatch)]
+PosDependency = Annotated[PosService, Depends(get_pos)]
+
+
+def get_treasury(session: SessionDependency, runtime: RuntimeDependency) -> TreasuryService:
+    return TreasuryService(session, clock=runtime.clock)
+
+
+def get_receivables(session: SessionDependency, runtime: RuntimeDependency) -> ReceivablesService:
+    return ReceivablesService(session, clock=runtime.clock)
+
+
+def get_expenses(session: SessionDependency, runtime: RuntimeDependency) -> ExpenseService:
+    return ExpenseService(session, clock=runtime.clock)
+
+
+def get_loans(session: SessionDependency, runtime: RuntimeDependency) -> LoanService:
+    return LoanService(session, clock=runtime.clock)
+
+
+def get_debts(session: SessionDependency, runtime: RuntimeDependency) -> DebtService:
+    return DebtService(session, clock=runtime.clock)
+
+
+def get_budgets(session: SessionDependency, runtime: RuntimeDependency) -> BudgetService:
+    return BudgetService(session, clock=runtime.clock)
+
+
+def get_forecasts(session: SessionDependency, runtime: RuntimeDependency) -> ForecastService:
+    return ForecastService(session, clock=runtime.clock)
+
+
+def get_analytics(session: SessionDependency, runtime: RuntimeDependency) -> AnalyticsService:
+    return AnalyticsService(session, clock=runtime.clock)
+
+
+def get_profitability(session: SessionDependency) -> ProfitabilityService:
+    return ProfitabilityService(session)
+
+
+def get_reconciliation(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> ReconciliationService:
+    return ReconciliationService(session, clock=runtime.clock)
+
+
+def get_command_centre(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CommandCentreService:
+    return CommandCentreService(session, clock=runtime.clock)
+
+
+TreasuryDependency = Annotated[TreasuryService, Depends(get_treasury)]
+ReceivablesDependency = Annotated[ReceivablesService, Depends(get_receivables)]
+ExpenseDependency = Annotated[ExpenseService, Depends(get_expenses)]
+LoanDependency = Annotated[LoanService, Depends(get_loans)]
+BudgetDependency = Annotated[BudgetService, Depends(get_budgets)]
+ForecastDependency = Annotated[ForecastService, Depends(get_forecasts)]
+AnalyticsDependency = Annotated[AnalyticsService, Depends(get_analytics)]
+ProfitabilityDependency = Annotated[ProfitabilityService, Depends(get_profitability)]
+DebtDependency = Annotated[DebtService, Depends(get_debts)]
+ReconciliationDependency = Annotated[ReconciliationService, Depends(get_reconciliation)]
+CommandCentreDependency = Annotated[CommandCentreService, Depends(get_command_centre)]
+DocumentRecordDependency = Annotated[DocumentRecordService, Depends(get_document_records)]
+DesignerDependency = Annotated[DesignerService, Depends(get_designer)]
+SalesOrderDependency = Annotated[SalesOrderService, Depends(get_sales_orders)]
+ProcurementDependency = Annotated[ProcurementService, Depends(get_procurement)]
+SupplierBillingDependency = Annotated[SupplierBillingService, Depends(get_supplier_billing)]
+PayablesDependency = Annotated[PayablesService, Depends(get_payables)]
+AttachmentDependency = Annotated[AttachmentService, Depends(get_attachments)]
+DocumentDependency = Annotated[DocumentRenderService, Depends(get_document_service)]
+
+
+def get_tax_service(session: SessionDependency, runtime: RuntimeDependency) -> TaxService:
+    return TaxService(session, clock=runtime.clock)
+
+
+TaxDependency = Annotated[TaxService, Depends(get_tax_service)]
+
+
+def get_sourcing_service(session: SessionDependency, runtime: RuntimeDependency) -> SourcingService:
+    return SourcingService(session, clock=runtime.clock)
+
+
+def get_quotation_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> QuotationService:
+    return QuotationService(session, clock=runtime.clock)
+
+
+def get_pricing_policy_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> PricingPolicyService:
+    return PricingPolicyService(session, clock=runtime.clock)
+
+
+def get_commission_service(
+    session: SessionDependency, runtime: RuntimeDependency
+) -> CommissionService:
+    return CommissionService(session, clock=runtime.clock)
+
+
+SourcingDependency = Annotated[SourcingService, Depends(get_sourcing_service)]
+QuotationDependency = Annotated[QuotationService, Depends(get_quotation_service)]
+PricingPolicyDependency = Annotated[PricingPolicyService, Depends(get_pricing_policy_service)]
+CommissionDependency = Annotated[CommissionService, Depends(get_commission_service)]

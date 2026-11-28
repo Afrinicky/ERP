@@ -32,3 +32,11 @@ The following are already specified in full and require no further module docume
 - Pricing — [pricing engine](../04-pricing-engine.md)
 - Ledger posting rules — [accounting model](../05-accounting-model.md)
 - Documents — [document designer](../06-document-designer.md)
+- Sales orders and procurement — [module specification](sales-orders-and-procurement.md), written at the commencement of Phase 7
+- Inventory, receiving and assembly — [module specification](inventory.md), written at the commencement of Phase 8
+- Dispatch and proof of delivery — [module specification](dispatch.md), written at the commencement of Phase 9
+- Point of sale — [module specification](pos.md), written at the commencement of Phase 10
+- Financial management — [module specification](finance.md), written at the commencement of Phase 11
+- Debt, loans and financing — [module specification](financing.md), written at the commencement of Phase 12
+- Budgets, forecasting, profitability and analytics — [module specification](analytics.md), written at the commencement of Phase 13
+- Access control — [module specification](access-control.md): roles, individual exceptions, sessions and the sign-in policy

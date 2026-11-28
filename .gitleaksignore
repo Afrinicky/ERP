@@ -1,0 +1,4 @@
+# Fixture passwords in the identity tests (a throwaway test database). Approved by the
+# owner on 2026-11-22. Any other finding still fails the scan.
+3e23d658155c8fe800f616030830bbbea08081ea:tests/integration/test_identity.py:generic-api-key:273
+3e23d658155c8fe800f616030830bbbea08081ea:tests/integration/test_identity.py:generic-api-key:285

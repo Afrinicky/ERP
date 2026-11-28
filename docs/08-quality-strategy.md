@@ -19,6 +19,20 @@ discretionary and no phase closes without them.
 | Presentation | Component behaviour, keyboard operation, accessibility | None | Under 3 minutes |
 | Visual | Component rendering in both presets at three breakpoints | None | Under 5 minutes |
 
+### Running against both engines
+
+The suite runs on SQLite by default and adds PostgreSQL when a URL is configured:
+
+```
+NICKLAND_TEST_POSTGRES_URL=postgresql+psycopg://user@host:5432/nickland_test pytest
+```
+
+Setting it is not optional before a release. The two engines disagree in ways that
+matter: PostgreSQL refuses an aggregate whose SELECT carries an ungrouped column,
+while SQLite accepts it and returns an arbitrary row. A statement that is wrong in
+that way runs green on SQLite for as long as nobody looks, and the report it feeds is
+the trial balance.
+
 ## Calculation tests
 
 Per PRD §9.8. Each item below is a test module, not a single test.

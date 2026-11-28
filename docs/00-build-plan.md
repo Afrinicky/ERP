@@ -18,6 +18,43 @@ module (§20, §29) and Debt & Financing (§25). See [ADR-0005](decisions/adr-00
 5. **No phase closes with a known accounting defect.** Reconciliation is an exit criterion, not
    a later correction.
 
+## Progress
+
+| Phase | State | Evidence |
+| --- | --- | --- |
+| 1 — Platform, Identity and Design System | **Delivered** | `tools/verify_phase_1.py` |
+| 2 — Master Data | **Delivered** | `tools/verify_phase_2.py` |
+| 3 — Accounting Core and General Ledger | **Delivered** | `tools/verify_phase_3.py` |
+| 3.5 — Brand Identity and Document Rendering | **Delivered** | `tools/verify_phase_3_5.py` |
+| 4 — Tax and Statutory Engine | **Delivered** | `tools/verify_phase_4.py` |
+| 5 — Quotation, Costing and Pricing | **Delivered** | `tools/verify_phase_5.py` |
+| 6 — Document Designer and Rendering | **Delivered** | `tools/verify_phase_6.py` |
+| 7 — Sales Orders and Procurement | **Delivered** | `tools/verify_phase_7.py` |
+| 8 — Inventory, Receiving and Assembly | **Delivered** | `tools/verify_phase_8.py` |
+| 9 — Dispatch and Proof of Delivery | **Delivered** | `tools/verify_phase_9.py` |
+| 10 — Point of Sale | **Delivered** | `tools/verify_phase_10.py` |
+| 11 — Financial Management Core | **Delivered** | `tools/verify_phase_11.py` |
+| 12 — Debt, Loans and Financing | **Delivered** | `tools/verify_phase_12.py` |
+| 13 — Budgets, Forecasting and Profitability | **Delivered** | `tools/verify_phase_13.py` |
+| 14 — Management Reporting and Period Close | **Delivered** | `tools/verify_phase_14.py` |
+| 15 — LAN Edition | **Delivered** | `tools/verify_phase_15.py` |
+| 16 — Cloud Readiness | Next | |
+
+Each verifier exercises its phase's exit criteria against a live database rather than
+asserting that the code was written. At the close of Phase 14, 2,246 tests pass and 12
+are skipped, with the integration and end-to-end layers run against both SQLite and
+PostgreSQL. The skips are engine-specific: each stands down on the engine it does not
+describe, such as SQLite's online-backup API on PostgreSQL, whose scheduled dump arrives
+in Phase 15.
+
+Phase 5 was the first run to configure PostgreSQL, and it found a Phase 3 reporting
+query that only SQLite would accept; see the [quality strategy](08-quality-strategy.md)
+on running both.
+
+The two criteria that cannot be verified in this environment are marked in Phase 1
+below: the signed installer on a clean Windows 11 machine, and operation with the
+network interface disabled rather than merely absent. Both require Windows hardware.
+
 ## Stage summary
 
 | Stage | Phases | Outcome |
@@ -53,14 +90,17 @@ Satisfies PRD §6.1, §7, §9.3, §9.4, §9.7, §10, §28, §31, §13 Phase 1.
 
 **Exit criteria**
 
-- Signed Windows installer produces a working application on a clean Windows 11 machine.
-- Application starts, operates and shuts down with no network interface available.
-- An administrator completes first-run business setup, selects a theme preset, edits brand
-  colours against contrast validation, and restores the preset defaults.
-- A permission denial is raised by the application service when the interface control is
-  bypassed by direct API call.
-- Backup and restore are demonstrated against a populated database.
-- Every mutation recorded in Phase 1 appears in the audit store with before and after values.
+| Criterion | State |
+| --- | --- |
+| Signed Windows installer produces a working application on a clean Windows 11 machine | Outstanding — requires Windows hardware and a code-signing certificate |
+| Application starts, operates and shuts down with no network interface available | Partly verified — the absence of a network is reported as unavailable rather than failure, and no workflow depends on it; a Windows machine with the interface disabled remains to be tested |
+| An administrator completes first-run setup, selects a preset, edits brand colours against contrast validation, and restores the defaults | Verified |
+| A permission denial is raised by the application service when the interface control is bypassed by direct API call | Verified |
+| Backup and restore are demonstrated against a populated database | Verified |
+| Every mutation recorded in Phase 1 appears in the audit store with before and after values | Verified |
+
+Run `tools/verify_phase_1.py` to reproduce the verified criteria against a throwaway
+database.
 
 ### Phase 2 — Master Data
 
@@ -112,6 +152,38 @@ Satisfies PRD §6.12, §29.2, §29.8 in part, §10. Advanced ahead of PRD §13 P
 - Trial balance sums to zero, and the profit and loss, balance sheet and cash-flow statement
   reconcile to it for any selected period.
 - Every subledger balance equals its control account balance.
+
+### Phase 3.5 — Brand Identity and Document Rendering
+
+Satisfies PRD §6.6 in part, §6.7, §7.1, §28.1, AC-05, AC-06.
+Specification: [document designer](06-document-designer.md).
+
+Brought forward from Phase 6 at the pilot's request, and built against two of their own
+pro forma invoices. Sales and the point of sale can then issue through a renderer that
+exists rather than each growing a print path that would later have to be unpicked.
+
+| Workstream | Scope |
+| --- | --- |
+| Brand | The supplied mark as vector paths, a palette derived from it, offered first at setup |
+| Page model | A4, A5, Letter, Legal, and the 80mm and 58mm thermal rolls, with their true printable widths |
+| Render model | Issuer, parties, lines, totals, tax summary, delivery, terms, banking, signatures, amount in words |
+| Rendering | HTML and CSS composition, PDF by WeasyPrint, and plain text for a printer driven directly |
+| Templates | A stored, versioned definition the renderer reads and the Phase 6 editor will write |
+| Defaults | The twelve document types of PRD §6.6, seeded at provisioning with one published version each |
+| Preview | Sample data drawn from the installation's own identity, watermarked and never issuable |
+| Issue | Render, then keep the bytes with a content hash; a reprint serves the snapshot |
+
+**Exit criteria**
+
+- Every one of the twelve default types renders to a PDF without error.
+- A receipt renders on both the 80mm and the 58mm roll, and as plain text at 42 and 32 columns.
+- A waybill, delivery note and packing list disclose no price, on any line or in any total.
+- The same context renders identical markup twice, so a stored snapshot is worth storing.
+- A reprint after a template amendment returns the bytes that were issued, not a re-render.
+- A document number is never reused.
+- The brand palette passes the contrast audit on every audited pairing.
+
+---
 
 ### Phase 4 — Tax and Statutory Engine
 

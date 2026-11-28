@@ -136,6 +136,11 @@ the order is fixed.
 
 **Amendment.** §6.3 is extended with the canonical sequence. §15 bullet 1 is closed.
 
+**Built in Phase 5.** `nickland.domain.pricing.price_document` runs the seven steps in
+order and nothing else can; `tools/verify_phase_5.py` asserts the placements that matter —
+that commission precedes discount, that discount precedes the uplift, and that margin is
+earned on the landed cost.
+
 See [ADR-0007](decisions/adr-0007-pricing-sequence.md) and the
 [pricing engine](04-pricing-engine.md).
 
@@ -155,6 +160,10 @@ invoice; payable on receipt of the customer's payment; proportional on partial f
 Basis and trigger remain configurable.
 
 **Amendment.** §6.4 is extended. §15 bullet 2 is closed.
+
+**Built in Phase 5.** The register in `nickland.application.services.commissions`
+accrues at invoice and makes the entitlement payable in proportion to what the customer has
+actually paid, so a half-collected sale owes half a commission.
 
 See [ADR-0008](decisions/adr-0008-affiliate-commission.md).
 
@@ -272,3 +281,13 @@ chart of accounts and journal model accommodate them.
 | C-13 Fixed assets | Low | Clarified; out of scope |
 
 Eight amendments would produce a consolidated PRD v1.5 in which no two sections disagree.
+
+## Postscript — C-02 resolved by the business
+
+C-02 recorded that PRD §7.1 specifies navy and §28.1 charcoal and orange, and that §7.1
+was never withdrawn. The resolution was to ship both as equal presets and impose no
+default, because nothing outside the document could settle a disagreement inside it.
+
+The business has since supplied its brand mark, which settles it. A fourth preset is
+built from the mark's own colours and is the one offered first; the other three remain
+available and unchanged. See [ADR-0002](decisions/adr-0002-dual-theme-token-engine.md).

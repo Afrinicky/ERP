@@ -10,6 +10,55 @@ Documents are data, not code. A template is a stored structure the administrator
 rendering is a pure function of a template version and a transaction. No document layout
 exists in the source tree except as seeded template data.
 
+## Delivery in two parts
+
+The renderer, the stored template model and the twelve defaults were brought forward from
+Phase 6 to Phase 3.5, at the pilot's request and against two of their own documents. Sales
+and the point of sale can then issue through a renderer that already exists rather than
+each growing a one-off print path that would later have to be unpicked.
+
+What came forward: the page geometry including the two thermal roll widths, the render
+model, the HTML and CSS composition, PDF layout, plain-text output for a printer driven
+directly, the stored and versioned template definition, the twelve seeded types, the
+sample preview, and issue with a stored snapshot.
+
+What remains in Phase 6: the drag-and-drop editor, the field palette, conditional
+visibility, the calculated-expression grammar, and template export and import. These need
+transactions to bind against and an editor to write the definition the renderer already
+reads.
+
+## Reference layout
+
+Two documents were supplied by the pilot: a pro forma produced in a word processor on
+their own letterhead, and one produced by a supplier's ERP. The generated A4 documents
+follow the structure of the second — title left, issuer block left, references right, mark
+top right — with the first's typographic restraint. Neither document's branding, wording
+or identity is reproduced, per PRD §17 and §18.
+
+| Region | Content |
+| --- | --- |
+| Masthead | Issuer name, strapline, addresses, contacts, tax identifiers; mark at the right |
+| Title row | Document heading left; document number, issue date, validity, order reference and VAT number right |
+| Parties | Bill to, ship to, and dispatch detail where the kind carries it |
+| Items | Line number, SKU, description, quantity, price, discount where any line has one, line total |
+| Closing | Standout note, terms and banking left; totals, tax summary and amount in words right |
+| Signatures | Two ruled blocks, labelled for the kind |
+| Running footer | The issuer's name, and page *n* of *m* |
+
+## Thermal output
+
+A receipt prints on an 80mm or a 58mm roll. Both are supported, and a template laid out
+for one reflows to the other.
+
+| Concern | Treatment |
+| --- | --- |
+| Printable width | 72mm of an 80mm roll and 48mm of a 58mm one, which is what the print heads cover |
+| Page height | Open: the paper advances until the content ends, then the printer feeds and cuts |
+| Colour | None. A thermal head prints black dots; greys dither into smudge |
+| Rules | Dashed, not hairline, which disappears |
+| Typeface | Monospaced, so figure columns align on a printer with no font of its own |
+| Direct drive | Plain text at a fixed column width — 42 for 80mm, 32 for 58mm — for a printer fed over serial or USB with no layout engine |
+
 ## Template model
 
 ```
@@ -39,6 +88,17 @@ document_type                     pro forma, invoice, waybill, or administrator-
 
 A version is immutable once published. Editing a published version creates a new draft
 version.
+
+Every section is removable, the masthead included. A business printing on its own headed
+stationery already has the letterhead on the paper, and a designer that insisted on printing
+a second one over it would be refusing the ordinary case. An empty section renders nothing
+rather than a titled blank panel.
+
+A column added from the palette carries a generated identifier; the columns of the shipped
+defaults carry stable ones, so a template that has been amended can still be compared with
+the default it came from. The shipped widths add to the full printable width with every
+conditional column showing, so the table fits in the worst case rather than only in the
+common one.
 
 ## Field palette
 
@@ -158,6 +218,7 @@ never issuable.
 | Concern | Specification |
 | --- | --- |
 | Engine | HTML and CSS composed from the template model, rendered to PDF by WeasyPrint |
+| Layer | `documents`, above `application`: the record of a document is an application concern, its rendering is not, and the application layer does not depend on Pango and Cairo to record that a document exists |
 | Determinism | A template version and a transaction always produce an identical document |
 | Fonts | Bundled and embedded; nothing is fetched at render time |
 | Output | PDF for file and print; direct thermal printing for receipt formats |
@@ -169,6 +230,28 @@ Per PRD §6.7, numbers are unique by business, branch and document type. A seque
 prefix, a pattern with date and counter components, and its next value. Allocation occurs
 within the issuing transaction and is safe under concurrent issue in LAN mode, per PRD §9.5.
 A number is never reused, and a gap is never silently closed.
+
+The counter is claimed by a single statement that both reads and writes it, rather than by
+reading the row, adding one and writing it back. The read-then-write form is not safe on
+either engine: two tills reading the same row before either had written it are handed the
+same number. PostgreSQL additionally locks the row before reading, so a second transaction
+waits rather than racing. On SQLite, which has no row lock, the statement's own atomicity
+carries the guarantee and a transaction whose snapshot has moved is refused. The loser of a
+race is therefore told to try again, and is never handed a number already given out.
+
+## Issuing from a transaction
+
+Per PRD §6.6 a document is issued *from* a record, never typed afresh: the pro forma a
+customer receives carries the figures that were quoted. The figures reach the page through
+the source service's own customer-facing projection rather than off the stored rows, so the
+disclosure boundary of PRD §14 is applied in one place and a supplier cost is never handed
+to the renderer at all.
+
+A quotation may be put on paper once it has been issued to the customer, and thereafter in
+every later state — accepted, expired or superseded — because a customer may ask for a copy
+of what they already hold. A draft may be previewed and not issued: the document takes a
+number from the sequence and its bytes become the customer's copy, and handing one out
+before the offer has been approved would make the approval decorative.
 
 ## Version preservation
 
@@ -184,9 +267,19 @@ Per PRD §6.6 and §14, an issued document must remain reproducible.
 ## Customer acknowledgement
 
 Per PRD §6.7, acknowledgement is captured as a signed delivery document, or as a scanned
-signed PDF or image. The record holds the recipient, the signature or stamp, the date and
-time, the location and any comments. The original evidence is preserved without alteration
-and carries a content hash.
+signed PDF or image. The record holds the recipient, their capacity, the signature or stamp,
+the date and time, the location and any comments. The original evidence is preserved without
+alteration and carries a content hash, and the row is append-only at the session guard: a
+correction is a further acknowledgement, because evidence that can be rewritten is not
+evidence in the dispute it exists for.
+
+A signature is drawn on the screen, which is how it is taken at the door, and is stored as
+the image that was drawn. A delivery confirmed by telephone is admitted as an acknowledgement
+carrying no evidence, recorded as such. That is a departure from the letter of §6.7, which
+names only a signature or a scan, and it is deliberate: the alternative is the driver
+inventing a signature, which is worse than an honest record of a telephone call. A part
+delivery is signed for more than once, so a document carries as many acknowledgements as it
+needs. A cancelled document accepts none.
 
 ## Portability
 

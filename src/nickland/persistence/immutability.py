@@ -1,0 +1,263 @@
+"""Append-only enforcement for the financial record.
+
+PRD §10 and §29.2 require that a posted journal entry is never amended and that the
+audit trail is never altered. A service can honour that by having no amendment path,
+but a service is one call site among many: a later feature, a data fix, a test helper
+or a migration script could reach the same rows through the session and quietly
+rewrite history.
+
+So the rule is enforced where every write must pass. A ``before_flush`` listener
+inspects what the unit of work is about to change and refuses the flush where the
+change would alter a record that is closed to alteration. The guard is deliberately
+narrow: a draft entry remains fully editable, and a posted entry still accepts the
+one transition the accounting model allows — being marked as reversed by the entry
+that reverses it.
+
+Five kinds of record are closed to alteration: a posted journal entry and its lines,
+the audit trail, a quotation's costing snapshot, an issued document and a proof of
+receipt. The last three are here for the same reason as the first two. PRD §6.3
+promises that a supplier price change after issue leaves the issued quotation
+numerically unchanged; PRD §6.6 promises that a reprint serves the bytes that were
+sent; PRD §6.7 promises that proof of delivery is preserved unaltered. A promise
+enforced only by the absence of an update statement is a promise until somebody
+writes one.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy import event, inspect
+from sqlalchemy.orm import Session, sessionmaker
+
+from nickland.domain.errors import ConflictError
+from nickland.domain.ledger import JournalState
+
+SETTLED_STATES = frozenset({JournalState.POSTED.value, JournalState.REVERSED.value})
+"""The states from which an entry's figures may no longer move."""
+
+ENTRY_FIELDS_AFTER_POSTING = frozenset(
+    {
+        "state",
+        "reversed_by_fk",
+        "reversal_reason",
+        "number",
+        "attachment_ids",
+    }
+)
+"""What may still change on a posted entry.
+
+``state`` and the two reversal columns record that the entry was undone. ``number``
+is assigned as part of posting itself. ``attachment_ids`` admits supporting evidence
+being filed later, which adds to the record without restating it.
+"""
+
+LINE_FIELDS_AFTER_POSTING = frozenset({"state"})
+"""A posted line's only permitted change is the state it carries from its entry."""
+
+ISSUED_FIELDS_AFTER_ISSUE = frozenset(
+    {
+        "cancelled_at",
+        "cancelled_by_id",
+        "cancellation_reason",
+    }
+)
+"""What may still change on an issued document.
+
+Only the three columns that record its cancellation. The bytes, the hash, the number
+and the template version are what a reprint serves, and a reprint that differs from
+the copy the customer holds is worse than no reprint at all.
+"""
+
+
+MOVEMENT_FIELDS_LINKED = frozenset({"journal_entry_fk"})
+"""What may be written to a stock movement after it is recorded: the journal that posted
+it, once, from nothing."""
+
+
+def _original_state(obj: Any) -> str | None:
+    """The state the row held when it was last read or written.
+
+    Taken from the attribute's history rather than the instance, because the instance
+    already carries whatever the caller just assigned to it.
+    """
+    history = inspect(obj).attrs.state.history
+    if history.deleted:
+        return str(history.deleted[0])
+    if history.unchanged:
+        return str(history.unchanged[0])
+    return None
+
+
+def _changed_fields(obj: Any) -> set[str]:
+    """The persisted columns this instance has pending changes on."""
+    inspection = inspect(obj)
+    return {
+        attribute.key
+        for attribute in inspection.mapper.column_attrs
+        if inspection.attrs[attribute.key].history.has_changes()
+    }
+
+
+def _refuse_entry_change(obj: Any, changed: set[str]) -> None:
+    offending = sorted(changed - ENTRY_FIELDS_AFTER_POSTING)
+    raise ConflictError(
+        f"Entry {obj.number or obj.id} is posted, so it cannot be amended "
+        f"({', '.join(offending)}). Post a reversing entry instead: the original "
+        "stays on the record and the correction is visible beside it.",
+        entry_id=str(obj.id),
+        fields=offending,
+    )
+
+
+def _refuse_line_change(obj: Any, changed: set[str]) -> None:
+    offending = sorted(changed - LINE_FIELDS_AFTER_POSTING)
+    raise ConflictError(
+        "A posted journal line cannot be amended "
+        f"({', '.join(offending)}). Reverse the entry and post it afresh.",
+        line_id=str(obj.id),
+        fields=offending,
+    )
+
+
+def _guard(session: Session, _context: Any, _instances: Any) -> None:
+    """Refuse the flush where it would rewrite a settled record."""
+    from nickland.persistence.dispatch_models import DeliveryException
+    from nickland.persistence.document_models import DocumentAcknowledgement, IssuedDocument
+    from nickland.persistence.inventory_models import LayerConsumption, StockMovement
+    from nickland.persistence.ledger_models import JournalEntry, JournalLine
+    from nickland.persistence.models import AuditEvent
+    from nickland.persistence.pricing_models import QuotationSnapshot
+
+    for obj in session.dirty:
+        if not session.is_modified(obj, include_collections=False):
+            continue
+        # The journal is posted once every movement of the operation is valued, so the
+        # link is written once, after the rows themselves.
+        if (
+            isinstance(obj, StockMovement)
+            and _changed_fields(obj) <= MOVEMENT_FIELDS_LINKED
+            and all(old is None for old in inspect(obj).attrs.journal_entry_fk.history.deleted)
+        ):
+            continue
+        if isinstance(obj, DeliveryException):
+            raise ConflictError(
+                "A delivery exception cannot be altered. Record a further one.",
+                record_id=str(obj.id),
+            )
+        if isinstance(obj, StockMovement | LayerConsumption):
+            raise ConflictError(
+                "A stock movement cannot be altered. The stock ledger is append-only, so "
+                "a correction is recorded as a reversing movement.",
+                record_id=str(obj.id),
+            )
+        if isinstance(obj, DocumentAcknowledgement):
+            raise ConflictError(
+                "A proof of receipt cannot be altered. It is the evidence that a "
+                "document was delivered, and evidence that can be rewritten is not "
+                "evidence. Record a further acknowledgement instead.",
+                acknowledgement_id=str(obj.id),
+            )
+        if isinstance(obj, IssuedDocument):
+            changed = _changed_fields(obj)
+            if changed - ISSUED_FIELDS_AFTER_ISSUE:
+                raise ConflictError(
+                    f"Document {obj.number} has been issued, so what was sent cannot "
+                    f"be rewritten ({', '.join(sorted(changed - ISSUED_FIELDS_AFTER_ISSUE))}). "
+                    "Cancel it and issue a replacement: the customer's copy cannot be "
+                    "recalled and amended.",
+                    document_id=str(obj.id),
+                    fields=sorted(changed - ISSUED_FIELDS_AFTER_ISSUE),
+                )
+        if isinstance(obj, QuotationSnapshot):
+            raise ConflictError(
+                "A costing snapshot cannot be altered. It exists to prove that a "
+                "later change to a supplier price left the issued quotation alone, "
+                "and a snapshot that can be rewritten proves nothing.",
+                snapshot_id=str(obj.id),
+            )
+        if isinstance(obj, AuditEvent):
+            raise ConflictError(
+                "An audit entry cannot be altered. The trail is append-only, so a "
+                "correction is recorded as a further entry.",
+                event_id=str(obj.id),
+            )
+        if isinstance(obj, JournalEntry) and _original_state(obj) in SETTLED_STATES:
+            changed = _changed_fields(obj)
+            if changed - ENTRY_FIELDS_AFTER_POSTING:
+                _refuse_entry_change(obj, changed)
+        elif isinstance(obj, JournalLine) and _original_state(obj) in SETTLED_STATES:
+            changed = _changed_fields(obj)
+            if changed - LINE_FIELDS_AFTER_POSTING:
+                _refuse_line_change(obj, changed)
+
+    for obj in session.deleted:
+        if isinstance(obj, DeliveryException):
+            raise ConflictError(
+                "A delivery exception cannot be deleted. It posted stock and value.",
+                record_id=str(obj.id),
+            )
+        if isinstance(obj, StockMovement | LayerConsumption):
+            raise ConflictError(
+                "A stock movement cannot be deleted. Reverse the operation it belongs to.",
+                record_id=str(obj.id),
+            )
+        if isinstance(obj, DocumentAcknowledgement):
+            raise ConflictError(
+                "A proof of receipt cannot be deleted. It is the evidence that a "
+                "document was delivered.",
+                acknowledgement_id=str(obj.id),
+            )
+        if isinstance(obj, IssuedDocument):
+            raise ConflictError(
+                f"Document {obj.number} has been issued, so it cannot be deleted. "
+                "Cancel it: a document that went out stays on the record.",
+                document_id=str(obj.id),
+            )
+        if isinstance(obj, QuotationSnapshot):
+            raise ConflictError(
+                "A costing snapshot cannot be deleted. The quotation it belongs to "
+                "was issued, and what was quoted stays on the record.",
+                snapshot_id=str(obj.id),
+            )
+        if isinstance(obj, AuditEvent):
+            raise ConflictError(
+                "An audit entry cannot be deleted. The trail is append-only.",
+                event_id=str(obj.id),
+            )
+        if isinstance(obj, JournalEntry) and _original_state(obj) in SETTLED_STATES:
+            raise ConflictError(
+                f"Entry {obj.number or obj.id} is posted, so it cannot be deleted. "
+                "Reverse it: an entry that was made remains on the record.",
+                entry_id=str(obj.id),
+            )
+        if isinstance(obj, JournalLine) and _original_state(obj) in SETTLED_STATES:
+            raise ConflictError(
+                "A posted journal line cannot be deleted. Reverse its entry.",
+                line_id=str(obj.id),
+            )
+
+
+def register_append_only_guards(factory: sessionmaker[Session] | None = None) -> None:
+    """Attach the guard to every session in the process.
+
+    The guard is registered on ``Session`` itself rather than on a session factory.
+    Registering per factory looked tidier, and was wrong: ``event.contains`` on a
+    factory consults the shared ``Session`` registry, so the second factory in a
+    process saw the first factory's listener, concluded one was already present and
+    attached nothing — and its sessions then flushed unguarded. The failure was
+    silent, and it only appeared once a third test in a row built its own factory,
+    which is exactly the kind of hole an append-only rule cannot afford.
+
+    One registration on the class covers every session, whoever creates it. The
+    ``factory`` argument is accepted so existing call sites read unchanged.
+    """
+    del factory
+    global _REGISTERED
+    if _REGISTERED:
+        return
+    event.listen(Session, "before_flush", _guard)
+    _REGISTERED = True
+
+
+_REGISTERED = False

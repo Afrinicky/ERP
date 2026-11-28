@@ -48,12 +48,16 @@ Components reference semantic tokens only. A theme change therefore alters no co
 | `surface.canvas` | Application background |
 | `surface.raised` | Cards, panels, table containers |
 | `surface.sunken` | Input wells, inset regions |
-| `surface.navigation` | Primary navigation and application header |
+| `surface.navigation` | The application header |
+| `surface.rail` | The navigation rail: a dark panel, set deeper than the header |
+| `surface.rail.hover`, `surface.rail.active` | Rail interaction and current-page states |
+| `border.rail` | The rail's edge against the work surface |
 | `surface.overlay` | Dialogs, popovers, menus |
 | `text.primary` | Body and table content |
 | `text.secondary` | Labels, captions, column headers |
 | `text.tertiary` | Hints, disabled text, metadata |
 | `text.inverse` | Text on dark and accent surfaces |
+| `text.link` | A link. Body text, so measured at 4.5:1, not the accent's 3:1 |
 | `border.subtle` | Table rules, dividers |
 | `border.default` | Input and card borders |
 | `border.strong` | Focused and selected borders |
@@ -63,9 +67,32 @@ Components reference semantic tokens only. A theme change therefore alters no co
 | `status.success`, `status.warning`, `status.error`, `status.info` | Semantic status, independent of brand |
 | `focus.ring` | Keyboard focus indicator |
 
+## The terminal reference
+
+The pilot supplied photographs of the retail terminal its staff use daily. It is the
+interface they already read without being taught, so the patterns below are adopted
+rather than reinvented. They are not copied: no branding, wording or layout of that
+product is reproduced.
+
+| Observed | Adopted | Why |
+| --- | --- | --- |
+| Deep navy chrome, amber action colour, pale blue work surface | The **Harbour** preset | Familiar at a glance to staff moving between the two |
+| Navigation toggle immediately beside the wordmark | The header hamburger | A control at the foot of the rail is not findable |
+| Unavailable items listed with *(Out of stock)* inline in red italics | `PickerOption` | Hiding an item leaves the operator hunting for something that is in fact there; stating why is faster than their discovering it at the till |
+| `TOTAL` caption over a very large figure | `TotalDisplay` | The one figure read from a distance, and the one the customer is told |
+| Radios for type of sale and tender | `RadioGroup` | The current selection is visible without opening anything |
+| Label left, control right | `FormRow` | On a dense screen the eye runs down one column of labels |
+| Magnifier inside the search field, placeholder naming name *or* barcode | `SearchField` | The same field serves typing and scanning |
+| Required fields marked with a red asterisk | `FormRow` required | Conventional, and read at a glance |
+| Line table header on a tinted strip | Table header styling | Separates the header from the lines without a rule |
+
+What was **not** adopted: the reference leaves considerable empty space, states no reason
+for a disabled control, and places commit actions where a mis-click reaches them. The
+standards below govern those.
+
 ## Shipped themes
 
-Both presets ship as equal first-class options. No default is imposed; the administrator
+Three presets ship as equal first-class options. No default is imposed; the administrator
 selects one during first-run setup. See [ADR-0002](decisions/adr-0002-dual-theme-token-engine.md).
 
 ### Charcoal — PRD §28
@@ -89,6 +116,19 @@ selects one during first-run setup. See [ADR-0002](decisions/adr-0002-dual-theme
 | White | `#FFFFFF` | Cards, tables, content surfaces |
 | Off-white | `#F6F8FA` | Application canvas |
 | Light grey | `#E3E8EF` | Dividers, borders, disabled surfaces |
+
+### Harbour — the terminal reference
+
+| Role | Value | Application |
+| --- | --- | --- |
+| Primary navy | `#14276B` | Navigation, application header |
+| Amber accent | `#F5B921` | Primary actions, active navigation, key chart emphasis |
+| Blue secondary | `#1A5FBF` | Secondary emphasis, focus ring, supporting chart series |
+| White | `#FFFFFF` | Cards, tables, content surfaces |
+| Pale blue | `#F4F7FC` | Application canvas |
+
+Amber carries charcoal text, for the same reason the Charcoal preset does: white on
+amber reaches 2.42:1 and fails.
 
 ### Status palette
 
@@ -142,13 +182,13 @@ A 4px base unit. Permitted steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 
 | Region | Specification |
 | --- | --- |
-| Navigation rail | 240px expanded, 64px collapsed, persistent |
+| Navigation rail | 240px expanded, 64px collapsed, toggled from the header |
 | Application header | 56px, fixed |
 | Content gutter | 24px, reducing to 16px below 1280px |
 | Card padding | 20px |
 | Table row height | 40px standard, 32px compact, 48px touch |
 | Form field height | 36px |
-| Control height | 36px standard, 32px compact, 44px point of sale |
+| Control height | 36px standard, 32px compact, 44px touch, 56px transactional, 64px counter |
 | Dialog width | 480px small, 640px standard, 880px large |
 | Maximum content width | 1600px, centred beyond that |
 
@@ -161,6 +201,64 @@ A 4px base unit. Permitted steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 | Wide | 1440px and above | Three-column forms; side panel persistent rather than overlaid |
 
 Desktop is the primary target. Key workflows remain usable at tablet width, per PRD §28.2.
+
+## Transactional controls
+
+The controls a person operates while serving a customer — adding, reducing, tendering,
+confirming — are governed by a separate set of rules from the rest of the interface. They
+were drawn from an audit of point-of-sale and ERP conventions (Odoo's register, Lightspeed's
+tender flow, SAP Fiori's step input, the NN/g guidance on steppers, and the WCAG, Apple and
+Material sizing floors), and the reasoning behind each is recorded so a later screen does
+not quietly fall back to a desktop control where a counter control is wanted.
+
+### Sizing tiers
+
+| Tier | Height | Where |
+| --- | --- | --- |
+| Standard | 36px | Forms and administration, operated with a mouse |
+| Touch | 44px | Any control a finger may reach: the floor Apple and the W3C mobile task force set, and above WCAG 2.2's 24px minimum |
+| Transactional | 56px | A quantity stepper, a tender choice, a line action at the counter — anything pressed many times an hour, often while looking at the customer rather than the screen |
+| Counter | 64px | The keypad keys and the one primary action of a sale: the two things pressed most, and the two that must not be missed |
+
+Adjacent transactional controls are separated by at least 8px of inert space, so a miss
+lands on nothing. The audited kiosk guidance asks for more (5–8mm); 8px is the floor and a
+keypad uses the full 8px between every key.
+
+### Stepper
+
+A quantity is adjusted with a horizontal stepper: a decrement button, a typed field and an
+increment button, in that order, with `−` and `+` glyphs. The field accepts direct typing,
+because a stepper suits small adjustments from a common value and a figure far from the
+default is faster typed than tapped; a stepper alone would be the wrong control for a
+quantity of three hundred. Holding a button repeats after a short delay, the arrow keys do
+what the buttons do, and the button at a bound is disabled rather than hidden, so the bound
+is visible. The field announces its unit. A stepper is never used for a value that is
+continuous and precise, such as a price.
+
+### Keypad
+
+A numeric keypad is four columns and four rows: the digits in telephone order, the decimal
+point, a backspace, and a tall key spanning two rows for the primary completion — *Exact*
+on a cash tender, *Enter* elsewhere. The keys are the counter tier. The keypad is a
+secondary path: the same value can always be typed into the field it feeds, so a keyboard
+or a scanner is never the slower route.
+
+### Tender
+
+Cash tender offers suggested amounts beside the keypad: the exact amount, then the next
+round notes above it. The suggestions are derived from the balance due at the moment, as
+Lightspeed derives them from the total, and are not a fixed list. Choosing a tender is a
+radio-style choice with the current selection visible; the methods the business uses most
+sit first, and the rest are behind a single *More* control. A split tender is one line per
+method with the balance pre-filled on the last, so an exact single-method sale needs one
+confirmation. Cash over-tender returns change; a card over-tender is refused, because a card
+invents no change.
+
+### One primary action
+
+A transactional screen carries exactly one filled primary button, labelled for what it
+does with the selected method — *Take GH₵120.00 cash*, not *Confirm*. Secondary actions are
+plain. Two confirm buttons on one screen is a design fault, not a convenience.
 
 ## Shell structure
 
@@ -194,7 +292,20 @@ on the right. The primary action is the single filled accent button; everything 
 outlined or plain. The status strip reports deployment mode, service health, backup position
 and accounting period state, per PRD §9.4.
 
-### Navigation
+### The navigation rail
+
+The rail is a dark interface in every preset, and a deeper surface than the header, so
+the two read as separate panels rather than one slab. Where a header is already
+near-black the luminance step available is small, and `border-rail` carries the
+remainder of the separation; the derivation seeks the separation rather than applying a
+fixed step, because the darker the header the less a fixed step achieves.
+
+Separation between the rail and the header is a design-quality matter, not an
+accessibility one, so it is not a blocking check. The text on the rail is: rail text,
+rail secondary text, and the hovered and current states are all audited at 4.5:1.
+
+It collapses to 64px from the hamburger beside the wordmark, and the choice is
+remembered per browser.
 
 Fourteen top-level destinations, per PRD §7.3 and §23. Every item is icon-led with a
 permanent text label, per PRD §28.2.
@@ -253,6 +364,11 @@ banner, toast.
 | Attachment list | Preview, download, content hash, upload actor and timestamp |
 | Register tile | POS product card — image, name, SKU, price, availability |
 | Tender panel | Method, amount, cash received, change due, confirmation state |
+| Search field | Magnifier, one field for typing and for scanner input |
+| Picker option | One line per option; an unavailable item states its reason inline in red italics rather than being hidden |
+| Total display | The transaction total, set at the largest size on the screen |
+| Radio group | A mutually exclusive choice, visible without opening a menu |
+| Form row | Label left, control right, for dense transactional screens |
 | Chart frame | Title, period, currency, unit, legend, export, table alternative, empty and loading states |
 
 ### Component standards
