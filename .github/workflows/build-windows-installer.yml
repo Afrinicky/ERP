@@ -78,6 +78,11 @@ jobs:
 
       - name: Self-test from source
         shell: pwsh
+        # The source tree, not the copy pip installed: the interface is built into ui/dist
+        # beside it, which an installed package in site-packages cannot see. The frozen
+        # build below carries the interface inside itself and is tested on its own.
+        env:
+          PYTHONPATH: src
         run: python -m nickland.desktop --self-test
 
       - name: Freeze the application (PyInstaller)
